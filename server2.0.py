@@ -1,8 +1,9 @@
 import threading
 import socket
-from tkinter import *
 import pandas as pd
+from tkinter import *
 from sqlite3 import *
+from os import _exit
 
 LABELS_TEXT = ["Username", "Password", "Wins", "Loses", "Draws", "Color", "Server status"]
 ACCOUNTS_FILE = "accounts.txt"
@@ -69,25 +70,16 @@ class Account:
 
     def __str__(self):
         return f"{self.__username} {' ' * 5} {self.__password} {' ' * 5} {self.__wins} {' ' * 5}" \
-               f" {self.__loses} {' ' * 5}{self.SERVER_STATUSES[self.__is_connect]}"
+               f" {self.__loses} {' ' * 5}{self.__favorite_color}{' '*5}{self.SERVER_STATUSES[self.__is_connect]}"
 
 
-def clean_accounts_data(accounts_list, view):
-    restart_accounts = []
-    with open(ACCOUNTS_FILE, "r") as acc:
-        for line in acc:
-            parts = line.split(" ")
-            parts[5], parts[7], parts[9] = "0", "0", "0"
-            parts[11] = "ff0000"
-            parts = " ".join(parts) + "\n"
-            restart_accounts.append(parts)
-    with open(ACCOUNTS_FILE, "w") as new_acc:
-        for account in restart_accounts:
-            new_acc.write(account)
-    view.delete(0, END)
+def clean_accounts_data(accounts_list):
+    conn = connect('my database.db')
+    curs = conn.cursor()
+    curs.execute("UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000'")
+    conn.commit()
     for acc in accounts_list:
         acc.clean_data()
-        view.insert(END, str(acc))
 
 
 def is_exist(user, is_login=False):
@@ -153,11 +145,29 @@ def player_login(client, accounts_list):
             if account.get_is_connect():  # another player connect to this account
                 client.send(b"N")
             else:
-                client.send(b"T")
+                client.send(b"T")  # can use this account
                 account.player_connect()
                 return account_to_check[0]
     if not exist:
-        client.send(b"F")
+        client.send(b"F")  # desired account does not exist
+
+
+def update_users_data(new_data_list):
+    conn = connect('my database.db')
+    curs = conn.cursor()
+    while True:
+        for update in new_data_list:
+            username, act = update[0], update[1]
+            if act == "V":
+                pass
+            elif act == "D":
+                pass
+            elif act == "E":
+                pass
+            elif act == "C":
+                pass
+        conn.commit()
+
 
 
 def update_user_wins_or_loses(players_to_update):
@@ -187,7 +197,6 @@ def update_user_wins_or_loses(players_to_update):
             players_to_update.remove(var)
 
 
-# when get ip from first player append it to the list and not replace the current ip
 def help_client(server, codes, update_users, accounts_list):
     while True:
         server.listen(1)
@@ -207,7 +216,7 @@ def help_client(server, codes, update_users, accounts_list):
                     break
 
                 elif request == "info ":
-                    username = is_can_register(player1, accounts_list)
+                    username = is_can_register(player1, accounts_list)  # לשנות את ההתעסקות בשם משתמש לאוייבקט משתמש
                 elif request == "login":
                     username = player_login(player1, accounts_list)
 
@@ -304,7 +313,7 @@ def create_server_screen(accounts_list):
     view_accounts = Listbox(window, width=107, height=16, bg='gray', fg='blue', yscrollcommand=scroll.set, font=0)
     scroll.config(command=view_accounts.yview)
     clean_button = Button(window, text='Clean accounts data', height=3,
-                          command=lambda: clean_accounts_data(accounts_list, view_accounts))
+                          command=lambda: clean_accounts_data(accounts_list))
     for index, value in enumerate(LABELS_TEXT):
         Label(window, text=value, font=0, fg='red', bg='black').place(x=index * 170, y=370)
     for account in accounts_list:
@@ -332,12 +341,15 @@ def main():
     server.bind((my_ip(), 2020))
     mediation_variables = [[True, None], [True, None]]
     updates = []
-    accounts_list = build_my_account_list()
+    conn = connect("my database.db")
+    curs = conn.cursor()
+    accounts_list = build_my_accounts(curs)
     for _ in range(10):
         element = threading.Thread(target=help_client, args=(server, mediation_variables, updates, accounts_list))
         element.start()
     threading.Thread(target=update_user_wins_or_loses, args=([updates])).start()
     create_server_screen(accounts_list)
+    _exit(0)
 
 
 if __name__ == '__main__':
