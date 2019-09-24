@@ -2,6 +2,7 @@ import threading
 import socket
 from tkinter import *
 import pandas as pd
+from sqlite3 import *
 
 LABELS_TEXT = ["Username", "Password", "Wins", "Loses", "Draws", "Color", "Server status"]
 ACCOUNTS_FILE = "accounts.txt"
@@ -67,8 +68,8 @@ class Account:
         self.__favorite_color = newcolor
 
     def __str__(self):
-        return f"{self.__username} {' '*5} {self.__password} {' '*5} {self.__wins} {' '*5} {self.__loses} {' '*5}" \
-               f"{self.SERVER_STATUSES[self.__is_connect]}"
+        return f"{self.__username} {' ' * 5} {self.__password} {' ' * 5} {self.__wins} {' ' * 5}" \
+               f" {self.__loses} {' ' * 5}{self.SERVER_STATUSES[self.__is_connect]}"
 
 
 def clean_accounts_data(accounts_list, view):
@@ -110,24 +111,30 @@ def register_new_player(new_account_data, accounts_list):
         username = type: string
         password = type: string
     """
-    with open(ACCOUNTS_FILE, 'a') as accounts:
-        accounts.write("Username: " + new_account_data[0]
-                       + " password: " + new_account_data[1] + " victory: 0 defeat: 0 draws: 0 color: ff0000\n")
+    conn = connect("my database.db")
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?)",
+                   (new_account_data[0], new_account_data[1], 0, 0, 0, "ff0000"))
+    conn.commit()
+    conn.close()
     new_account = Account(username=new_account_data[0], password=new_account_data[1],
                           wins=0, loses=0, draws=0, favorite_color="ff0000")
     new_account.player_connect()
     accounts_list.append(new_account)
 
 
-def register_player(client, accounts_list):
+def is_can_register(client, accounts_list):
     """return to the player if username is already exist in the accounts list
     argument:
         client: type - socket
         players_data: type - pandas.DataFrame, holds the data of the users
     """
     new_player_data = client.recv(41).decode().split(",")
-    already_exist = is_exist(new_player_data)
-    if already_exist:
+    exist = False
+    for acc in accounts_list:
+        if acc.get_username() == new_player_data[0]:
+            exist = True
+    if exist:
         client.send(b"N")
     else:
         client.send(b"Y")
@@ -200,7 +207,7 @@ def help_client(server, codes, update_users, accounts_list):
                     break
 
                 elif request == "info ":
-                    username = register_player(player1, accounts_list)
+                    username = is_can_register(player1, accounts_list)
                 elif request == "login":
                     username = player_login(player1, accounts_list)
 
@@ -290,23 +297,33 @@ def build_my_account_list():
 
 def create_server_screen(accounts_list):
     window = Tk()
-    window.geometry('1200x800')
+    window.geometry('1000x600')
     window.title("My server")
-    # window.resizable(OFF, OFF)
+    window.resizable(OFF, OFF)
     scroll = Scrollbar(window, orient=VERTICAL)
     view_accounts = Listbox(window, width=107, height=16, bg='gray', fg='blue', yscrollcommand=scroll.set, font=0)
     scroll.config(command=view_accounts.yview)
     clean_button = Button(window, text='Clean accounts data', height=3,
                           command=lambda: clean_accounts_data(accounts_list, view_accounts))
     for index, value in enumerate(LABELS_TEXT):
-        Label(window, text=value, font=0, fg='red', bg='black').place(x=index*170, y=370)
+        Label(window, text=value, font=0, fg='red', bg='black').place(x=index * 170, y=370)
     for account in accounts_list:
         view_accounts.insert(END, str(account))
     view_accounts.place(y=415)
     scroll.place(x=1185, y=400, height=400)
-    clean_button.place(x=1000, y=270)
+    clean_button.place(x=600, y=270)
     window.mainloop()
     return window
+
+
+def build_my_accounts(db_cursor):
+    db_cursor.execute("SELECT * FROM Accounts")
+    data = [list(x) for x in db_cursor.fetchall()]
+    accounts_list = []
+    for acc in data:
+        accounts_list.append(Account(username=acc[0], password=acc[1], wins=acc[2],
+                                     loses=acc[3], draws=acc[4], favorite_color=acc[5]))
+    return accounts_list
 
 
 def main():
