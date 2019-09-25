@@ -67,7 +67,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.20"
+IP = "192.168.11.116"
 PORT_S = 2020
 PORT_G = 5120
 

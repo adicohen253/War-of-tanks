@@ -5,6 +5,7 @@ from tkinter import *
 from sqlite3 import *
 from os import _exit
 
+
 LABELS_TEXT = ["Username", "Password", "Wins", "Loses", "Draws", "Color", "Server status"]
 ACCOUNTS_FILE = "accounts.txt"
 COMMANDS = pd.DataFrame(columns=["command", "description"], data=[
@@ -113,6 +114,7 @@ def register_new_player(new_account_data, accounts_list):
                           wins=0, loses=0, draws=0, favorite_color="ff0000")
     new_account.player_connect()
     accounts_list.append(new_account)
+    return new_account
 
 
 def is_can_register(client, accounts_list):
@@ -130,9 +132,9 @@ def is_can_register(client, accounts_list):
         client.send(b"N")
     else:
         client.send(b"Y")
-        register_new_player(new_player_data, accounts_list)
+        new_account = register_new_player(new_player_data, accounts_list)
         print("A new player signed up, is username is: " + new_player_data[0])
-        return new_player_data[0]
+        return new_account
 
 
 def player_login(client, accounts_list):
@@ -147,7 +149,7 @@ def player_login(client, accounts_list):
             else:
                 client.send(b"T")  # can use this account
                 account.player_connect()
-                return account_to_check[0]
+                return account
     if not exist:
         client.send(b"F")  # desired account does not exist
 
@@ -157,17 +159,19 @@ def update_users_data(new_data_list):
     curs = conn.cursor()
     while True:
         for update in new_data_list:
-            username, act = update[0], update[1]
+            account, act = update[0], update[1]
             if act == "V":
-                pass
+                curs.execute("UPDATE Accounts SET Wins = (?) WHERE Username = (?)",
+                             (account.get_win(), account.get_username()))
             elif act == "D":
-                pass
+                curs.execute("UPDATE Accounts SET Loses = (?) WHERE Username = (?)",
+                             (account.get_win(), account.get_username()))
             elif act == "E":
                 pass
             elif act == "C":
                 pass
+            new_data_list.remove(update)
         conn.commit()
-
 
 
 def update_user_wins_or_loses(players_to_update):
@@ -201,34 +205,30 @@ def help_client(server, codes, update_users, accounts_list):
     while True:
         server.listen(1)
         player1, address1 = server.accept()
-        username = ""
+        account = None
         while True:
             try:
                 request = player1.recv(5).decode()
                 if request == "exit ":
                     player1.close()
-                    for account in accounts_list:
-                        if account.get_username() == username:
-                            account.player_disconnect()
+                    account.player_disconnect()
                     break
                 elif request == "Exit ":
                     player1.close()
                     break
 
                 elif request == "info ":
-                    username = is_can_register(player1, accounts_list)  # לשנות את ההתעסקות בשם משתמש לאוייבקט משתמש
+                    account = is_can_register(player1, accounts_list)  # לשנות את ההתעסקות בשם משתמש לאוייבקט משתמש
                 elif request == "login":
-                    username = player_login(player1, accounts_list)
+                    account = player_login(player1, accounts_list)
 
                 elif request == "color":
-                    send_color(player1, username, accounts_list)
+                    player1.send(account.get_color().encode())
 
                 elif request == "Color":  # change the player's color in the data base - need to turn to function...
                     new_color = player1.recv(6).decode()
-                    update_users.append([username, "C", new_color])
-                    for account in accounts_list:
-                        if account.get_username() == username:
-                            account.change_color(new_color)
+                    account.change_color(new_color)
+                    update_users.append([account, "C", new_color])
 
                 elif request[:4] == "game":
                     mode_code = int(request[4])
@@ -242,40 +242,31 @@ def help_client(server, codes, update_users, accounts_list):
                         request = player1.recv(4).decode()
                         if request == "situ":
                             act = player1.recv(1).decode()
-                            update_users.append([username, act])
-                            for account in accounts_list:
-                                if account.get_username() == username:
-                                    if act == "V":
-                                        account.add_win()
-                                    elif act == "D":
-                                        account.add_lose()
-                                    elif act == "E":
-                                        account.add_draws()
+                            if act == "V":
+                                account.add_win()
+                            elif act == "D":
+                                account.add_lose()
+                            elif act == "E":
+                                account.add_draws()
+                            update_users.append([account, act])
                         elif request == "Situ":  # client exit the game
                             player1.close()
-                            update_users.append([username, "D"])
-                            for account in accounts_list:
-                                if account.get_username() == username:
-                                    account.add_lose()
-                                    account.player_disconnect()
+                            update_users.append([account, "D"])
+                            account.add_lose()
+                            account.player_disconnect()
                             break
 
                     except socket.error:
-                        print(username + " illegal exit from battle count as losing")
-                        update_users.append([username, "D"])
+                        print(account.get_username() + " illegal exit from battle count as losing")
+                        update_users.append([account, "D"])
                         player1.close()
-                        for account in accounts_list:
-                            if account.get_username() == username:
-                                account.add_lose()
-                                account.player_disconnect()
+                        account.add_lose()
+                        account.player_disconnect()
                         break
             except socket.error:
                 player1.close()
-                if username != "":
-                    for account in accounts_list:
-                        if account.get_username() == username:
-                            account.player_disconnect()
-                    print(username + " disconnect at unrecognized way")
+                if account is not None:
+                    account.player_disconnect()
                 break
 
 
@@ -347,7 +338,7 @@ def main():
     for _ in range(10):
         element = threading.Thread(target=help_client, args=(server, mediation_variables, updates, accounts_list))
         element.start()
-    threading.Thread(target=update_user_wins_or_loses, args=([updates])).start()
+    threading.Thread(target=update_users_data, args=([updates])).start()
     create_server_screen(accounts_list)
     _exit(0)
 
