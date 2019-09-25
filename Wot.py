@@ -67,7 +67,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.11.116"
+IP = "192.168.1.20"
 PORT_S = 2020
 PORT_G = 5120
 
@@ -637,9 +637,9 @@ def get_input_from_user(previous_data, events, limit_data, client, filter1, filt
             try:
                 if event.key == pygame.K_ESCAPE:
                     return previous_data, None
-                if filter1(str(event.unicode)):
+                if filter1(event.unicode):
                     if len(previous_data) < limit_data:
-                        previous_data += str(event.unicode)
+                        previous_data += event.unicode
                     if filter2(previous_data):
                         previous_data = previous_data[:-1]
                 elif (event.key == pygame.K_BACKSPACE) and (len(previous_data) > 0):

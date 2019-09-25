@@ -7,7 +7,6 @@ from os import _exit
 
 
 LABELS_TEXT = ["Username", "Password", "Wins", "Loses", "Draws", "Color", "Server status"]
-ACCOUNTS_FILE = "accounts.txt"
 COMMANDS = pd.DataFrame(columns=["command", "description"], data=[
     ["report", "show records of player's stats"], ["clean", "delete all data of the accounts"]])
 
@@ -83,21 +82,6 @@ def clean_accounts_data(accounts_list):
         acc.clean_data()
 
 
-def is_exist(user, is_login=False):
-    """checks in accounts list if account name like this is already exist"""
-    with open(ACCOUNTS_FILE, 'r') as accounts:
-        accounts = accounts.read().split("\n")[:-1]  # last var is empty line
-        for account in accounts:
-            data = account.split(" ")
-            if data[1] == user[0]:
-                if not is_login:
-                    return True
-                else:
-                    if data[3] == user[1]:
-                        return True
-    return False
-
-
 def register_new_player(new_account_data, accounts_list):
     """add the new account the the list
     argument:
@@ -165,11 +149,14 @@ def update_users_data(new_data_list):
                              (account.get_win(), account.get_username()))
             elif act == "D":
                 curs.execute("UPDATE Accounts SET Loses = (?) WHERE Username = (?)",
-                             (account.get_win(), account.get_username()))
+                             (account.get_loses(), account.get_username()))
             elif act == "E":
-                pass
+                curs.execute("UPDATE Accounts SET Draws = (?) WHERE Username = (?)",
+                             (account.get_loses(), account.get_username()))
             elif act == "C":
-                pass
+                new_color = update[2]
+                curs.execute("UPDATE Accounts SET Color = (?) WHERE Username = (?)",
+                             (new_color, account.get_username()))
             new_data_list.remove(update)
         conn.commit()
 
@@ -218,7 +205,7 @@ def help_client(server, codes, update_users, accounts_list):
                     break
 
                 elif request == "info ":
-                    account = is_can_register(player1, accounts_list)  # לשנות את ההתעסקות בשם משתמש לאוייבקט משתמש
+                    account = is_can_register(player1, accounts_list)
                 elif request == "login":
                     account = player_login(player1, accounts_list)
 
