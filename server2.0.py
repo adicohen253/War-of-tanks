@@ -161,33 +161,6 @@ def update_users_data(new_data_list):
         conn.commit()
 
 
-def update_user_wins_or_loses(players_to_update):
-    while True:
-        for var in players_to_update:
-            username, act = var[0], var[1]
-            with open(ACCOUNTS_FILE, "r") as my_file:
-                accounts = []
-                for line in my_file:
-                    parts = line.split(" ")
-                    if parts[1] == username:
-                        if act == "V":
-                            parts[5] = str(int(parts[5]) + 1)
-                        elif act == "D":
-                            parts[7] = str(int(parts[7]) + 1)
-                        elif act == "E":
-                            parts[9] = str(int(parts[9]) + 1)
-                        elif act == "C":
-                            parts[11] = var[2]
-                            parts.append(" \n")
-                        accounts.append(" ".join(parts))
-                    else:
-                        accounts.append(line)
-            with open(ACCOUNTS_FILE, "w") as my_file:
-                for a in accounts:
-                    my_file.write(a)
-            players_to_update.remove(var)
-
-
 def help_client(server, codes, update_users, accounts_list):
     while True:
         server.listen(1)
@@ -273,15 +246,6 @@ def send_color(client, username, accounts_list):
             client.send(account.get_color().encode())
 
 
-def build_my_account_list():
-    accounts_list = []
-    with open(ACCOUNTS_FILE, "r") as my_file:
-        for line in my_file:
-            data = line.split(" ")
-            accounts_list.append(Account(data[1], data[3], int(data[5]), int(data[7]), int(data[9]), data[11]))
-    return accounts_list
-
-
 def create_server_screen(accounts_list):
     window = Tk()
     window.geometry('1000x600')
@@ -296,6 +260,8 @@ def create_server_screen(accounts_list):
         Label(window, text=value, font=0, fg='red', bg='black').place(x=index * 170, y=370)
     for account in accounts_list:
         view_accounts.insert(END, str(account))
+    Label(window, text="My IP is: " + my_ip(), fg='blue',
+          bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
     view_accounts.place(y=415)
     scroll.place(x=1185, y=400, height=400)
     clean_button.place(x=600, y=270)
@@ -314,7 +280,6 @@ def build_my_accounts(db_cursor):
 
 
 def main():
-    print("wait to connect between players\nmy ip is: " + my_ip())
     server = socket.socket()
     server.bind((my_ip(), 2020))
     mediation_variables = [[True, None], [True, None]]
