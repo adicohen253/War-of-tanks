@@ -329,6 +329,7 @@ def my_walls(screen, map_code="default"):
     """build the walls of the battlefield
     argument:
         screen: pygame.surface, the battlefield
+        screen: pygame.surface, the battlefield
         code: type - int,
         code: type - str,
     """

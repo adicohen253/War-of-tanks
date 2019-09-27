@@ -56,7 +56,7 @@ class Tank(pygame.sprite.Sprite):
         """
         for element in range(len(new_color)):
             new_color[element] = int(new_color[element])
-        # if color is totally white, set_colorkey disappear the color
+        # if color is totally white, set_colorkey make to color disappear
         if new_color == list(WHITE):
             new_color[0] -= 1
         if new_color == list(BLACK):

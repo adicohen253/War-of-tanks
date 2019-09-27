@@ -138,10 +138,10 @@ def player_login(client, accounts_list):
         client.send(b"F")  # desired account does not exist
 
 
-def update_users_data(new_data_list):
+def update_users_data(new_data_list, finish):
     conn = connect('my database.db')
     curs = conn.cursor()
-    while True:
+    while not finish:
         for update in new_data_list:
             account, act = update[0], update[1]
             if act == "V":
@@ -161,12 +161,11 @@ def update_users_data(new_data_list):
         conn.commit()
 
 
-def help_client(server, codes, update_users, accounts_list):
-    while True:
-        server.listen(1)
+def help_client(server, codes, update_users, accounts_list, finish):
+    while not finish[0]:
         player1, address1 = server.accept()
         account = None
-        while True:
+        while not finish[0]:
             try:
                 request = player1.recv(5).decode()
                 if request == "exit ":
@@ -287,12 +286,14 @@ def main():
     conn = connect("my database.db")
     curs = conn.cursor()
     accounts_list = build_my_accounts(curs)
+    finish = [False]  # flag for all the threads
     for _ in range(10):
-        element = threading.Thread(target=help_client, args=(server, mediation_variables, updates, accounts_list))
+        element = threading.Thread(target=help_client,
+                                   args=(server, mediation_variables, updates, accounts_list, finish))
         element.start()
-    threading.Thread(target=update_users_data, args=([updates])).start()
+    threading.Thread(target=update_users_data, args=(updates, finish)).start()
     create_server_screen(accounts_list)
-    _exit(0)
+    finish[0] = True
 
 
 if __name__ == '__main__':
