@@ -3,7 +3,6 @@ import socket
 import pandas as pd
 from tkinter import *
 from sqlite3 import *
-from os import _exit
 
 
 LABELS_TEXT = ["Username", "Password", "Wins", "Loses", "Draws", "Color", "Server status"]
@@ -70,7 +69,8 @@ class Account:
 
     def __str__(self):
         return f"{self.__username} {' ' * 5} {self.__password} {' ' * 5} {self.__wins} {' ' * 5}" \
-               f" {self.__loses} {' ' * 5}{self.__favorite_color}{' '*5}{self.SERVER_STATUSES[self.__is_connect]}"
+               f" {self.__loses} {' ' * 5}{self.__draws} {' ' * 5}{self.__favorite_color}" \
+               f"{' '*5}{self.SERVER_STATUSES[self.__is_connect]}"
 
 
 def clean_accounts_data(accounts_list):
@@ -141,7 +141,7 @@ def player_login(client, accounts_list):
 def update_users_data(new_data_list, finish):
     conn = connect('my database.db')
     curs = conn.cursor()
-    while not finish:
+    while not finish[0]:
         for update in new_data_list:
             account, act = update[0], update[1]
             if act == "V":
@@ -163,8 +163,11 @@ def update_users_data(new_data_list, finish):
 
 def help_client(server, codes, update_users, accounts_list, finish):
     while not finish[0]:
-        player1, address1 = server.accept()
         account = None
+        try:
+            player1, address1 = server.accept()
+        except socket.error:
+            continue
         while not finish[0]:
             try:
                 request = player1.recv(5).decode()
@@ -251,21 +254,25 @@ def create_server_screen(accounts_list):
     window.title("My server")
     window.resizable(OFF, OFF)
     scroll = Scrollbar(window, orient=VERTICAL)
-    view_accounts = Listbox(window, width=107, height=16, bg='gray', fg='blue', yscrollcommand=scroll.set, font=0)
+    view_accounts = Listbox(window, width=88, height=8, bg='gray', fg='blue', yscrollcommand=scroll.set, font=0)
     scroll.config(command=view_accounts.yview)
     clean_button = Button(window, text='Clean accounts data', height=3,
                           command=lambda: clean_accounts_data(accounts_list))
     for index, value in enumerate(LABELS_TEXT):
         Label(window, text=value, font=0, fg='red', bg='black').place(x=index * 170, y=370)
-    for account in accounts_list:
-        view_accounts.insert(END, str(account))
     Label(window, text="My IP is: " + my_ip(), fg='blue',
           bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
-    view_accounts.place(y=415)
-    scroll.place(x=1185, y=400, height=400)
+    scroll.place(x=980, y=400, height=200)
     clean_button.place(x=600, y=270)
-    window.mainloop()
+    view_accounts.place(y=410)
+    window.bind("<FocusIn>", lambda event: show_account_data(view_accounts, accounts_list))
     return window
+
+
+def show_account_data(account_box, account_list):
+    account_box.delete(0, END)
+    for account in account_list:
+        account_box.insert(END, str(account))
 
 
 def build_my_accounts(db_cursor):
@@ -281,6 +288,8 @@ def build_my_accounts(db_cursor):
 def main():
     server = socket.socket()
     server.bind((my_ip(), 2020))
+    server.listen(1)
+    server.settimeout(2)
     mediation_variables = [[True, None], [True, None]]
     updates = []
     conn = connect("my database.db")
@@ -292,7 +301,8 @@ def main():
                                    args=(server, mediation_variables, updates, accounts_list, finish))
         element.start()
     threading.Thread(target=update_users_data, args=(updates, finish)).start()
-    create_server_screen(accounts_list)
+    window = create_server_screen(accounts_list)
+    window.mainloop()
     finish[0] = True
 
 
