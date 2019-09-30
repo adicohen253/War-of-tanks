@@ -68,9 +68,9 @@ class Account:
         self.__favorite_color = newcolor
 
     def __str__(self):
-        return f"{self.__username} {' ' * 5} {self.__password} {' ' * 5} {self.__wins} {' ' * 5}" \
-               f" {self.__loses} {' ' * 5}{self.__draws} {' ' * 5}{self.__favorite_color}" \
-               f"{' '*5}{self.SERVER_STATUSES[self.__is_connect]}"
+        return f"{self.__username} {' ' * (22 -len(self.__username))} {self.__password}" \
+               f" {' ' * (21-len(self.__password))} {self.__wins} {' ' * 20}{self.__loses} {' ' * 20}{self.__draws} " \
+               f"{' ' * 12}{self.__favorite_color}{' '*13}{self.SERVER_STATUSES[self.__is_connect]}"
 
 
 def clean_accounts_data(accounts_list):
@@ -254,18 +254,19 @@ def create_server_screen(accounts_list):
     window.title("My server")
     window.resizable(OFF, OFF)
     scroll = Scrollbar(window, orient=VERTICAL)
-    view_accounts = Listbox(window, width=88, height=8, bg='gray', fg='blue', yscrollcommand=scroll.set, font=0)
+    view_accounts = Listbox(window, width=88, height=8, fg='blue', yscrollcommand=scroll.set, font=0)
     scroll.config(command=view_accounts.yview)
     clean_button = Button(window, text='Clean accounts data', height=3,
                           command=lambda: clean_accounts_data(accounts_list))
     for index, value in enumerate(LABELS_TEXT):
-        Label(window, text=value, font=0, fg='red', bg='black').place(x=index * 170, y=370)
+        Label(window, text=value, font=0, fg='red', bg='yellow').place(x=index * 140, y=370)
     Label(window, text="My IP is: " + my_ip(), fg='blue',
           bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
     scroll.place(x=980, y=400, height=200)
     clean_button.place(x=600, y=270)
     view_accounts.place(y=410)
     window.bind("<FocusIn>", lambda event: show_account_data(view_accounts, accounts_list))
+    window.bind("<Enter>", lambda event: show_account_data(view_accounts, accounts_list))
     return window
 
 

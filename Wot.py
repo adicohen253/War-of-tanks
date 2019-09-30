@@ -14,7 +14,6 @@ from re import findall
 
 # constants
 pygame.init()
-FONT = pygame.font.SysFont('exocet', 50)
 TIME_TO_SLEEP = 1.8
 TIME_TO_PREVENT_FLOW = 0.002
 SIZE = (1200, 600)
@@ -82,6 +81,7 @@ class Game:
         self.__account = ["", ""]
         self._get_account()
         self._get_my_color()
+        self.__font = pygame.font.SysFont('exocet', 50)
 
         # game start and it's functions manage these attributes
         self.__enemy = None
@@ -154,7 +154,7 @@ class Game:
                                 else:
                                     self.__account = self._register_and_login_screen(False)
                             else:
-                                failed_output = FONT.render(SERVER_DENIED, True, RED)
+                                failed_output = self.__font.render(SERVER_DENIED, True, RED)
                                 self.__screen.blit(failed_output, [100, 500])
                                 pygame.display.flip()
                                 time.sleep(TIME_TO_SLEEP)
@@ -202,7 +202,7 @@ class Game:
                 for index in range(len(self.__account)):
                     if self.__account[index] != "":
                         account_pos = 300, 202 * (index + 1)
-                        print_username = FONT.render(self.__account[index], True, BLUE)
+                        print_username = self.__font.render(self.__account[index], True, BLUE)
                         self.__screen.blit(print_username, account_pos)
                 pygame.display.flip()
         if not self._take_care_connection_cases(is_login_now):
@@ -216,7 +216,7 @@ class Game:
         """
         msg_pos = 300, 500
         if not self.__account[0][0].isalpha():  # username must start with alphabetical letter
-            output = FONT.render(ILLEGAL_USERNAME, True, BLUE)
+            output = self.__font.render(ILLEGAL_USERNAME, True, BLUE)
             self.__screen.blit(output, msg_pos)
             pygame.display.flip()
             time.sleep(TIME_TO_SLEEP)
@@ -228,20 +228,20 @@ class Game:
             self._communicate_with_server((self.__account[0] + "," + self.__account[1]).encode())
             respond = self.__client.recv(1).decode()
             if respond == "T":
-                output = FONT.render(LOGIN_WORKED, True, BLUE)
+                output = self.__font.render(LOGIN_WORKED, True, BLUE)
                 legal_case = True
             elif respond == "N":
-                output = FONT.render(ALREADY_TAKEN, True, BLUE)
+                output = self.__font.render(ALREADY_TAKEN, True, BLUE)
             else:
-                output = FONT.render(LOGIN_FAILED, True, BLUE)
+                output = self.__font.render(LOGIN_FAILED, True, BLUE)
         else:
             self._communicate_with_server(("info " + self.__account[0] + "," + self.__account[1]).encode())
             answer = self.__client.recv(1).decode()
             if answer == "Y":
-                output = FONT.render(REGISTER_WORKED, True, BLUE)
+                output = self.__font.render(REGISTER_WORKED, True, BLUE)
                 legal_case = True
             else:
-                output = FONT.render(INVALID_USERNAME, True, BLUE)
+                output = self.__font.render(INVALID_USERNAME, True, BLUE)
         self.__screen.blit(output, msg_pos)
         pygame.display.flip()
         time.sleep(TIME_TO_SLEEP)
@@ -271,7 +271,7 @@ class Game:
                 self.__screen.blit(rainbow_screen, [0, 0])
                 for element in range(len(my_color)):
                     color_pos = 200 + 300 * element, 310
-                    show_color = FONT.render(my_color[element], True, WHITE)
+                    show_color = self.__font.render(my_color[element], True, WHITE)
                     self.__screen.blit(show_color, color_pos)
                 self.__screen.blit(self.__demo_player.get_image(), self.__demo_player.get_loc())
                 pygame.display.flip()
@@ -605,7 +605,7 @@ class Game:
                 endless_ammo.set_colorkey(WHITE)
                 self.__screen.blit(endless_ammo, element[1])
                 continue
-            self.__screen.blit(FONT.render(element[0], True, WHITE), element[1])
+            self.__screen.blit(self.__font.render(element[0], True, WHITE), element[1])
 
     def channeling_with_the_enemy(self, flags, my_packet):
         counter = 0
@@ -710,7 +710,7 @@ class Game:
                 return True
         else:
             time_to_play = time.strftime("%M:%S", time.gmtime(time_to_play))
-            self.__screen.blit(FONT.render(time_to_play, True, WHITE), [900, 420])
+            self.__screen.blit(self.__font.render(time_to_play, True, WHITE), [900, 420])
 
     def trap_affect(self, trap):
         """active the trap attribute on the player"""
@@ -745,8 +745,8 @@ class Game:
         self.__traps.append(new_surprise)
         return time.time(), random.randint(3, 5)
 
-# filter for getting input from user in color and connect screens
 
+# filter for getting input from user in color and connect screens
 def legal_chars_for_username(data):
     """filter for username data in account"""
     return data.isalpha() or data.isdigit()

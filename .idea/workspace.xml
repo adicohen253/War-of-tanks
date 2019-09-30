@@ -27,7 +27,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.server2.0">
+  <component name="RunManager" selected="Python.Wot">
     <configuration name="Wot" type="PythonConfigurationType" factoryName="Python" singleton="false" temporary="true">
       <module name="War-of-tanks" />
       <option name="INTERPRETER_OPTIONS" value="" />
