@@ -65,7 +65,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.20"
+IP = "192.168.10.149"
 PORT_S = 2020
 PORT_G = 5120
 
@@ -74,6 +74,7 @@ class Game:
     def __init__(self, screen):
         self.__screen = screen
         self.__ip = ""
+        self.__font = pygame.font.SysFont('exocet', 50)
         self._my_ip()
         self.__demo_player = game_obj.Tank(500, 400)
         self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
@@ -81,7 +82,6 @@ class Game:
         self.__account = ["", ""]
         self._get_account()
         self._get_my_color()
-        self.__font = pygame.font.SysFont('exocet', 50)
 
         # game start and it's functions manage these attributes
         self.__enemy = None

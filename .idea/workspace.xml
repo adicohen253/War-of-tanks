@@ -1,7 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="5b2e37d4-6339-4b0c-98a3-be81a4755ef4" name="Default Changelist" comment="" />
+    <list default="true" id="5b2e37d4-6339-4b0c-98a3-be81a4755ef4" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/War-of-tanks.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/War-of-tanks.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Wot.py" beforeDir="false" afterPath="$PROJECT_DIR$/Wot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my database.db" beforeDir="false" afterPath="$PROJECT_DIR$/my database.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/server2.0.py" beforeDir="false" afterPath="$PROJECT_DIR$/server2.0.py" afterDir="false" />
+    </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -14,6 +21,7 @@
   <component name="ProjectId" id="1ROKM6sGBkIG7NKExGT9TSNcQyD" />
   <component name="PropertiesComponent">
     <property name="last_opened_file_path" value="D:/.Trashes" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
