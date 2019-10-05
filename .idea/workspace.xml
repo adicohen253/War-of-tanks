@@ -17,11 +17,12 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="ProjectId" id="1ROKM6sGBkIG7NKExGT9TSNcQyD" />
   <component name="PropertiesComponent">
     <property name="last_opened_file_path" value="D:/.Trashes" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="settings.editor.selected.configurable" value="vcs.Git" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -35,7 +36,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.Wot">
+  <component name="RunManager" selected="Python.server2.0">
     <configuration name="Wot" type="PythonConfigurationType" factoryName="Python" singleton="false" temporary="true">
       <module name="War-of-tanks" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -84,8 +85,8 @@
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.Wot" />
         <item itemvalue="Python.server2.0" />
+        <item itemvalue="Python.Wot" />
       </list>
     </recent_temporary>
   </component>

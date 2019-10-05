@@ -3,11 +3,13 @@ import socket
 import pandas as pd
 from tkinter import *
 from sqlite3 import *
+from tkinter.font import *
 from tkinter.ttk import Combobox
 
 LABELS_TEXT = ["Username", "Password", "Wins", "Loses", "Draws", "Color", "Server status"]
 COMMANDS = pd.DataFrame(columns=["command", "description"], data=[
     ["report", "show records of player's stats"], ["clean", "delete all data of the accounts"]])
+FONT = ("Arial", 12, NORMAL)
 
 
 class Account:
@@ -162,7 +164,8 @@ def update_users_data(new_data_list, finish):
     print("done")
 
 
-def help_client(server, codes, update_users, accounts_list, finish):
+def help_client(server, codes, update_users, accounts_list, finish, index):
+    print(f"client thread number {index} active")
     while not finish[0]:
         account = None
         try:
@@ -255,7 +258,7 @@ def create_server_screen(accounts_list):
     window.title("My server")
     window.resizable(OFF, OFF)
     scroll = Scrollbar(window, orient=VERTICAL)
-    view_accounts = Listbox(window, width=88, height=8, fg='blue', yscrollcommand=scroll.set, font=0)
+    view_accounts = Listbox(window, width=88, height=8, fg='blue', yscrollcommand=scroll.set, font=FONT)
     view_accounts.place(y=410)
     scroll.config(command=view_accounts.yview)
     scroll.place(x=800, y=400, height=200)
@@ -263,12 +266,12 @@ def create_server_screen(accounts_list):
            command=lambda: clean_accounts_data(accounts_list)).place(x=830, y=430)
     Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=830, y=500)
     for index, value in enumerate(LABELS_TEXT):
-        Label(window, text=value, font=0, fg='red', bg='yellow').place(x=index * 140, y=370)
+        Label(window, text=value, font=FONT, fg='red', bg='yellow').place(x=index * 140, y=370)
     Label(window, text="My IP is: " + my_ip(), fg='blue',
           bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
     username, admit_act = StringVar(), StringVar()
     Label(window, text='Options').place(x=100, y=80)
-    Label(window, text='Admin updates:', font=0, fg='blue', bg='white').place(x=100, y=20)
+    Label(window, text='Admin updates:', font=FONT, fg='blue', bg='white').place(x=100, y=20)
     Combobox(window, values=("Wins", "Loses", "Draws"), textvariable=admit_act).place(x=200, y=80)
     Entry(window, textvariable=username).place(x=220, y=20)
     window.bind("<FocusIn>", lambda event: show_account_data(view_accounts, accounts_list))
@@ -303,9 +306,9 @@ def main():
     curs = conn.cursor()
     accounts_list = build_my_accounts(curs)
     finish = [False]  # flag for all the threads
-    for _ in range(10):
+    for index in range(10):
         element = threading.Thread(target=help_client,
-                                   args=(server, mediation_variables, updates, accounts_list, finish))
+                                   args=(server, mediation_variables, updates, accounts_list, finish, index))
         element.start()
     threading.Thread(target=update_users_data, args=(updates, finish)).start()
     create_server_screen(accounts_list)
