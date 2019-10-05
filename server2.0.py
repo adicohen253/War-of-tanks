@@ -298,6 +298,7 @@ def build_my_accounts(db_cursor):
 def main():
     server = socket.socket()
     server.bind((my_ip(), 2020))
+    print("good")
     server.listen(1)
     server.settimeout(0.2)
     mediation_variables = [[True, None], [True, None]]

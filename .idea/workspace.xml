@@ -16,12 +16,17 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
+    <option name="PREVIOUS_COMMIT_AUTHORS">
+      <list>
+        <option value="``" />
+      </list>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="ROOT_SYNC" value="DONT_SYNC" />
   </component>
   <component name="ProjectId" id="1ROKM6sGBkIG7NKExGT9TSNcQyD" />
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="D:/.Trashes" />
+    <property name="last_opened_file_path" value="C:/Program Files/Git/cmd/git.exe" />
     <property name="settings.editor.selected.configurable" value="vcs.Git" />
   </component>
   <component name="RunDashboard">
