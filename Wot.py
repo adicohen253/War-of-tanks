@@ -217,6 +217,7 @@ class Game:
                 pygame.display.flip()
         if not self._take_care_connection_cases(is_login_now):
             self.__account = self._register_and_login_screen(is_login_now)
+            return self.__account
 
     def _take_care_connection_cases(self, is_login_now=False):
         """take care of every case of registering or login to username
@@ -234,8 +235,7 @@ class Game:
 
         legal_case = False
         if is_login_now:
-            self._send_to_server(b"login")
-            self._send_to_server((self.__account[0] + "," + self.__account[1]).encode())
+            self._send_to_server(("login" + self.__account[0] + "," + self.__account[1]).encode())
             respond = self._receive_from_server(1)
             if respond == "T":
                 output = self.__font.render(LOGIN_WORKED, True, BLUE)
