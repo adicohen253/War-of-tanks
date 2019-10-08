@@ -23,6 +23,7 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 POINT_POS = ([180, 165], [180, 360])
 COLOR_PACKET_LEN = 11
+ASKED_IP_LEN_PACKET = 15
 TICK = 60
 SECS_TO_PLAY = 10  # 2:30 minutes
 MAPS = "maps.txt"
@@ -65,7 +66,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.10.149"
+IP = "192.168.1.50"
 PORT_S = 2020
 PORT_G = 5120
 
@@ -81,7 +82,6 @@ class Game:
         self.__client = socket.socket()
         self.__account = ["", ""]
         self._get_account()
-        self._get_my_color()
 
         # game start and it's functions manage these attributes
         self.__enemy = None
@@ -115,16 +115,26 @@ class Game:
             finally:
                 self.__client.settimeout(None)
 
-    def _communicate_with_server(self, message_to_send):
+    def _send_to_server(self, message_to_send):
         try:
             self.__client.send(message_to_send)
         except socket.error:
             print("server shut down")
             sys.exit()
+    
+    def _receive_from_server(self, buffersize):
+        try:
+            message = self.__client.recv(buffersize).decode()
+            if message == "":
+                raise socket.error
+            return message
+        except socket.error:
+            print("server shut down")
+            sys.exit()
 
     def _get_my_color(self):
-        self._communicate_with_server(b"color")
-        saved_color = findall("..?", self.__client.recv(6).decode())
+        self._send_to_server(b"color")
+        saved_color = findall("..?", self._receive_from_server(6))
         self.__demo_player.change_player_color([int(x, base=16) for x in saved_color])
 
     def _get_account(self):
@@ -135,13 +145,13 @@ class Game:
             for event in events:
                 if event.type == pygame.QUIT:
                     if is_connect:
-                        self._communicate_with_server(b"Exit ")  # already has connection with server
+                        self._send_to_server(b"Exit ")  # already has connection with server
                     self.__client.close()
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         if is_connect:
-                            self._communicate_with_server(b"Exit ")
+                            self._send_to_server(b"Exit ")
                         self.__client.close()
                         sys.exit()
                     elif event.key == pygame.K_l or event.key == pygame.K_r:
@@ -224,9 +234,9 @@ class Game:
 
         legal_case = False
         if is_login_now:
-            self._communicate_with_server(b"login")
-            self._communicate_with_server((self.__account[0] + "," + self.__account[1]).encode())
-            respond = self.__client.recv(1).decode()
+            self._send_to_server(b"login")
+            self._send_to_server((self.__account[0] + "," + self.__account[1]).encode())
+            respond = self._receive_from_server(1)
             if respond == "T":
                 output = self.__font.render(LOGIN_WORKED, True, BLUE)
                 legal_case = True
@@ -235,8 +245,8 @@ class Game:
             else:
                 output = self.__font.render(LOGIN_FAILED, True, BLUE)
         else:
-            self._communicate_with_server(("info " + self.__account[0] + "," + self.__account[1]).encode())
-            answer = self.__client.recv(1).decode()
+            self._send_to_server(("info " + self.__account[0] + "," + self.__account[1]).encode())
+            answer = self._receive_from_server(1)
             if answer == "Y":
                 output = self.__font.render(REGISTER_WORKED, True, BLUE)
                 legal_case = True
@@ -252,6 +262,7 @@ class Game:
         argument:
             size_screen: type - tuple, the size of the screen
             demo_player: type - tank, for showing the player his tank's color"""
+        self._get_my_color()
         rainbow_screen = pygame.image.load(COLOR_SCREEN)
         self.__screen.blit(rainbow_screen, [0, 0])
         my_color = ["0", "0", "0"]
@@ -281,15 +292,15 @@ class Game:
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self._communicate_with_server(b"exit ")
+                    self._send_to_server(b"exit ")
                     sys.exit()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_t:
                         return self._color_choose_screen()
                     if event.key == pygame.K_d:
-                        self._communicate_with_server(b"Color")
+                        self._send_to_server(b"Color")
                         my_new_color = "%02x%02x%02x" % tuple(self.__demo_player.get_color())
-                        self._communicate_with_server(str("".join(my_new_color)).encode())
+                        self._send_to_server(str("".join(my_new_color)).encode())
                         return
 
     def _get_input_from_user(self, previous_data, events, limit_data, filter1, filter2):
@@ -306,9 +317,9 @@ class Game:
         for event in events:
             if event.type == pygame.QUIT:
                 if limit_data == 3:
-                    self._communicate_with_server(b"exit ")
+                    self._send_to_server(b"exit ")
                 else:
-                    self._communicate_with_server(b"Exit ")
+                    self._send_to_server(b"Exit ")
                 self.__client.close()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
@@ -354,7 +365,7 @@ class Game:
                 time_to_exchange = time.time()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self._communicate_with_server(b"exit ")
+                    self._send_to_server(b"exit ")
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_b:
@@ -366,7 +377,7 @@ class Game:
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self._communicate_with_server(b"exit ")
+                    self._send_to_server(b"exit ")
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_s:  # player look for a match
@@ -375,7 +386,7 @@ class Game:
                             self.game_start(mode_code)
 
                     elif event.key == pygame.K_ESCAPE:
-                        self._communicate_with_server(b"exit ")
+                        self._send_to_server(b"exit ")
                         sys.exit()
 
                     elif event.key == pygame.K_i:  # introductions of game's buttons
@@ -394,7 +405,7 @@ class Game:
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self._communicate_with_server(b"exit ")
+                    self._send_to_server(b"exit ")
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
@@ -413,11 +424,12 @@ class Game:
             size_screen_before: type - tuple, when battle start the screen size back to normal (SIZE)
             (right now it's temporary)
         """
+        self._get_my_color()
         clock = pygame.time.Clock()
         battlefield = pygame.image.load(FIELD)
         self._my_walls()
-        self._communicate_with_server(b"game" + mode_code.encode())
-        main_player = int(self.__client.recv(1).decode())
+        self._send_to_server(b"game" + mode_code.encode())
+        main_player = int(self._receive_from_server(1))
         main_player = main_player == 1
         if main_player:
             self.__player = game_obj.Tank(20, 200, self.__demo_player)
@@ -436,7 +448,7 @@ class Game:
         # main player create the server
         # (waiting for another one to start the game)
         else:
-            address = self.__client.recv(15).decode(), PORT_G
+            address = self._receive_from_server(ASKED_IP_LEN_PACKET), PORT_G
             self.__player = game_obj.Tank(420, 50, self.__demo_player)
             self.__enemy = game_obj.Tank(20, 200)
             self.__enemy_socket = socket.socket()
@@ -472,7 +484,7 @@ class Game:
                     flags[0] = True
                     pygame.mixer.music.load(DEFEAT)
                     pygame.mixer.music.play()
-                    self._communicate_with_server(b"Situ")
+                    self._send_to_server(b"Situ")
                     time.sleep(TIME_TO_SLEEP)
                     self.__client.close()
                     sys.exit()
@@ -482,7 +494,7 @@ class Game:
                     if event.key == pygame.K_ESCAPE:
                         flags[0] = True
                         pygame.mixer.music.load(DEFEAT)
-                        self._communicate_with_server(b"situD")
+                        self._send_to_server(b"situD")
 
                     self.__player.update_direct(self.__walls, event)
                     if self.__player.shoot_bullet(event, self.__bullets):
@@ -494,7 +506,7 @@ class Game:
                 break
 
             if flags[1]:
-                self._communicate_with_server(b"situV")
+                self._send_to_server(b"situV")
                 pygame.mixer.music.load(VICTORY)
                 break
 
@@ -532,12 +544,12 @@ class Game:
 
             if self.__player.get_health() <= 0:
                 flags[0] = None
-                self._communicate_with_server(b"situD")
+                self._send_to_server(b"situD")
                 pygame.mixer.music.load(DEFEAT)
                 break
             elif self.__enemy.get_health() <= 0:
                 flags[0] = None
-                self._communicate_with_server(b"situV")
+                self._send_to_server(b"situV")
                 pygame.mixer.music.load(VICTORY)
                 break
 
@@ -694,17 +706,17 @@ class Game:
         time_to_play = SECS_TO_PLAY - (time.time() - start_time)
         if time_to_play <= 0:
             if self.__player.get_health() > self.__enemy.get_health():
-                self._communicate_with_server(b"situV")
+                self._send_to_server(b"situV")
                 pygame.mixer.music.load(VICTORY)
                 flags[0] = True
                 return True
             elif self.__player.get_health() < self.__enemy.get_health():
-                self._communicate_with_server(b"situD")
+                self._send_to_server(b"situD")
                 pygame.mixer.music.load(DEFEAT)
                 flags[1] = True
                 return True
             else:
-                self._communicate_with_server(b"situE")
+                self._send_to_server(b"situE")
                 pygame.mixer.music.load(DRAW)
                 flags[0] = None
                 return True

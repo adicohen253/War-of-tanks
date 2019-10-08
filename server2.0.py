@@ -165,7 +165,7 @@ def update_users_data(new_data_list, finish):
 
 
 def help_client(server, codes, update_users, accounts_list, finish, index):
-    print(f"client thread number {index} active")
+    print(f"client thread number {index+1} active")
     while not finish[0]:
         account = None
         try:
@@ -175,6 +175,8 @@ def help_client(server, codes, update_users, accounts_list, finish, index):
         while not finish[0]:
             try:
                 request = player1.recv(5).decode()
+                if finish[0]:
+                    sys.exit()
                 if request == "exit ":
                     player1.close()
                     account.player_disconnect()
