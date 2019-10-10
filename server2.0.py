@@ -1,14 +1,12 @@
 import threading
 import socket
-import pandas as pd
 from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
 from tkinter.ttk import Combobox
 
-LABELS_TEXT = ["Username", "Password", "Wins", "Loses", "Draws", "Color", "Server status"]
-COMMANDS = pd.DataFrame(columns=["command", "description"], data=[
-    ["report", "show records of player's stats"], ["clean", "delete all data of the accounts"]])
+LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300],
+               ["Draws", 370], ["Color", 450], ["Server status", 530]]
 FONT = ("Arial", 12, NORMAL)
 
 
@@ -70,8 +68,8 @@ class Account:
         self.__favorite_color = newcolor
 
     def __str__(self):
-        return f"{self.__username} {' ' * (22 -len(self.__username))} {self.__password}" \
-               f" {' ' * (21-len(self.__password))} {self.__wins} {' ' * 20}{self.__loses} {' ' * 20}{self.__draws} " \
+        return f"{self.__username} {' ' * round(20.5 - len(self.__username))} {self.__password}" \
+               f" {' ' * (21-len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}{self.__draws} " \
                f"{' ' * 12}{self.__favorite_color}{' '*13}{self.SERVER_STATUSES[self.__is_connect]}"
 
 
@@ -236,6 +234,7 @@ def help_client(server, codes, update_users, accounts_list, finish, index):
                 if account is not None:
                     account.player_disconnect()
                 break
+        player1.close()
 
 
 def my_ip():
@@ -256,21 +255,21 @@ def send_color(client, username, accounts_list):
 
 def create_server_screen(accounts_list):
     window = Tk()
-    window.geometry('1000x600')
+    window.geometry('900x600')
     window.title("My server")
     window.resizable(OFF, OFF)
     scroll = Scrollbar(window, orient=VERTICAL)
-    view_accounts = Listbox(window, width=88, height=8, fg='blue', yscrollcommand=scroll.set, font=FONT)
+    view_accounts = Listbox(window, width=72, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
     view_accounts.place(y=410)
     scroll.config(command=view_accounts.yview)
-    scroll.place(x=800, y=400, height=200)
+    scroll.place(x=650, y=400, height=200)
     Button(window, text='Clean accounts data', height=3, width=20,
-           command=lambda: clean_accounts_data(accounts_list)).place(x=830, y=430)
-    Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=830, y=500)
-    for index, value in enumerate(LABELS_TEXT):
-        Label(window, text=value, font=FONT, fg='red', bg='yellow').place(x=index * 140, y=370)
+           command=lambda: clean_accounts_data(accounts_list)).place(x=700, y=430)
+    Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=700, y=500)
+    for labe in LABELS_TEXT:
+        Label(window, text=labe[0], font=FONT, fg='red', bg='yellow').place(x=labe[1], y=370)
     Label(window, text="My IP is: " + my_ip(), fg='blue',
-          bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
+          bg='white', borderwidth=5, relief=SUNKEN).place(x=700, y=30)
     username, admit_act = StringVar(), StringVar()
     Label(window, text='Options').place(x=100, y=80)
     Label(window, text='Admin updates:', font=FONT, fg='blue', bg='white').place(x=100, y=20)
