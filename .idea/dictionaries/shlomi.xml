@@ -3,6 +3,7 @@
     <words>
       <w>buffersize</w>
       <w>colorkey</w>
+      <w>labe</w>
       <w>newcolor</w>
       <w>pygame</w>
       <w>situ</w>
