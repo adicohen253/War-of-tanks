@@ -430,8 +430,9 @@ class Game:
         battlefield = pygame.image.load(FIELD)
         self._my_walls()
         self._send_to_server(b"game" + mode_code.encode())
-        main_player = int(self._receive_from_server(1))
-        main_player = main_player == 1
+
+        main_player = self._receive_from_server(5)
+        main_player = (main_player == "True")
         if main_player:
             self.__player = game_obj.Tank(20, 200, self.__demo_player)
             self.__enemy = game_obj.Tank(420, 50)

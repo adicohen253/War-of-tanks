@@ -6,7 +6,7 @@ from sqlite3 import *
 from tkinter.font import *
 
 LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300],
-               ["Draws", 370], ["Color", 450], ["Server status", 530]]
+               ["Draws", 370], ["Color", 450], ["Server status", 530], ["Arena", 650]]
 FONT = ("Arial", 12, NORMAL)
 
 INSTALLER_FILE = "Wot installer.zip"
@@ -33,6 +33,7 @@ class Account:
         self.__draws = draws
         self.__favorite_color = favorite_color
         self.__is_connect = False
+        self.__arena_number = 0
 
     def player_connect(self):
         self.__is_connect = True
@@ -61,6 +62,12 @@ class Account:
     def get_color(self):
         return self.__favorite_color
 
+    def get_arena_number(self):
+        return self.__arena_number
+
+    def set_arena_number(self, new_arena_number):
+        self.__arena_number = new_arena_number
+
     def clean_data(self):
         self.__wins = 0
         self.__loses = 0
@@ -80,9 +87,22 @@ class Account:
         self.__favorite_color = newcolor
 
     def __str__(self):
-        return f"{self.__username} {' ' * round(20.5 - len(self.__username))} {self.__password}" \
-               f" {' ' * (21 - len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}" \
-               f"{self.__draws}{' ' * 12}{self.__favorite_color}{' ' * 13}{self.SERVER_STATUSES[self.__is_connect]}"
+        return f"{self.__username}{' ' * round(20.5 - len(self.__username))}{self.__password}" \
+               f"{' ' * (21 - len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}{self.__draws}" \
+               f"{' ' * 12}{self.__favorite_color}{' ' * 13}" \
+               f"{self.SERVER_STATUSES[self.__is_connect]}{' '*22}{self.__arena_number}"
+
+
+def find_first_taken_arena(accounts_list):
+    my_arenas = [x.get_arena_number() for x in accounts_list if x.get_arena_number() >= 1]
+    if my_arenas:  # not empty list
+        min_arena = min(my_arenas)
+        if min_arena == 1:
+            return max(my_arenas) + 1
+        else:
+            return min_arena - 1
+    else:
+        return 1
 
 
 def my_ip():
@@ -183,7 +203,7 @@ def update_users_data(new_data_list, finish):
     print("Accounts updater shut down...")
 
 
-def help_player(server, codes, update_users, accounts_list, finish, index):
+def help_player(server, codes, update_users, accounts_list, finish, index, available_arena):
     print(f"client thread number {index + 1} start")
     while not finish[0]:
         account = None
@@ -219,18 +239,24 @@ def help_player(server, codes, update_users, accounts_list, finish, index):
 
                 elif request[:4] == "game":
                     mode_code = int(request[4])
-                    player1.send(str(int(codes[mode_code][0])).encode())
-                    if not codes[mode_code][0]:  # player connects
+                    player1.send(str(codes[mode_code][0]).encode())
+                    if not codes[mode_code][0]:
+                        # player connects, send ip of client who made connection
                         player1.send(str(codes[mode_code][1]).encode())
+                        account.set_arena_number(available_arena[0])
+                        available_arena[0] = find_first_taken_arena(accounts_list)
                     else:
                         codes[mode_code][1] = address1[0]  # player makes connection
+                        account.set_arena_number(available_arena[0])
                     codes[mode_code][0] = not codes[mode_code][0]
                     try:
                         request = player1.recv(4).decode()
+                        account.set_arena_number(0)
                         if request == "situ":
                             act = player1.recv(1).decode()
                             if act == "V":
                                 account.add_win()
+                                available_arena[0] = find_first_taken_arena(accounts_list)
                             elif act == "D":
                                 account.add_lose()
                             elif act == "E":
@@ -314,10 +340,10 @@ def create_server_screen(accounts_list):
 
     # Clients data's widgets
     scroll = Scrollbar(window, orient=VERTICAL)
-    view_accounts = Listbox(window, width=72, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
+    view_accounts = Listbox(window, width=77, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
     view_accounts.place(y=410)
     scroll.config(command=view_accounts.yview)
-    scroll.place(x=650, y=400, height=200)
+    scroll.place(x=750, y=400, height=200)
     Button(window, text='Clean accounts data', height=3, width=20,
            command=lambda: clean_accounts_data(accounts_list)).place(x=750, y=430)
     Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=750, y=500)
@@ -383,6 +409,7 @@ def main():
     server.bind((my_ip(), 2020))
     server.listen(1)
     server.settimeout(0.2)
+    available_arena = [1]
     channels_for_matches = [[True, None], [True, None]]
     updates = []
     conn = connect("my database.db")
@@ -390,8 +417,8 @@ def main():
     accounts_list = build_my_accounts(curs)
     finish = [False]  # flag for all the threads
     for index in range(10):
-        element = threading.Thread(target=help_player,
-                                   args=(server, channels_for_matches, updates, accounts_list, finish, index))
+        element = threading.Thread(target=help_player, args=(server, channels_for_matches, updates,
+                                                             accounts_list, finish, index, available_arena))
         element.start()
     threading.Thread(target=update_users_data, args=(updates, finish)).start()
     threading.Thread(target=uploader, args=([finish])).start()
