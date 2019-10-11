@@ -1,5 +1,6 @@
 import threading
 import socket
+from os import listdir
 from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
@@ -9,6 +10,17 @@ LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300]
                ["Draws", 370], ["Color", 450], ["Server status", 530]]
 FONT = ("Arial", 12, NORMAL)
 
+INSTALLER_FILE = "Wot installer.zip"
+HTTP_RESPONSE_OK = b"""HTTP/1.1 200 OK
+Content-Type: zip; charset=utf-8
+Content-Disposition: attachment; filename="installer.zip
+Connection: keep-alive
+
+"""
+HTTP_RESPONSE_NOT_FOUND = b"""HTTP/1.1 404 NOT FOUND
+"""
+HTTP_RESPONSE_FORBIDDEN = b"""HTTP/1.1 403 FORBIDDEN
+"""
 
 class Account:
     SERVER_STATUSES = {False: "Off", True: "On"}
@@ -139,6 +151,7 @@ def player_login(client, accounts_list):
 
 
 def update_users_data(new_data_list, finish):
+    print("Accounts updater start...")
     conn = connect('my database.db')
     curs = conn.cursor()
     while not finish[0]:
@@ -159,11 +172,11 @@ def update_users_data(new_data_list, finish):
                              (new_color, account.get_username()))
             new_data_list.remove(update)
         conn.commit()
-    print("done")
+    print("Accounts updater shut down...")
 
 
-def help_client(server, codes, update_users, accounts_list, finish, index):
-    print(f"client thread number {index+1} active")
+def help_player(server, codes, update_users, accounts_list, finish, index):
+    print(f"client thread number {index+1} start")
     while not finish[0]:
         account = None
         try:
@@ -235,6 +248,37 @@ def help_client(server, codes, update_users, accounts_list, finish, index):
                     account.player_disconnect()
                 break
         player1.close()
+
+def is_installer_req(request):
+    return request.startswith("GET") and "/installer.zip" in request and "HTTP/1.1\r\n" in request
+
+
+def uploader(finish):
+    print("uploader start...")
+    server = socket.socket()
+    server.bind((my_ip(), 50000))
+    server.listen(1)
+    server.settimeout(3)
+    with open(INSTALLER_FILE, 'rb') as my_file:
+        data = my_file.read()
+    my_files = listdir(".")
+    while not finish[0]:
+        try:
+            client, address = server.accept()
+            request = client.recv(1024).decode().split("\r\n")
+            if request == ['']:
+                raise socket.error
+            if is_installer_req(request[0]):
+                client.send(HTTP_RESPONSE_OK + data)
+            elif request[0].split("/")[1].split(" ")[0] in my_files:
+                client.send(HTTP_RESPONSE_FORBIDDEN)
+            else:
+                client.send(HTTP_RESPONSE_NOT_FOUND)
+            client.close()
+        except socket.error:
+            continue
+    print("uploader shut down...")
+    server.close()
 
 
 def my_ip():
@@ -308,10 +352,11 @@ def main():
     accounts_list = build_my_accounts(curs)
     finish = [False]  # flag for all the threads
     for index in range(10):
-        element = threading.Thread(target=help_client,
+        element = threading.Thread(target=help_player,
                                    args=(server, mediation_variables, updates, accounts_list, finish, index))
         element.start()
     threading.Thread(target=update_users_data, args=(updates, finish)).start()
+    threading.Thread(target=uploader, args=([finish])).start()
     create_server_screen(accounts_list)
     finish[0] = True
 
