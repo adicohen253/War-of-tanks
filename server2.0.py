@@ -4,7 +4,6 @@ from os import listdir
 from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
-from tkinter.ttk import Combobox
 
 LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300],
                ["Draws", 370], ["Color", 450], ["Server status", 530]]
@@ -13,7 +12,7 @@ FONT = ("Arial", 12, NORMAL)
 INSTALLER_FILE = "Wot installer.zip"
 HTTP_RESPONSE_OK = b"""HTTP/1.1 200 OK
 Content-Type: zip; charset=utf-8
-Content-Disposition: attachment; filename="installer.zip
+Content-Disposition: attachment; filename=installer.zip
 Connection: keep-alive
 
 """
@@ -21,6 +20,7 @@ HTTP_RESPONSE_NOT_FOUND = b"""HTTP/1.1 404 NOT FOUND
 """
 HTTP_RESPONSE_FORBIDDEN = b"""HTTP/1.1 403 FORBIDDEN
 """
+
 
 class Account:
     SERVER_STATUSES = {False: "Off", True: "On"}
@@ -81,20 +81,27 @@ class Account:
 
     def __str__(self):
         return f"{self.__username} {' ' * round(20.5 - len(self.__username))} {self.__password}" \
-               f" {' ' * (21-len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}{self.__draws} " \
-               f"{' ' * 12}{self.__favorite_color}{' '*13}{self.SERVER_STATUSES[self.__is_connect]}"
+               f" {' ' * (21 - len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}" \
+               f"{self.__draws}{' ' * 12}{self.__favorite_color}{' ' * 13}{self.SERVER_STATUSES[self.__is_connect]}"
 
 
-def clean_accounts_data(accounts_list):
-    conn = connect('my database.db')
-    curs = conn.cursor()
-    curs.execute("UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000'")
-    conn.commit()
-    for acc in accounts_list:
-        acc.clean_data()
+def my_ip():
+    """return my current ip in string"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('192.0.0.8', 1027))
+    except socket.error:
+        return None
+    return s.getsockname()[0]
 
 
-def register_new_player(new_account_data, accounts_list):
+def send_color(client, username, accounts_list):
+    for account in accounts_list:
+        if account.get_username() == username:
+            client.send(account.get_color().encode())
+
+
+def register_new_player(new_account_data, accounts_list, is_online=True):
     """add the new account the the list
     argument:
         username = type: string
@@ -108,7 +115,8 @@ def register_new_player(new_account_data, accounts_list):
     conn.close()
     new_account = Account(username=new_account_data[0], password=new_account_data[1],
                           wins=0, loses=0, draws=0, favorite_color="ff0000")
-    new_account.player_connect()
+    if is_online:
+        new_account.player_connect()
     accounts_list.append(new_account)
     return new_account
 
@@ -119,7 +127,7 @@ def is_can_register(client, accounts_list):
         client: type - socket
         players_data: type - pandas.DataFrame, holds the data of the users
     """
-    new_player_data = client.recv(41).decode().split(",")
+    new_player_data = client.recv(31).decode().split(",")
     exist = False
     for acc in accounts_list:
         if acc.get_username() == new_player_data[0]:
@@ -134,7 +142,7 @@ def is_can_register(client, accounts_list):
 
 
 def player_login(client, accounts_list):
-    account_to_check = client.recv(41).decode().split(",")
+    account_to_check = client.recv(31).decode().split(",")
     exist = False
     for account in accounts_list:
         if account.get_username() == account_to_check[0] and account.get_password() == account_to_check[1]:
@@ -176,7 +184,7 @@ def update_users_data(new_data_list, finish):
 
 
 def help_player(server, codes, update_users, accounts_list, finish, index):
-    print(f"client thread number {index+1} start")
+    print(f"client thread number {index + 1} start")
     while not finish[0]:
         account = None
         try:
@@ -249,8 +257,9 @@ def help_player(server, codes, update_users, accounts_list, finish, index):
                 break
         player1.close()
 
+
 def is_installer_req(request):
-    return request.startswith("GET") and "/installer.zip" in request and "HTTP/1.1\r\n" in request
+    return request.startswith("GET") and "/installer.zip" in request and "HTTP/1.1" in request
 
 
 def uploader(finish):
@@ -265,6 +274,7 @@ def uploader(finish):
     while not finish[0]:
         try:
             client, address = server.accept()
+            client.settimeout(3)
             request = client.recv(1024).decode().split("\r\n")
             if request == ['']:
                 raise socket.error
@@ -276,52 +286,80 @@ def uploader(finish):
                 client.send(HTTP_RESPONSE_NOT_FOUND)
             client.close()
         except socket.error:
-            continue
+            pass
     print("uploader shut down...")
     server.close()
 
 
-def my_ip():
-    """return my current ip in string"""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('192.0.0.8', 1027))
-    except socket.error:
-        return None
-    return s.getsockname()[0]
-
-
-def send_color(client, username, accounts_list):
-    for account in accounts_list:
-        if account.get_username() == username:
-            client.send(account.get_color().encode())
-
-
 def create_server_screen(accounts_list):
     window = Tk()
-    window.geometry('900x600')
+    window.geometry('950x600')
     window.title("My server")
     window.resizable(OFF, OFF)
+    Label(window, text="My IP is: " + my_ip(), fg='blue',
+          bg='white', borderwidth=5, relief=SUNKEN).place(x=800, y=30)
+
+    # Admin options's widgets
+    lf = LabelFrame(window, font=FONT, text="Admin interface:")
+    lf.place(x=0, y=10, width=600, height=200)
+    user, password = StringVar(), StringVar()
+    Label(lf, text="Username:", font=FONT).place(x=20, y=10)
+    username_e = Entry(lf, textvariable=user)
+    username_e.place(x=110, y=15)
+    Label(lf, text="Password:", font=FONT).place(x=20, y=50)
+    password_e = Entry(lf, textvariable=password)
+    password_e.place(x=110, y=55)
+    Button(lf, text='Register', borderwidth=3, width=10,
+           command=lambda: admin_register(accounts_list, user, password, view_accounts)).place(x=20, y=90)
+
+    # Clients data's widgets
     scroll = Scrollbar(window, orient=VERTICAL)
     view_accounts = Listbox(window, width=72, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
     view_accounts.place(y=410)
     scroll.config(command=view_accounts.yview)
     scroll.place(x=650, y=400, height=200)
     Button(window, text='Clean accounts data', height=3, width=20,
-           command=lambda: clean_accounts_data(accounts_list)).place(x=700, y=430)
-    Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=700, y=500)
+           command=lambda: clean_accounts_data(accounts_list)).place(x=750, y=430)
+    Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=750, y=500)
     for labe in LABELS_TEXT:
         Label(window, text=labe[0], font=FONT, fg='red', bg='yellow').place(x=labe[1], y=370)
-    Label(window, text="My IP is: " + my_ip(), fg='blue',
-          bg='white', borderwidth=5, relief=SUNKEN).place(x=700, y=30)
-    username, admit_act = StringVar(), StringVar()
-    Label(window, text='Options').place(x=100, y=80)
-    Label(window, text='Admin updates:', font=FONT, fg='blue', bg='white').place(x=100, y=20)
-    Combobox(window, values=("Wins", "Loses", "Draws"), textvariable=admit_act).place(x=200, y=80)
-    Entry(window, textvariable=username).place(x=220, y=20)
+
     window.bind("<FocusIn>", lambda event: show_account_data(view_accounts, accounts_list))
     window.bind("<Enter>", lambda event: show_account_data(view_accounts, accounts_list))
     window.mainloop()
+
+
+def clean_accounts_data(accounts_list):
+    conn = connect('my database.db')
+    curs = conn.cursor()
+    curs.execute("UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000'")
+    conn.commit()
+    for acc in accounts_list:
+        acc.clean_data()
+
+
+def is_valid_username(username, password):
+    return ((0x61 <= ord(username[0]) <= 0x7a) or (0x41 <= ord(username[0]) <= 0x5a)) \
+           and len(username) <= 15 \
+           and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a)  # a-z or A-Z or digit
+                     or letter.isdigit()) for letter in username[1:]]) \
+           and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a)  # a-z or A-Z or digit
+                     or letter.isdigit()) for letter in password])
+
+
+def admin_register(accounts_list, new_username, new_password, window):
+    if is_valid_username(new_username.get(), new_password.get()):
+        is_exist = False
+        for acc in accounts_list:
+            if acc.get_username() == new_username.get():
+                is_exist = True
+                break
+        if not is_exist:
+            register_new_player([new_username.get(), new_password.get()], accounts_list, is_online=False)
+            window.focus_set()
+            window.master.focus_set()
+            new_password.set("")
+            new_username.set("")
 
 
 def show_account_data(account_box, account_list):
@@ -345,7 +383,7 @@ def main():
     server.bind((my_ip(), 2020))
     server.listen(1)
     server.settimeout(0.2)
-    mediation_variables = [[True, None], [True, None]]
+    channels_for_matches = [[True, None], [True, None]]
     updates = []
     conn = connect("my database.db")
     curs = conn.cursor()
@@ -353,7 +391,7 @@ def main():
     finish = [False]  # flag for all the threads
     for index in range(10):
         element = threading.Thread(target=help_player,
-                                   args=(server, mediation_variables, updates, accounts_list, finish, index))
+                                   args=(server, channels_for_matches, updates, accounts_list, finish, index))
         element.start()
     threading.Thread(target=update_users_data, args=(updates, finish)).start()
     threading.Thread(target=uploader, args=([finish])).start()

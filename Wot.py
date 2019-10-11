@@ -66,7 +66,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.41"
+IP = "192.168.1.20"
 PORT_S = 2020
 PORT_G = 5120
 
@@ -200,7 +200,7 @@ class Game:
             while True:
                 events = pygame.event.get()
                 self.__account[i], end_collecting = \
-                    self._get_input_from_user(self.__account[i], events, 20,
+                    self._get_input_from_user(self.__account[i], events, 15,
                                               legal_chars_for_username, lambda x: False)  # change length to 10
                 if end_collecting is None:
                     self.__account = ["", ""]
@@ -303,7 +303,7 @@ class Game:
                         self._send_to_server(str("".join(my_new_color)).encode())
                         return
 
-    def _get_input_from_user(self, previous_data, events, limit_data, filter1, filter2):
+    def _get_input_from_user(self, previous_data, events, limit_data_len, filter1, filter2):
         """add the input from the player to the current data status - (account color etc),
         plus change the size of the screen.
         argument:
@@ -316,7 +316,8 @@ class Game:
         """
         for event in events:
             if event.type == pygame.QUIT:
-                if limit_data == 3:
+                if limit_data_len == 3:
+                    # in color choose screen, there is already account to disconnect from
                     self._send_to_server(b"exit ")
                 else:
                     self._send_to_server(b"Exit ")
@@ -327,7 +328,7 @@ class Game:
                     if event.key == pygame.K_ESCAPE:
                         return previous_data, None
                     if filter1(event.unicode):
-                        if len(previous_data) < limit_data:
+                        if len(previous_data) < limit_data_len:
                             previous_data += event.unicode
                         if filter2(previous_data):
                             previous_data = previous_data[:-1]
