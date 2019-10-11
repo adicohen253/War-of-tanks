@@ -1,7 +1,7 @@
 import socket
 
 
-FILE = "installer.zip"
+FILE = "Wot installer.zip"
 HTTP_RESPONSE = b"""HTTP/1.1 200 OK
 Content-Type: zip; charset=utf-8
 Content-Disposition: attachment; filename="installer.zip
