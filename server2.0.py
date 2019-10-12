@@ -90,7 +90,7 @@ class Account:
         return f"{self.__username}{' ' * round(20.5 - len(self.__username))}{self.__password}" \
                f"{' ' * (21 - len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}{self.__draws}" \
                f"{' ' * 12}{self.__favorite_color}{' ' * 13}" \
-               f"{self.SERVER_STATUSES[self.__is_connect]}{' '*22}{self.__arena_number}"
+               f"{self.SERVER_STATUSES[self.__is_connect]}{' ' * 22}{self.__arena_number}"
 
 
 def find_first_taken_arena(accounts_list):
@@ -178,17 +178,17 @@ def player_login(client, accounts_list):
         client.send(b"F")  # desired account does not exist
 
 
-def update_users_data(new_data_list, finish):
+def update_users_data(new_updates_list, finish):
     print("Accounts updater start...")
     conn = connect('my database.db')
     curs = conn.cursor()
     while not finish[0]:
-        for update in new_data_list:
+        for update in new_updates_list:
             account, act = update[0], update[1]
-            if act == "V":
+            if act == "W":
                 curs.execute("UPDATE Accounts SET Wins = (?) WHERE Username = (?)",
                              (account.get_win(), account.get_username()))
-            elif act == "D":
+            elif act == "L":
                 curs.execute("UPDATE Accounts SET Loses = (?) WHERE Username = (?)",
                              (account.get_loses(), account.get_username()))
             elif act == "E":
@@ -198,7 +198,9 @@ def update_users_data(new_data_list, finish):
                 new_color = update[2]
                 curs.execute("UPDATE Accounts SET Color = (?) WHERE Username = (?)",
                              (new_color, account.get_username()))
-            new_data_list.remove(update)
+            elif act == "D":
+                curs.execute("DELETE FROM Accounts WHERE Username = (?)", (account, ))
+            new_updates_list.remove(update)
         conn.commit()
     print("Accounts updater shut down...")
 
@@ -224,21 +226,32 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                     player1.close()
                     break
 
+                #  only cases when account doesn't known yet, don't need to check if exist
                 elif request == "info ":
                     account = is_can_register(player1, accounts_list)
                 elif request == "login":
                     account = player_login(player1, accounts_list)
 
                 elif request == "color":
+                    if account not in accounts_list:
+                        player1.send(b"@")
+                        break
                     player1.send(account.get_color().encode())
 
                 elif request == "Color":  # change the player's color in the data base - need to turn to function...
                     new_color = player1.recv(6).decode()
+                    if account not in accounts_list:
+                        player1.send(b"@")
+                        break
                     account.change_color(new_color)
                     update_users.append([account, "C", new_color])
+                    player1.send(b"!")
 
                 elif request[:4] == "game":
                     mode_code = int(request[4])
+                    if account not in accounts_list:
+                        player1.send(b"@")
+                        break
                     player1.send(str(codes[mode_code][0]).encode())
                     if not codes[mode_code][0]:
                         # player connects, send ip of client who made connection
@@ -251,31 +264,36 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                     codes[mode_code][0] = not codes[mode_code][0]
                     try:
                         request = player1.recv(4).decode()
+                        if account not in accounts_list:
+                            player1.send(b"@")
+                            break
                         account.set_arena_number(0)
                         if request == "situ":
                             act = player1.recv(1).decode()
-                            if act == "V":
+                            if act == "W":
                                 account.add_win()
                                 available_arena[0] = find_first_taken_arena(accounts_list)
-                            elif act == "D":
+                            elif act == "L":
                                 account.add_lose()
                             elif act == "E":
                                 account.add_draws()
                             update_users.append([account, act])
+                            player1.send(b"!")
                         elif request == "Situ":  # client exit the game
                             player1.close()
-                            update_users.append([account, "D"])
+                            update_users.append([account, "L"])
                             account.add_lose()
                             account.player_disconnect()
                             break
 
                     except socket.error:
                         print(account.get_username() + " illegal exit from battle count as losing")
-                        update_users.append([account, "D"])
+                        update_users.append([account, "L"])
                         player1.close()
                         account.add_lose()
                         account.player_disconnect()
                         break
+
             except socket.error:
                 player1.close()
                 if account is not None:
@@ -317,7 +335,7 @@ def uploader(finish):
     server.close()
 
 
-def create_server_screen(accounts_list):
+def create_server_screen(accounts_list, account_updates_to_table):
     window = Tk()
     window.geometry('950x600')
     window.title("My server")
@@ -335,15 +353,17 @@ def create_server_screen(accounts_list):
     Label(lf, text="Password:", font=FONT).place(x=20, y=50)
     password_e = Entry(lf, textvariable=password)
     password_e.place(x=110, y=55)
-    Button(lf, text='Register', borderwidth=3, width=10,
-           command=lambda: admin_register(accounts_list, user, password, view_accounts)).place(x=20, y=90)
+    Button(lf, command=lambda: admin_register(accounts_list, user, password, view_accounts),
+           text='Register', borderwidth=3, width=10).place(x=20, y=90)
+    Button(lf, command=lambda: admin_delete(accounts_list, account_updates_to_table, user, password, view_accounts),
+           text='Delete', borderwidth=3, width=10).place(x=100, y=90)
 
     # Clients data's widgets
     scroll = Scrollbar(window, orient=VERTICAL)
     view_accounts = Listbox(window, width=77, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
     view_accounts.place(y=410)
     scroll.config(command=view_accounts.yview)
-    scroll.place(x=750, y=400, height=200)
+    scroll.place(x=700, y=400, height=200)
     Button(window, text='Clean accounts data', height=3, width=20,
            command=lambda: clean_accounts_data(accounts_list)).place(x=750, y=430)
     Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=750, y=500)
@@ -364,7 +384,7 @@ def clean_accounts_data(accounts_list):
         acc.clean_data()
 
 
-def is_valid_username(username, password):
+def is_valid_admin_buffers(username, password):
     return ((0x61 <= ord(username[0]) <= 0x7a) or (0x41 <= ord(username[0]) <= 0x5a)) \
            and len(username) <= 15 \
            and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a)  # a-z or A-Z or digit
@@ -374,10 +394,10 @@ def is_valid_username(username, password):
 
 
 def admin_register(accounts_list, new_username, new_password, window):
-    if is_valid_username(new_username.get(), new_password.get()):
+    if is_valid_admin_buffers(new_username.get(), new_password.get()):
         is_exist = False
         for acc in accounts_list:
-            if acc.get_username() == new_username.get():
+            if acc.get_username() == new_username.get() and acc.get_password() == new_password.get():
                 is_exist = True
                 break
         if not is_exist:
@@ -386,6 +406,22 @@ def admin_register(accounts_list, new_username, new_password, window):
             window.master.focus_set()
             new_password.set("")
             new_username.set("")
+
+
+def admin_delete(accounts_list, account_updates_to_table, username_to_delete, password_to_delete, window):
+    if is_valid_admin_buffers(username_to_delete.get(), password_to_delete.get()):
+        for acc in accounts_list:
+            if acc.get_username() == username_to_delete.get() and acc.get_password() == password_to_delete.get():
+                accounts_list.remove(acc)
+                del acc
+                account_updates_to_table.append([username_to_delete.get(), "D"])
+                window.focus_set()
+                window.master.focus_set()
+                username_to_delete.set("")
+                password_to_delete.set("")
+                break
+    else:
+        pass
 
 
 def show_account_data(account_box, account_list):
@@ -409,20 +445,22 @@ def main():
     server.bind((my_ip(), 2020))
     server.listen(1)
     server.settimeout(0.2)
-    available_arena = [1]
-    channels_for_matches = [[True, None], [True, None]]
-    updates = []
     conn = connect("my database.db")
     curs = conn.cursor()
     accounts_list = build_my_accounts(curs)
+
+    available_arena = [1]
+    channels_for_matches = [[True, None], [True, None]]
+    account_updates_to_table = []
+
     finish = [False]  # flag for all the threads
     for index in range(10):
-        element = threading.Thread(target=help_player, args=(server, channels_for_matches, updates,
+        element = threading.Thread(target=help_player, args=(server, channels_for_matches, account_updates_to_table,
                                                              accounts_list, finish, index, available_arena))
         element.start()
-    threading.Thread(target=update_users_data, args=(updates, finish)).start()
+    threading.Thread(target=update_users_data, args=(account_updates_to_table, finish)).start()
     threading.Thread(target=uploader, args=([finish])).start()
-    create_server_screen(accounts_list)
+    create_server_screen(accounts_list, account_updates_to_table)
     finish[0] = True
 
 

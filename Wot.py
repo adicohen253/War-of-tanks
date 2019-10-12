@@ -25,7 +25,7 @@ POINT_POS = ([180, 165], [180, 360])
 COLOR_PACKET_LEN = 11
 ASKED_IP_LEN_PACKET = 15
 TICK = 60
-SECS_TO_PLAY = 10  # 2:30 minutes
+SECS_TO_PLAY = 150  # 2:30 minutes
 MAPS = "maps.txt"
 BATTLE_TO_DEATH = "0"
 BATTLE_ON_TIME = "1"
@@ -127,8 +127,13 @@ class Game:
             message = self.__client.recv(buffersize).decode()
             if message == "":
                 raise socket.error
+            if "@" in message:
+                self.__client.close()
+                print("Your user has been deleted")
+                sys.exit()
             return message
         except socket.error:
+            self.__client.close()
             print("server shut down")
             sys.exit()
 
@@ -301,6 +306,7 @@ class Game:
                         self._send_to_server(b"Color")
                         my_new_color = "%02x%02x%02x" % tuple(self.__demo_player.get_color())
                         self._send_to_server(str("".join(my_new_color)).encode())
+                        self._receive_from_server(1)
                         return
 
     def _get_input_from_user(self, previous_data, events, limit_data_len, filter1, filter2):
@@ -496,7 +502,8 @@ class Game:
                     if event.key == pygame.K_ESCAPE:
                         flags[0] = True
                         pygame.mixer.music.load(DEFEAT)
-                        self._send_to_server(b"situD")
+                        self._send_to_server(b"situL")
+                        self._receive_from_server(1)
 
                     self.__player.update_direct(self.__walls, event)
                     if self.__player.shoot_bullet(event, self.__bullets):
@@ -508,7 +515,8 @@ class Game:
                 break
 
             if flags[1]:
-                self._send_to_server(b"situV")
+                self._send_to_server(b"situW")
+                self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
                 break
 
@@ -546,12 +554,14 @@ class Game:
 
             if self.__player.get_health() <= 0:
                 flags[0] = None
-                self._send_to_server(b"situD")
+                self._send_to_server(b"situL")
+                self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
                 break
             elif self.__enemy.get_health() <= 0:
                 flags[0] = None
-                self._send_to_server(b"situV")
+                self._send_to_server(b"situW")
+                self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
                 break
 
@@ -708,17 +718,20 @@ class Game:
         time_to_play = SECS_TO_PLAY - (time.time() - start_time)
         if time_to_play <= 0:
             if self.__player.get_health() > self.__enemy.get_health():
-                self._send_to_server(b"situV")
+                self._send_to_server(b"situW")
+                self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
                 flags[0] = True
                 return True
             elif self.__player.get_health() < self.__enemy.get_health():
-                self._send_to_server(b"situD")
+                self._send_to_server(b"situL")
+                self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
                 flags[1] = True
                 return True
             else:
                 self._send_to_server(b"situE")
+                self._receive_from_server(1)
                 pygame.mixer.music.load(DRAW)
                 flags[0] = None
                 return True
