@@ -452,9 +452,8 @@ def main():
     available_arena = [1]
     channels_for_matches = [[True, None], [True, None]]
     account_updates_to_table = []
-
     finish = [False]  # flag for all the threads
-    for index in range(15):
+    for index in range(10):
         element = threading.Thread(target=help_player, args=(server, channels_for_matches, account_updates_to_table,
                                                              accounts_list, finish, index, available_arena))
         element.start()
