@@ -1,12 +1,14 @@
 import threading
 import socket
+import time
 from os import listdir
 from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
+from tkinter.ttk import Combobox
 
 LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300],
-               ["Draws", 370], ["Color", 450], ["Server status", 530], ["Arena", 650]]
+               ["Draws", 370], ["Color", 450], ["Server status", 530], ["Ban until", 680], ["Arena", 820]]
 FONT = ("Arial", 12, NORMAL)
 
 INSTALLER_FILE = "Wot installer.zip"
@@ -20,29 +22,37 @@ HTTP_RESPONSE_NOT_FOUND = b"""HTTP/1.1 404 NOT FOUND
 """
 HTTP_RESPONSE_FORBIDDEN = b"""HTTP/1.1 403 FORBIDDEN
 """
+MAX_NUM_DAY_IN_MONTHS = {"01": 31, "02": 28, "03": 31, "04": 30, "05": 31, "06": 30,
+                         "07": 31, "08": 31, "09": 30, "10": 31, "11": 30, "12": 31}
 
 
 class Account:
-    SERVER_STATUSES = {False: "Off", True: "On"}
-
-    def __init__(self, username, password, wins=0, loses=0, draws=0, favorite_color="ff0000"):
+    def __init__(self, username, password, wins=0, loses=0, draws=0, favorite_color="ff0000", client_status="Off",
+                 ban_til="00/00/0000 00:00"):
         self.__username = username
         self.__password = password
         self.__wins = wins
         self.__loses = loses
         self.__draws = draws
         self.__favorite_color = favorite_color
-        self.__is_connect = False
+        self.__client_status = client_status
         self.__arena_number = 0
+        self.__ban_until = string_to_time_struct(ban_til)
+
+    def time_struct_to_string(self):
+        date = "/".join([f"0{element}" if element < 10 else str(element) for element in self.__ban_until[2:0:-1]])
+        year = f"/{'0' * 4 if self.__ban_until[0] == 0 else self.__ban_until[0]}"
+        hour = str(self.__ban_until[3]) + ":00"
+        return f"{date+year} {hour}"
 
     def player_connect(self):
-        self.__is_connect = True
+        self.__client_status = "On"
 
     def player_disconnect(self):
-        self.__is_connect = False
+        self.__client_status = "Off"
 
-    def get_is_connect(self):
-        return self.__is_connect
+    def get_client_status(self):
+        return self.__client_status
 
     def get_username(self):
         return self.__username
@@ -65,6 +75,9 @@ class Account:
     def get_arena_number(self):
         return self.__arena_number
 
+    def get_ban_until(self):
+        return self.__ban_until
+
     def set_arena_number(self, new_arena_number):
         self.__arena_number = new_arena_number
 
@@ -73,6 +86,13 @@ class Account:
         self.__loses = 0
         self.__draws = 0
         self.__favorite_color = "ff0000"
+        self.__ban_until = string_to_time_struct("00/00/0000 00:00")
+
+    def set_ban_until(self, new_date):
+        self.__ban_until = string_to_time_struct(new_date)
+
+    def erase_ban_until(self):
+        self.__ban_until = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
 
     def add_win(self):
         self.__wins += 1
@@ -89,8 +109,15 @@ class Account:
     def __str__(self):
         return f"{self.__username}{' ' * round(20.5 - len(self.__username))}{self.__password}" \
                f"{' ' * (21 - len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}{self.__draws}" \
-               f"{' ' * 12}{self.__favorite_color}{' ' * 13}" \
-               f"{self.SERVER_STATUSES[self.__is_connect]}{' ' * 22}{self.__arena_number}"
+               f"{' ' * 12}{self.__favorite_color}{' ' * 13}{self.__client_status}{' ' * 24}" \
+               f"{self.time_struct_to_string()}{' '* (30-(len(self.time_struct_to_string())))}{self.__arena_number}"
+
+
+def string_to_time_struct(ban_string):
+    date, hour = ban_string.split(" ")
+    day, month, year = [int(element) for element in date.split("/")]
+    hour = hour[:2]
+    return time.struct_time((year, month, day, hour, 0, 0, 0, 0, 0))
 
 
 def find_first_taken_arena(accounts_list):
@@ -129,8 +156,8 @@ def register_new_player(new_account_data, accounts_list, is_online=True):
     """
     conn = connect("my database.db")
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?)",
-                   (new_account_data[0], new_account_data[1], 0, 0, 0, "ff0000"))
+    cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?, ?)",
+                   (new_account_data[0], new_account_data[1], 0, 0, 0, "ff0000", "00/00/0000 00:00"))
     conn.commit()
     conn.close()
     new_account = Account(username=new_account_data[0], password=new_account_data[1],
@@ -168,7 +195,7 @@ def player_login(client, accounts_list):
         if account.get_username() == account_to_check[0] and account.get_password() == account_to_check[1]:
             # found match
             exist = True
-            if account.get_is_connect():  # another player connect to this account
+            if account.get_client_status() == "On":  # another player connect to this account
                 client.send(b"N")
             else:
                 client.send(b"T")  # can use this account
@@ -198,14 +225,16 @@ def update_users_data(new_updates_list, finish):
                 new_color = update[2]
                 curs.execute("UPDATE Accounts SET Color = (?) WHERE Username = (?)",
                              (new_color, account.get_username()))
-            elif act == "D":
-                curs.execute("DELETE FROM Accounts WHERE Username = (?)", (account, ))
             new_updates_list.remove(update)
         conn.commit()
     print("Accounts updater shut down...")
 
 
 def help_player(server, codes, update_users, accounts_list, finish, index, available_arena):
+    """all the account need to be in accounts_list, if the one that needed isn't there admin erased it:
+        the char '@" sign to client that his user has been deleted while he was connected
+        the chr '!' sign to client that the update succeeded
+        """
     print(f"client thread number {index + 1} start")
     while not finish[0]:
         account = None
@@ -226,7 +255,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                     player1.close()
                     break
 
-                #  only cases when account doesn't known yet, don't need to check if exist
+                #  only cases when account doesn't known yet
                 elif request == "info ":
                     account = is_can_register(player1, accounts_list)
                 elif request == "login":
@@ -238,7 +267,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                         break
                     player1.send(account.get_color().encode())
 
-                elif request == "Color":  # change the player's color in the data base - need to turn to function...
+                elif request == "Color":
                     new_color = player1.recv(6).decode()
                     if account not in accounts_list:
                         player1.send(b"@")
@@ -335,7 +364,7 @@ def uploader(finish):
     server.close()
 
 
-def create_server_screen(accounts_list, account_updates_to_table):
+def create_server_screen(accounts_list):
     window = Tk()
     window.geometry('950x600')
     window.title("My server")
@@ -346,27 +375,45 @@ def create_server_screen(accounts_list, account_updates_to_table):
     # Admin options's widgets
     lf = LabelFrame(window, font=FONT, text="Admin interface:")
     lf.place(x=0, y=10, width=600, height=200)
+
     user, password = StringVar(), StringVar()
+    day, month = StringVar(value="day"), StringVar(value="month")
+    year, hour = StringVar(value="year"), StringVar(value="hour")
     Label(lf, text="Username:", font=FONT).place(x=20, y=10)
-    username_e = Entry(lf, textvariable=user)
-    username_e.place(x=110, y=15)
+    Entry(lf, textvariable=user).place(x=110, y=15)
+
     Label(lf, text="Password:", font=FONT).place(x=20, y=50)
-    password_e = Entry(lf, textvariable=password)
-    password_e.place(x=110, y=55)
+    Entry(lf, textvariable=password).place(x=110, y=55)
+
+    Label(lf, text="Date:", font=FONT).place(x=280, y=10)
+    Label(lf, text='Hour:', font=FONT).place(x=280, y=45)
+    Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=day,
+             values=[f"0{x}" if x < 10 else x for x in range(1, 32)]).place(x=330, y=10)
+    Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=month,
+             values=[f"0{x}" if x < 10 else x for x in range(1, 13)]).place(x=400, y=10)
+    Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=year,
+             values=[x for x in range(2019, 3000)]).place(x=470, y=10)
+    Combobox(lf, state='readonly', width=6, textvariable=hour,
+             values=[f"0{x}:00" if x < 10 else f"{x}:00" for x in range(0, 24)]).place(x=330, y=45)
+
     Button(lf, command=lambda: admin_register(accounts_list, user, password, view_accounts),
-           text='Register', borderwidth=3, width=10).place(x=20, y=90)
-    Button(lf, command=lambda: admin_delete(accounts_list, account_updates_to_table, user, password, view_accounts),
-           text='Delete', borderwidth=3, width=10).place(x=100, y=90)
+           text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
+    Button(lf, command=lambda: admin_ban(accounts_list, user, password, [day, month, year, hour], view_accounts),
+           text='Ban', borderwidth=3, width=10, bg='yellow').place(x=110, y=140)
+    Button(lf, command=lambda: admin_delete(accounts_list, user, password, view_accounts),
+           text='Delete', borderwidth=3, width=10, bg='red').place(x=290, y=140)
+    Button(lf, command=lambda: admin_free_ban(accounts_list, user, password, view_accounts),
+           text="Free", borderwidth=3, width=10, bg='azure').place(x=200, y=140)
 
     # Clients data's widgets
     scroll = Scrollbar(window, orient=VERTICAL)
-    view_accounts = Listbox(window, width=77, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
+    view_accounts = Listbox(window, width=100, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
     view_accounts.place(y=410)
     scroll.config(command=view_accounts.yview)
-    scroll.place(x=700, y=400, height=200)
+    scroll.place(x=905, y=400, height=200)
     Button(window, text='Clean accounts data', height=3, width=20,
-           command=lambda: clean_accounts_data(accounts_list)).place(x=750, y=430)
-    Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=750, y=500)
+           command=lambda: clean_accounts_data(accounts_list, view_accounts)).place(x=750, y=180)
+    Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=750, y=250)
     for labe in LABELS_TEXT:
         Label(window, text=labe[0], font=FONT, fg='red', bg='yellow').place(x=labe[1], y=370)
 
@@ -375,53 +422,99 @@ def create_server_screen(accounts_list, account_updates_to_table):
     window.mainloop()
 
 
-def clean_accounts_data(accounts_list):
+def clean_accounts_data(accounts_list, window):
     conn = connect('my database.db')
     curs = conn.cursor()
-    curs.execute("UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000'")
+    curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000', Ban = (?)",
+                 ("00/00/0000 00:00", ))
     conn.commit()
     for acc in accounts_list:
         acc.clean_data()
+    window.focus_set()
+    window.master.focus_set()
 
 
 def is_valid_admin_buffers(username, password):
-    return ((0x61 <= ord(username[0]) <= 0x7a) or (0x41 <= ord(username[0]) <= 0x5a)) \
-           and len(username) <= 15 \
-           and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a)  # a-z or A-Z or digit
-                     or letter.isdigit()) for letter in username[1:]]) \
+    return (0 < len(username) <= 15) and (0 < len(password) <= 15) \
+           and ((0x61 <= ord(username[0]) <= 0x7a) or (0x41 <= ord(username[0]) <= 0x5a))\
+           and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a) or letter.isdigit())
+                    for letter in username[1:]]) \
            and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a)  # a-z or A-Z or digit
                      or letter.isdigit()) for letter in password])
 
 
+def is_valid_ban_date(date_values_list):
+    return all(True if element.get().isdigit() else False for element in date_values_list[:2]) \
+           and date_values_list[3].get()[2] == ":" and\
+           MAX_NUM_DAY_IN_MONTHS[date_values_list[1].get()] >= int(date_values_list[0].get())
+
+
 def admin_register(accounts_list, new_username, new_password, window):
     if is_valid_admin_buffers(new_username.get(), new_password.get()):
-        is_exist = False
-        for acc in accounts_list:
-            if acc.get_username() == new_username.get() and acc.get_password() == new_password.get():
-                is_exist = True
-                break
-        if not is_exist:
+        if new_username.get() not in [element.get_username() for element in accounts_list]:
             register_new_player([new_username.get(), new_password.get()], accounts_list, is_online=False)
             window.focus_set()
             window.master.focus_set()
-            new_password.set("")
-            new_username.set("")
+    new_password.set("")
+    new_username.set("")
 
 
-def admin_delete(accounts_list, account_updates_to_table, username_to_delete, password_to_delete, window):
-    if is_valid_admin_buffers(username_to_delete.get(), password_to_delete.get()):
+def admin_delete(accounts_list, username_to_delete, user_password, window):
+    if is_valid_admin_buffers(username_to_delete.get(), user_password.get()):
         for acc in accounts_list:
-            if acc.get_username() == username_to_delete.get() and acc.get_password() == password_to_delete.get():
+            if acc.get_username() == username_to_delete.get() and acc.get_password() == user_password.get():
                 accounts_list.remove(acc)
-                del acc
-                account_updates_to_table.append([username_to_delete.get(), "D"])
+                delete_from_account_table(username_to_delete.get())
                 window.focus_set()
                 window.master.focus_set()
-                username_to_delete.set("")
-                password_to_delete.set("")
                 break
-    else:
-        pass
+    username_to_delete.set("")
+    user_password.set("")
+
+
+def delete_from_account_table(username):
+    conn = connect("my database.db")
+    curs = conn.cursor()
+    curs.execute("DELETE FROM Accounts WHERE Username = ?", (username, ))
+    conn.commit()
+
+
+def admin_ban(accounts_list, username_to_ban, user_password, ban_until, window):
+    if is_valid_admin_buffers(username_to_ban.get(), user_password.get()) and is_valid_ban_date(ban_until):
+        for account in accounts_list:
+            if account.get_username() == username_to_ban.get() and account.get_password() == user_password.get():
+                ban_player_until = "/".join(element.get() for element in ban_until[0:3]) + " " + ban_until[3].get()
+                set_ban_in_table(username_to_ban.get(), ban_player_until)
+                account.set_ban_until(ban_player_until)
+                break
+    window.focus_set()
+    window.master.focus_set()
+    username_to_ban.set("")
+    user_password.set("")
+    ban_until[0].set("day")
+    ban_until[1].set("month")
+    ban_until[2].set("year")
+    ban_until[3].set("hour")
+
+
+def admin_free_ban(accounts_list, username_to_free, user_password, window):
+    if is_valid_admin_buffers(username_to_free.get(), user_password.get()):
+        for acc in accounts_list:
+            if acc.get_username() == username_to_free.get() and acc.get_password() == user_password.get():
+                acc.set_ban_until("00/00/0000 00:00")
+                set_ban_in_table(username_to_free.get(), "00/00/0000 00:00")
+                window.focus_set()
+                window.master.focus_set()
+                break
+    username_to_free.set("")
+    user_password.set("")
+
+
+def set_ban_in_table(username, ban_player_until):
+    conn = connect("my database.db")
+    curs = conn.cursor()
+    curs.execute("UPDATE Accounts SET Ban = (?) WHERE Username = (?)", (ban_player_until, username))
+    conn.commit()
 
 
 def show_account_data(account_box, account_list):
@@ -436,7 +529,7 @@ def build_my_accounts(db_cursor):
     accounts_list = []
     for acc in data:
         accounts_list.append(Account(username=acc[0], password=acc[1], wins=acc[2],
-                                     loses=acc[3], draws=acc[4], favorite_color=acc[5]))
+                                     loses=acc[3], draws=acc[4], favorite_color=acc[5], ban_til=acc[6]))
     return accounts_list
 
 
@@ -459,7 +552,7 @@ def main():
         element.start()
     threading.Thread(target=update_users_data, args=(account_updates_to_table, finish)).start()
     threading.Thread(target=uploader, args=([finish])).start()
-    create_server_screen(accounts_list, account_updates_to_table)
+    create_server_screen(accounts_list)
     finish[0] = True
 
 
