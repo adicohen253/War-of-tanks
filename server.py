@@ -27,29 +27,37 @@ MAX_NUM_DAY_IN_MONTHS = {"01": 31, "02": 28, "03": 31, "04": 30, "05": 31, "06":
 
 
 class Account:
-    def __init__(self, username, password, wins=0, loses=0, draws=0, favorite_color="ff0000", client_status="Off",
-                 ban_til="00/00/0000 00:00"):
+    def __init__(self, username, password, wins=0, loses=0, draws=0, favorite_color="ff0000",
+                 ban_until="00/00/0000 00:00"):
         self.__username = username
         self.__password = password
         self.__wins = wins
         self.__loses = loses
         self.__draws = draws
         self.__favorite_color = favorite_color
-        self.__client_status = client_status
         self.__arena_number = 0
-        self.__ban_until = string_to_time_struct(ban_til)
+        self.__ban_string = ban_until
+        self.__ban_struct = None
+        self.set_ban_until_struct()
+        if self.__ban_string != "00/00/0000 00:00":
+            self.__client_status = "Ban"
+        else:
+            self.__client_status = "Off"
 
-    def time_struct_to_string(self):
-        date = "/".join([f"0{element}" if element < 10 else str(element) for element in self.__ban_until[2:0:-1]])
-        year = f"/{'0' * 4 if self.__ban_until[0] == 0 else self.__ban_until[0]}"
-        hour = str(self.__ban_until[3]) + ":00"
-        return f"{date+year} {hour}"
+    def set_ban_until_struct(self):
+        date, hour = self.__ban_string.split(" ")
+        day, month, year = [int(element) for element in date.split("/")]
+        hour = int(hour[:2])
+        self.__ban_struct = time.struct_time((year, month, day, hour, 0, 0, 0, 0, 0))
 
     def player_connect(self):
         self.__client_status = "On"
 
     def player_disconnect(self):
         self.__client_status = "Off"
+
+    def player_banned(self):
+        self.__client_status = "Ban"
 
     def get_client_status(self):
         return self.__client_status
@@ -75,8 +83,11 @@ class Account:
     def get_arena_number(self):
         return self.__arena_number
 
-    def get_ban_until(self):
-        return self.__ban_until
+    def get_ban_string(self):
+        return self.__ban_string
+
+    def get_ban_struct(self):
+        return self.__ban_struct
 
     def set_arena_number(self, new_arena_number):
         self.__arena_number = new_arena_number
@@ -86,13 +97,18 @@ class Account:
         self.__loses = 0
         self.__draws = 0
         self.__favorite_color = "ff0000"
-        self.__ban_until = string_to_time_struct("00/00/0000 00:00")
+        self.__ban_string = "00/00/0000 00:00"
+        self.__ban_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
 
     def set_ban_until(self, new_date):
-        self.__ban_until = string_to_time_struct(new_date)
+        self.__ban_string = new_date
+        self.set_ban_until_struct()
+        self.__client_status = "Ban"
 
-    def erase_ban_until(self):
-        self.__ban_until = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
+    def erase_ban(self):
+        self.__ban_string = "00/00/0000 00:00"
+        self.__ban_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
+        self.__client_status = "Off"
 
     def add_win(self):
         self.__wins += 1
@@ -109,15 +125,8 @@ class Account:
     def __str__(self):
         return f"{self.__username}{' ' * round(20.5 - len(self.__username))}{self.__password}" \
                f"{' ' * (21 - len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}{self.__draws}" \
-               f"{' ' * 12}{self.__favorite_color}{' ' * 13}{self.__client_status}{' ' * 24}" \
-               f"{self.time_struct_to_string()}{' '* (30-(len(self.time_struct_to_string())))}{self.__arena_number}"
-
-
-def string_to_time_struct(ban_string):
-    date, hour = ban_string.split(" ")
-    day, month, year = [int(element) for element in date.split("/")]
-    hour = hour[:2]
-    return time.struct_time((year, month, day, hour, 0, 0, 0, 0, 0))
+               f"{' ' * 12}{self.__favorite_color}{' ' * 13}{self.__client_status}{' ' * 23}" \
+               f"{self.__ban_string}{' '* 14}{self.__arena_number}"
 
 
 def find_first_taken_arena(accounts_list):
@@ -173,7 +182,6 @@ def is_can_register(client, accounts_list):
     """return to the player if username is already exist in the accounts list
     argument:
         client: type - socket
-        players_data: type - pandas.DataFrame, holds the data of the users
     """
     new_player_data = client.recv(21).decode().split(",")
     exist = False
@@ -365,6 +373,10 @@ def uploader(finish):
     server.close()
 
 
+# def take_care_banned_account(accounts_list):
+#     my_accounts = sorted(accounts_list, key=lambda x: x.get_ban_struct)
+
+
 def create_server_screen(accounts_list):
     window = Tk()
     window.geometry('950x600')
@@ -502,7 +514,7 @@ def admin_free_ban(accounts_list, username_to_free, user_password, window):
     if is_valid_admin_buffers(username_to_free.get(), user_password.get()):
         for acc in accounts_list:
             if acc.get_username() == username_to_free.get() and acc.get_password() == user_password.get():
-                acc.set_ban_until("00/00/0000 00:00")
+                acc.erase_ban()
                 set_ban_in_table(username_to_free.get(), "00/00/0000 00:00")
                 window.focus_set()
                 window.master.focus_set()
@@ -530,7 +542,7 @@ def build_my_accounts(db_cursor):
     accounts_list = []
     for acc in data:
         accounts_list.append(Account(username=acc[0], password=acc[1], wins=acc[2],
-                                     loses=acc[3], draws=acc[4], favorite_color=acc[5], ban_til=acc[6]))
+                                     loses=acc[3], draws=acc[4], favorite_color=acc[5], ban_until=acc[6]))
     accounts_list.sort(key=lambda x: x.get_username())
     return accounts_list
 
