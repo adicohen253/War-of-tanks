@@ -165,6 +165,7 @@ def register_new_player(new_account_data, accounts_list, is_online=True):
     if is_online:
         new_account.player_connect()
     accounts_list.append(new_account)
+    accounts_list.sort(key=lambda x: x.get_username())
     return new_account
 
 
@@ -174,7 +175,7 @@ def is_can_register(client, accounts_list):
         client: type - socket
         players_data: type - pandas.DataFrame, holds the data of the users
     """
-    new_player_data = client.recv(31).decode().split(",")
+    new_player_data = client.recv(21).decode().split(",")
     exist = False
     for acc in accounts_list:
         if acc.get_username() == new_player_data[0]:
@@ -189,7 +190,7 @@ def is_can_register(client, accounts_list):
 
 
 def player_login(client, accounts_list):
-    account_to_check = client.recv(31).decode().split(",")
+    account_to_check = client.recv(21).decode().split(",")
     exist = False
     for account in accounts_list:
         if account.get_username() == account_to_check[0] and account.get_password() == account_to_check[1]:
@@ -435,7 +436,7 @@ def clean_accounts_data(accounts_list, window):
 
 
 def is_valid_admin_buffers(username, password):
-    return (0 < len(username) <= 15) and (0 < len(password) <= 15) \
+    return (0 < len(username) <= 10) and (0 < len(password) <= 10) \
            and ((0x61 <= ord(username[0]) <= 0x7a) or (0x41 <= ord(username[0]) <= 0x5a))\
            and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a) or letter.isdigit())
                     for letter in username[1:]]) \
@@ -530,6 +531,7 @@ def build_my_accounts(db_cursor):
     for acc in data:
         accounts_list.append(Account(username=acc[0], password=acc[1], wins=acc[2],
                                      loses=acc[3], draws=acc[4], favorite_color=acc[5], ban_til=acc[6]))
+    accounts_list.sort(key=lambda x: x.get_username())
     return accounts_list
 
 

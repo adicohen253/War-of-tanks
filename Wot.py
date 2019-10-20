@@ -205,8 +205,8 @@ class Game:
             while True:
                 events = pygame.event.get()
                 self.__account[i], end_collecting = \
-                    self._get_input_from_user(self.__account[i], events, 15,
-                                              legal_chars_for_username, lambda x: False)  # change length to 10
+                    self._get_input_from_user(self.__account[i], events, 10,
+                                              legal_chars_for_username_and_password)
                 if end_collecting is None:
                     self.__account = ["", ""]
                     return self.__account
@@ -309,7 +309,7 @@ class Game:
                         self._receive_from_server(1)
                         return
 
-    def _get_input_from_user(self, previous_data, events, limit_data_len, filter1, filter2):
+    def _get_input_from_user(self, previous_data, events, limit_data_len, filter1, filter2=lambda x: False):
         """add the input from the player to the current data status - (account color etc),
         plus change the size of the screen.
         argument:
@@ -322,7 +322,7 @@ class Game:
         """
         for event in events:
             if event.type == pygame.QUIT:
-                if limit_data_len == 3:
+                if self.__account != ["", ""]:
                     # in color choose screen, there is already account to disconnect from
                     self._send_to_server(b"exit ")
                 else:
@@ -330,27 +330,22 @@ class Game:
                 self.__client.close()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                try:
-                    if event.key == pygame.K_ESCAPE:
-                        return previous_data, None
-                    if filter1(event.unicode):
-                        if len(previous_data) < limit_data_len:
-                            previous_data += event.unicode
-                        if filter2(previous_data):
-                            previous_data = previous_data[:-1]
-                    elif (event.key == pygame.K_BACKSPACE) and (len(previous_data) > 0):
+                if event.key == pygame.K_ESCAPE:
+                    return previous_data, None
+                if filter1(event.unicode):
+                    if len(previous_data) < limit_data_len:
+                        previous_data += event.unicode
+                    if filter2(previous_data):
                         previous_data = previous_data[:-1]
-                    elif event.key == pygame.K_RETURN:
-                        if previous_data == "":
-                            return "", True
-                        else:
-                            return previous_data, True
+                elif (event.key == pygame.K_BACKSPACE) and (len(previous_data) > 0):
+                    previous_data = previous_data[:-1]
+                elif event.key == pygame.K_RETURN:
+                    if previous_data == "":
+                        return "", True
                     else:
-                        pygame.mixer.music.load(ERROR_INPUT)  # not must
-                        pygame.mixer.music.play()
-                        pygame.event.clear()
-                except UnicodeEncodeError:
-                    pygame.mixer.music.load(ERROR_INPUT)
+                        return previous_data, True
+                else:
+                    pygame.mixer.music.load(ERROR_INPUT)  # not must
                     pygame.mixer.music.play()
                     pygame.event.clear()
         return previous_data, False
@@ -774,9 +769,9 @@ class Game:
 
 
 # filter for getting input from user in color and connect screens
-def legal_chars_for_username(data):
+def legal_chars_for_username_and_password(data):
     """filter for username data in account"""
-    return data.isalpha() or data.isdigit()
+    return data.isdigit() or (data.isalpha() and ((0x61 <= ord(data) <= 0x7a) or (0x41 <= ord(data) <= 0x5a)))
 
 
 def limit_color_value(data):
