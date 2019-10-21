@@ -14,7 +14,7 @@ from re import findall
 
 # constants
 pygame.init()
-TIME_TO_SLEEP = 1.8
+TIME_TO_WAIT = 1.8
 TIME_TO_PREVENT_FLOW = 0.002
 SIZE = (1200, 600)
 WHITE = (255, 255, 255)
@@ -57,6 +57,7 @@ BRAKE = 'brake.mp3'
 RELOAD = 'reload.mp3'
 
 # messages
+ACCOUNT_BANNED = "This account banned until: "
 SERVER_DENIED = "Server access denied, cant create a connection"
 ILLEGAL_USERNAME = "username must start with character"
 INVALID_USERNAME = "invalid account change username please"
@@ -172,7 +173,7 @@ class Game:
                                 failed_output = self.__font.render(SERVER_DENIED, True, RED)
                                 self.__screen.blit(failed_output, [100, 500])
                                 pygame.display.flip()
-                                time.sleep(TIME_TO_SLEEP)
+                                time.sleep(TIME_TO_WAIT)
                                 pygame.event.clear()
                         else:
                             if event.key == pygame.K_l:
@@ -230,24 +231,27 @@ class Game:
             account: type - list, the username and password
             is_login_now: type - boolean, flag of if player tries to login or register
         """
-        msg_pos = 300, 500
+        msg_pos = 100, 500
         if not self.__account[0][0].isalpha():  # username must start with alphabetical letter
             output = self.__font.render(ILLEGAL_USERNAME, True, BLUE)
             self.__screen.blit(output, msg_pos)
             pygame.display.flip()
-            time.sleep(TIME_TO_SLEEP)
+            time.sleep(TIME_TO_WAIT)
             return False
 
         legal_case = False
         if is_login_now:
             self._send_to_server(("login" + self.__account[0] + "," + self.__account[1]).encode())
             respond = self._receive_from_server(1)
-            if respond == "T":
+            if respond == "O":  # Ok
                 output = self.__font.render(LOGIN_WORKED, True, BLUE)
                 legal_case = True
-            elif respond == "N":
+            elif respond == "B":
+                date, hour = self._receive_from_server(16).split(" ")
+                output = self.__font.render(ACCOUNT_BANNED + date + "  in " + hour, True, BLUE)
+            elif respond == "T":  # Taken
                 output = self.__font.render(ALREADY_TAKEN, True, BLUE)
-            else:
+            else:  # Failed
                 output = self.__font.render(LOGIN_FAILED, True, BLUE)
         else:
             self._send_to_server(("info " + self.__account[0] + "," + self.__account[1]).encode())
@@ -259,7 +263,7 @@ class Game:
                 output = self.__font.render(INVALID_USERNAME, True, BLUE)
         self.__screen.blit(output, msg_pos)
         pygame.display.flip()
-        time.sleep(TIME_TO_SLEEP)
+        time.sleep(TIME_TO_WAIT)
         return legal_case
 
     def _color_choose_screen(self):
@@ -488,7 +492,7 @@ class Game:
                     pygame.mixer.music.load(DEFEAT)
                     pygame.mixer.music.play()
                     self._send_to_server(b"Situ")
-                    time.sleep(TIME_TO_SLEEP)
+                    time.sleep(TIME_TO_WAIT)
                     self.__client.close()
                     sys.exit()
                     # exit from the game
@@ -581,7 +585,7 @@ class Game:
                 pygame.mixer.music.load(RELOAD)
                 pygame.mixer.music.play(2)
         pygame.mixer.music.play()
-        time.sleep(TIME_TO_SLEEP)
+        time.sleep(TIME_TO_WAIT)
         self.__enemy = None
         self.__player = None
         self.__enemy_socket = None

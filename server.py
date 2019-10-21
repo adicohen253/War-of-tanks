@@ -10,6 +10,7 @@ from tkinter.ttk import Combobox
 LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300],
                ["Draws", 370], ["Color", 450], ["Server status", 530], ["Ban until", 680], ["Arena", 820]]
 FONT = ("Arial", 12, NORMAL)
+API_SIZE = '950x600'
 
 INSTALLER_FILE = "Wot installer.zip"
 HTTP_RESPONSE_OK = b"""HTTP/1.1 200 OK
@@ -50,14 +51,11 @@ class Account:
         hour = int(hour[:2])
         self.__ban_struct = time.struct_time((year, month, day, hour, 0, 0, 0, 0, 0))
 
-    def player_connect(self):
+    def player_online(self):
         self.__client_status = "On"
 
-    def player_disconnect(self):
+    def player_offline(self):
         self.__client_status = "Off"
-
-    def player_banned(self):
-        self.__client_status = "Ban"
 
     def get_client_status(self):
         return self.__client_status
@@ -172,7 +170,7 @@ def register_new_player(new_account_data, accounts_list, is_online=True):
     new_account = Account(username=new_account_data[0], password=new_account_data[1],
                           wins=0, loses=0, draws=0, favorite_color="ff0000")
     if is_online:
-        new_account.player_connect()
+        new_account.player_online()
     accounts_list.append(new_account)
     accounts_list.sort(key=lambda x: x.get_username())
     return new_account
@@ -204,11 +202,14 @@ def player_login(client, accounts_list):
         if account.get_username() == account_to_check[0] and account.get_password() == account_to_check[1]:
             # found match
             exist = True
-            if account.get_client_status() == "On":  # another player connect to this account
-                client.send(b"N")
+            if account.get_client_status() == "On":  # this account is already taken
+                client.send(b"T")
+            elif account.get_client_status() == "Ban":
+                client.send(b"B")
+                client.send(account.get_ban_string().encode())
             else:
-                client.send(b"T")  # can use this account
-                account.player_connect()
+                client.send(b"O")  # can use this account
+                account.player_online()
                 return account
     if not exist:
         client.send(b"F")  # desired account does not exist
@@ -258,7 +259,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                     sys.exit()
                 if request == "exit ":
                     player1.close()
-                    account.player_disconnect()
+                    account.player_offline()
                     break
                 elif request == "Exit ":
                     player1.close()
@@ -321,7 +322,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                             player1.close()
                             update_users.append([account, "L"])
                             account.add_lose()
-                            account.player_disconnect()
+                            account.player_offline()
                             break
 
                     except socket.error:
@@ -329,13 +330,13 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                         update_users.append([account, "L"])
                         player1.close()
                         account.add_lose()
-                        account.player_disconnect()
+                        account.player_offline()
                         break
 
             except socket.error:
                 player1.close()
                 if account is not None:
-                    account.player_disconnect()
+                    account.player_offline()
                 break
         player1.close()
 
@@ -373,13 +374,27 @@ def uploader(finish):
     server.close()
 
 
-# def take_care_banned_account(accounts_list):
-#     my_accounts = sorted(accounts_list, key=lambda x: x.get_ban_struct)
+def is_ban_date_passed(accounts_list, finish):
+    print("Bans check start...")
+    conn = connect("my database.db")
+    curs = conn.cursor()
+    while not finish[0]:
+        banned_list = list(filter(lambda x: x.get_client_status() == "Ban", accounts_list))
+        current_time = time.mktime(time.localtime())
+        for acc in banned_list:
+            if time.mktime(acc.get_ban_struct()) < current_time:
+                acc.player_offline()
+                acc.erase_ban()
+                curs.execute("UPDATE Accounts SET Ban = '00/00/0000 00:00'"
+                             " WHERE Username = (?)", (acc.get_username(), ))
+        conn.commit()
+        time.sleep(3)
+    print("Bans Check shut down...")
 
 
 def create_server_screen(accounts_list):
     window = Tk()
-    window.geometry('950x600')
+    window.geometry(API_SIZE)
     window.title("My server")
     window.resizable(OFF, OFF)
     Label(window, text="My IP is: " + my_ip(), fg='blue',
@@ -432,6 +447,7 @@ def create_server_screen(accounts_list):
 
     window.bind("<FocusIn>", lambda event: show_account_data(view_accounts, accounts_list))
     window.bind("<Enter>", lambda event: show_account_data(view_accounts, accounts_list))
+
     window.mainloop()
 
 
@@ -566,6 +582,7 @@ def main():
         element.start()
     threading.Thread(target=update_users_data, args=(account_updates_to_table, finish)).start()
     threading.Thread(target=uploader, args=([finish])).start()
+    threading.Thread(target=is_ban_date_passed, args=(accounts_list, finish)).start()
     create_server_screen(accounts_list)
     finish[0] = True
 
