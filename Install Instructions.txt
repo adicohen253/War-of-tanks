@@ -1,0 +1,24 @@
+Hello and welcome to WOT (War Of Tanks) installer :)
+
+First we start by downloading the secondary packages...
+	1.Download python 3.7.4 and newer...
+		in the zip file you have python installer, dont forget to mark "add python 3.7 to Path", (any more updated version of python will work)
+		and press "intall now"
+	2. Make sure that you have all the modules the game requires:
+		1. sys
+		2. pygame
+		3. time
+ 		4. socket
+		5. random
+		6. threading
+		7. re
+
+		for be sure you have them all press (Win + R) and type "cmd", in the black window, 
+		type "pip install X" (X stands for the module you want to download)
+	3. install pyaudio - file already in the zip file:
+		enter to the folder where you extact all the files and copy the path,
+		press (Win + R) and type "cmd", in the black window type cd and paste the path, then type this command:
+		"pip install PyAudio-0.2.11-cp37-cp37m-win_amd64.whl"
+
+
+After you have these files, you can start to play War Of Tanks, have fun...! :)
