@@ -445,9 +445,10 @@ class Game:
         battlefield = pygame.image.load(FIELD)
         self._my_walls()
         self._send_to_server(b"game" + mode_code.encode())
-        flags = [False, False, False, "0"]
+        finish_stream = [False]
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
+
         main_player = self._receive_from_server(5)
         main_player = (main_player == "True")
         if main_player:
@@ -465,7 +466,7 @@ class Game:
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
             main_socket.close()
-            threading.Thread(target=self.voice_stream_creator, args=([flags[0]])).start()
+            threading.Thread(target=self.voice_stream_creator, args=([finish_stream])).start()
         # main player create the server
         # (waiting for another one to start the game)
         else:
@@ -477,7 +478,7 @@ class Game:
             self.__enemy_socket.send((str(self.__demo_player.get_color())
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
-            threading.Thread(target=self.voice_stream_connector, args=([flags[0]])).start()
+            threading.Thread(target=self.voice_stream_connector, args=([finish_stream])).start()
         # player makes connection with main player
         self.__enemy_socket.settimeout(0.5)
         self.__enemy.change_player_color(enemy_color)
@@ -489,7 +490,7 @@ class Game:
         start_battle_from = time.time()
         last_trap_moment = time.time()
         random_time_for_trap = random.randint(3, 5)
-
+        flags = [False, False, False, "0"]
         my_packet = ["D" + str(self.__player.get_pointer())
                      + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])]
         threading.Thread(target=self._channeling_with_the_enemy,
