@@ -71,7 +71,7 @@ LOGIN_FAILED = "Login failed"
 IP = "192.168.1.20"
 SERVER_PORT = 2020
 GAME_PORT = 5120
-STREAM_OUTPUT_PORT = 5220
+STREAM_OUTPUT_PORT = 32000
 
 # voice stream
 CHUNK = 1024
@@ -466,7 +466,7 @@ class Game:
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
             main_socket.close()
-            # threading.Thread(target=self.voice_stream_creator, args=([finish_stream])).start()
+            threading.Thread(target=self.voice_stream_creator, args=([finish_stream])).start()
         # main player create the server
         # (waiting for another one to start the game)
         else:
@@ -478,7 +478,7 @@ class Game:
             self.__enemy_socket.send((str(self.__demo_player.get_color())
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
-            # threading.Thread(target=self.voice_stream_connector, args=([finish_stream])).start()
+            threading.Thread(target=self.voice_stream_connector, args=([finish_stream])).start()
         # player makes connection with main player
         self.__enemy_socket.settimeout(0.5)
         self.__enemy.change_player_color(enemy_color)
@@ -729,6 +729,7 @@ class Game:
                 p.terminate()
             except OSError:
                 time.sleep(3)
+        print("done connector")
         s.close()
 
     def voice_stream_creator(self, finish_game):
@@ -753,6 +754,7 @@ class Game:
                 client.close()
             except OSError:
                 time.sleep(3)
+        print("done creator")
         s.close()
 
     def _my_walls(self, map_code="default"):
