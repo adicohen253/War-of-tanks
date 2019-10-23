@@ -2,11 +2,8 @@ import socket
 import pyaudio
 
 CHUNK = 1024
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
+CHANNELS = 2
 RATE = 44100
-RECORD_SECONDS = 4
-WAVE_OUTPUT_FILENAME = "server_output.wav"
 WIDTH = 2
 HOST = '192.168.1.20'
 PORT = 49999
@@ -20,8 +17,8 @@ def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind((HOST, PORT))
     s.listen(1)
-    client, addr = s.accept()
-    print(f"{addr[0]} connected")
+    client, address = s.accept()
+    print(f"{address[0]} connected")
     while True:
         try:
             stream.write(client.recv(CHUNK))

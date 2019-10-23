@@ -30,7 +30,7 @@ MAPS = "maps.txt"
 BATTLE_TO_DEATH = "0"
 BATTLE_ON_TIME = "1"
 
-# screens and elements
+# screens and widgets
 POINTER = "pointer.png"
 REGISTER_SCREEN = "register.png"
 LOGIN_SCREEN = "login.png"
@@ -68,8 +68,9 @@ LOGIN_FAILED = "Login failed"
 
 # network
 IP = "192.168.1.20"
-PORT_S = 2020
-PORT_G = 5120
+SERVER_PORT = 2020
+GAME_PORT = 5120
+STREAM_OUTPUT_PORT = 5220
 
 
 class Game:
@@ -109,7 +110,7 @@ class Game:
         self.__client.settimeout(2)
         while True:
             try:
-                self.__client.connect((IP, PORT_S))
+                self.__client.connect((IP, SERVER_PORT))
                 return True
             except socket.error:
                 return False
@@ -387,9 +388,9 @@ class Game:
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_s:  # player look for a match
-                        mode_code = self.choose_battle_mode()
+                        mode_code = self._choose_battle_mode()
                         if mode_code is not None:
-                            self.game_start(mode_code)
+                            self._game_start(mode_code)
 
                     elif event.key == pygame.K_ESCAPE:
                         self._send_to_server(b"exit ")
@@ -404,7 +405,7 @@ class Game:
             self.__screen.blit(menu_screen, (0, 0))
             pygame.display.flip()
 
-    def choose_battle_mode(self):
+    def _choose_battle_mode(self):
         modes_screen = pygame.image.load(CHOOSE_MODE_SCREEN)
         self.__screen.blit(modes_screen, [0, 0])
         pygame.display.flip()
@@ -421,7 +422,7 @@ class Game:
                     elif event.key == pygame.K_2:
                         return BATTLE_ON_TIME
 
-    def game_start(self, mode_code=BATTLE_TO_DEATH):
+    def _game_start(self, mode_code=BATTLE_TO_DEATH):
         """all the process of the game
         argument:
             account: type list, the username and password
@@ -445,7 +446,7 @@ class Game:
             self.__screen.blit(waiting, [0, 0])
             pygame.display.flip()
             main_socket = socket.socket()
-            main_socket.bind((self.__ip, PORT_G))
+            main_socket.bind((self.__ip, GAME_PORT))
             main_socket.listen(1)
             self.__enemy_socket, address = main_socket.accept()
             self.__enemy_socket.send((str(self.__demo_player.get_color())
@@ -455,7 +456,7 @@ class Game:
         # main player create the server
         # (waiting for another one to start the game)
         else:
-            address = self._receive_from_server(ASKED_IP_LEN_PACKET), PORT_G
+            address = self._receive_from_server(ASKED_IP_LEN_PACKET), GAME_PORT
             self.__player = game_obj.Tank(420, 50, self.__demo_player)
             self.__enemy = game_obj.Tank(20, 200)
             self.__enemy_socket = socket.socket()
@@ -479,7 +480,7 @@ class Game:
         flags = [False, False, "0", False]
         my_packet = ["D" + str(self.__player.get_pointer())
                      + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])]
-        my_thread = threading.Thread(target=self.channeling_with_the_enemy,
+        my_thread = threading.Thread(target=self._channeling_with_the_enemy,
                                      args=(flags, my_packet))
         my_thread.start()
         while not flags[0]:
@@ -520,7 +521,7 @@ class Game:
                 break
 
             if main_player and time.time() - last_trap_moment >= random_time_for_trap:
-                last_trap_moment, random_time_for_trap = self.create_trap()
+                last_trap_moment, random_time_for_trap = self._create_trap()
                 flags[3] = self.__traps[-1]
 
             if len(self.__traps) > 4:
@@ -544,11 +545,11 @@ class Game:
 
             for t in self.__traps:
                 if pygame.sprite.spritecollide(t, [self.__player], False):
-                    self.trap_affect(t)
+                    self._trap_affect(t)
                     self.__traps.remove(t)
 
                 elif pygame.sprite.spritecollide(t, [self.__enemy], False):
-                    self.trap_affect(t)
+                    self._trap_affect(t)
                     self.__traps.remove(t)
 
             if self.__player.get_health() <= 0:
@@ -571,11 +572,11 @@ class Game:
             self.__player.is_done_eternal_ammo()
             self.__player.is_done_ghost()
 
-            self.flip_screen(battlefield)
+            self._flip_screen(battlefield)
             if self.__player.is_need_pointing():
                 self.__screen.blit(player_point, [self.__player.get_loc()[0], self.__player.get_loc()[1] - 50])
             if mode_code == BATTLE_ON_TIME:
-                if self.take_care_timer_of_time_mode(flags, start_battle_from):
+                if self._take_care_timer_of_time_mode(flags, start_battle_from):
                     break
             for wall in self.__walls:
                 wall.draw_line()
@@ -588,12 +589,13 @@ class Game:
         time.sleep(TIME_TO_WAIT)
         self.__enemy = None
         self.__player = None
+        self.__enemy_socket.close()
         self.__enemy_socket = None
         self.__traps = []
         self.__bullets = []
         self.__walls = []
 
-    def flip_screen(self, zone):
+    def _flip_screen(self, zone):
         """shows all the data of the surface (pixels) plus the data of the players
         argument:
             players: type - list of tanks,(player and enemy)
@@ -630,7 +632,7 @@ class Game:
                 continue
             self.__screen.blit(self.__font.render(element[0], True, WHITE), element[1])
 
-    def channeling_with_the_enemy(self, flags, my_packet):
+    def _channeling_with_the_enemy(self, flags, my_packet):
         counter = 0
         while flags[0] is False:
             is_collide = False
@@ -657,7 +659,7 @@ class Game:
                 self.__enemy_socket.close()
                 break
 
-            flags[1], counter = self.take_care_enemy_packet(counter)
+            flags[1], counter = self._take_care_enemy_packet(counter)
             if flags[1]:
                 if self.__enemy.get_health() != 0:  # enemy disconnect because of losing the match
                     print("The other play quit you win!")
@@ -666,7 +668,7 @@ class Game:
         if flags[0]:  # if player disconnect
             self.__enemy_socket.close()
 
-    def take_care_enemy_packet(self, counter):
+    def _take_care_enemy_packet(self, counter):
         try:
             msg_len = ord(self.__enemy_socket.recv(1).decode())
             info = str(self.__enemy_socket.recv(msg_len).decode())
@@ -713,7 +715,7 @@ class Game:
                     s_pos, e_pos = [int(x) for x in s_pos.split(",")], [int(y) for y in e_pos.split(",")]
                     self.__walls.append(game_obj.Wall(self.__screen, s_pos, e_pos))
 
-    def take_care_timer_of_time_mode(self, flags, start_time):
+    def _take_care_timer_of_time_mode(self, flags, start_time):
         time_to_play = SECS_TO_PLAY - (time.time() - start_time)
         if time_to_play <= 0:
             if self.__player.get_health() > self.__enemy.get_health():
@@ -738,7 +740,7 @@ class Game:
             time_to_play = time.strftime("%M:%S", time.gmtime(time_to_play))
             self.__screen.blit(self.__font.render(time_to_play, True, WHITE), [900, 420])
 
-    def trap_affect(self, trap):
+    def _trap_affect(self, trap):
         """active the trap attribute on the player"""
         if trap.get_attribute() == 1:
             self.__player.lost_health(1)
@@ -754,7 +756,7 @@ class Game:
             pygame.mixer.music.load(BOOST)
             pygame.mixer.music.play(1)
 
-    def create_trap(self):
+    def _create_trap(self):
         """create a new mine (location is safe)
         argument:
             surprise: type - list, the all traps in the battlefield

@@ -4,9 +4,8 @@ import pyaudio
 
 CHUNK = 1024
 FORMAT = pyaudio.paInt16
-CHANNELS = 1
+CHANNELS = 2
 RATE = 44100
-RECORD_SECONDS = 40
 HOST = "192.168.1.20"
 PORT = 49999
 
@@ -20,6 +19,7 @@ def main():
         try:
             data = stream.read(CHUNK)
             s.sendall(data)
+            stream.write(data)
         except IOError:
             break
     stream.stop_stream()
