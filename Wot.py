@@ -5,6 +5,7 @@ import socket
 import game_obj
 import random
 import threading
+import pyaudio
 from re import findall
 
 # --------------------------------
@@ -72,6 +73,13 @@ SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 5220
 
+# voice stream
+CHUNK = 1024
+FORMAT = pyaudio.paInt16
+CHANNELS = 2
+RATE = 44100
+WIDTH = 2
+
 
 class Game:
     def __init__(self, screen):
@@ -89,6 +97,7 @@ class Game:
         self.__enemy = None
         self.__player = None
         self.__enemy_socket = None
+        self.__enemy_ip = ""
         self.__traps = []
         self.__bullets = []
         self.__walls = []
@@ -123,7 +132,7 @@ class Game:
         except socket.error:
             print("server shut down")
             sys.exit()
-    
+
     def _receive_from_server(self, buffersize):
         try:
             message = self.__client.recv(buffersize).decode()
@@ -390,7 +399,7 @@ class Game:
                     if event.key == pygame.K_s:  # player look for a match
                         mode_code = self._choose_battle_mode()
                         if mode_code is not None:
-                            self._game_start(mode_code)
+                            self._battle_start(mode_code)
 
                     elif event.key == pygame.K_ESCAPE:
                         self._send_to_server(b"exit ")
@@ -422,7 +431,7 @@ class Game:
                     elif event.key == pygame.K_2:
                         return BATTLE_ON_TIME
 
-    def _game_start(self, mode_code=BATTLE_TO_DEATH):
+    def _battle_start(self, mode_code=BATTLE_TO_DEATH):
         """all the process of the game
         argument:
             account: type list, the username and password
@@ -436,7 +445,9 @@ class Game:
         battlefield = pygame.image.load(FIELD)
         self._my_walls()
         self._send_to_server(b"game" + mode_code.encode())
-
+        flags = [False, False, False, "0"]
+        player_point = pygame.image.load(MY_PLAYER_POINT).convert()
+        player_point.set_colorkey(WHITE)
         main_player = self._receive_from_server(5)
         main_player = (main_player == "True")
         if main_player:
@@ -449,21 +460,24 @@ class Game:
             main_socket.bind((self.__ip, GAME_PORT))
             main_socket.listen(1)
             self.__enemy_socket, address = main_socket.accept()
+            self.__enemy_ip = address[0]  # only ip address
             self.__enemy_socket.send((str(self.__demo_player.get_color())
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
             main_socket.close()
+            threading.Thread(target=self.voice_stream_creator, args=([flags[0]])).start()
         # main player create the server
         # (waiting for another one to start the game)
         else:
-            address = self._receive_from_server(ASKED_IP_LEN_PACKET), GAME_PORT
+            self.__enemy_ip = self._receive_from_server(ASKED_IP_LEN_PACKET)
             self.__player = game_obj.Tank(420, 50, self.__demo_player)
             self.__enemy = game_obj.Tank(20, 200)
             self.__enemy_socket = socket.socket()
-            self.__enemy_socket.connect(address)
+            self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
             self.__enemy_socket.send((str(self.__demo_player.get_color())
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
+            threading.Thread(target=self.voice_stream_connector, args=([flags[0]])).start()
         # player makes connection with main player
         self.__enemy_socket.settimeout(0.5)
         self.__enemy.change_player_color(enemy_color)
@@ -471,18 +485,15 @@ class Game:
         self.__screen.blit(self.__player.get_image(), self.__player.get_loc())
         self.__screen.blit(self.__enemy.get_image(), self.__enemy.get_loc())
         pygame.display.flip()
+
         start_battle_from = time.time()
         last_trap_moment = time.time()
         random_time_for_trap = random.randint(3, 5)
-        player_point = pygame.image.load(MY_PLAYER_POINT).convert()
-        player_point.set_colorkey(WHITE)
 
-        flags = [False, False, "0", False]
         my_packet = ["D" + str(self.__player.get_pointer())
                      + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])]
-        my_thread = threading.Thread(target=self._channeling_with_the_enemy,
-                                     args=(flags, my_packet))
-        my_thread.start()
+        threading.Thread(target=self._channeling_with_the_enemy,
+                         args=(flags, my_packet)).start()
         while not flags[0]:
             my_packet[0] = "D" + str(self.__player.get_pointer()) \
                            + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])
@@ -509,9 +520,10 @@ class Game:
                     if self.__player.shoot_bullet(event, self.__bullets):
                         pygame.mixer.music.load(FIRE)
                         pygame.mixer.music.play()
-                        flags[2] = "1"
+                        flags[3] = "1"
 
-            if flags[0] or flags[0] is None:  # none for a draw in time mode
+            if flags[0] or flags[0] is None:  # already send to server the result of match
+                # None when battle ends as well
                 break
 
             if flags[1]:
@@ -522,7 +534,7 @@ class Game:
 
             if main_player and time.time() - last_trap_moment >= random_time_for_trap:
                 last_trap_moment, random_time_for_trap = self._create_trap()
-                flags[3] = self.__traps[-1]
+                flags[2] = self.__traps[-1]
 
             if len(self.__traps) > 4:
                 self.__traps.remove(self.__traps[0])
@@ -587,10 +599,12 @@ class Game:
                 pygame.mixer.music.play(2)
         pygame.mixer.music.play()
         time.sleep(TIME_TO_WAIT)
+        flags[0] = True  # end of game
         self.__enemy = None
         self.__player = None
         self.__enemy_socket.close()
         self.__enemy_socket = None
+        self.__enemy_ip = ""
         self.__traps = []
         self.__bullets = []
         self.__walls = []
@@ -643,16 +657,16 @@ class Game:
                 is_collide = True
 
             try:
-                packet_to_send = my_packet[0] + "S" + flags[2]
-                if flags[3] is not False:
-                    packet_to_send += "T" + str(flags[3].get_attribute()) \
-                                      + str(flags[3].get_loc()[0]) + "," + str(flags[3].get_loc()[1])
-                    flags[3] = False
+                packet_to_send = my_packet[0] + "S" + flags[3]
+                if flags[2] is not False:  # run if there is a new trap
+                    packet_to_send += "T" + str(flags[2].get_attribute()) \
+                                      + str(flags[2].get_loc()[0]) + "," + str(flags[2].get_loc()[1])
+                    flags[2] = False
                 if is_collide:
-                    packet_to_send += "C"  # for enemy to change direct too
+                    packet_to_send += "C"  # flag to enemy if there was a collapse
                 self.__enemy_socket.send((chr(len(packet_to_send))).encode())
                 self.__enemy_socket.send(packet_to_send.encode())
-                flags[2] = "0"
+                flags[3] = "0"
                 time.sleep(TIME_TO_PREVENT_FLOW)
             except socket.error:
                 flags[1] = True
@@ -693,6 +707,50 @@ class Game:
             return False, counter
         except socket.error:
             return counter == 6, counter + 1
+
+    def voice_stream_connector(self, finish_game):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.connect((self.__enemy_ip, STREAM_OUTPUT_PORT))
+        p = pyaudio.PyAudio()
+        while not finish_game[0]:
+            try:
+                stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+                while not finish_game[0]:
+                    try:
+                        data = stream.read(CHUNK)
+                        s.sendall(data)
+                    except IOError:
+                        break
+                stream.stop_stream()
+                stream.close()
+                p.terminate()
+            except OSError:
+                time.sleep(3)
+        s.close()
+
+    def voice_stream_creator(self, finish_game):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.bind((self.__ip, STREAM_OUTPUT_PORT))
+        s.listen(1)
+        p = pyaudio.PyAudio()
+        client, address = s.accept()
+        while not finish_game[0]:
+            try:
+                stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
+                                rate=RATE, output=True, frames_per_buffer=CHUNK)
+                while not finish_game[0]:
+                    try:
+                        stream.write(client.recv(CHUNK))
+                    except IOError:
+                        break
+
+                stream.stop_stream()
+                stream.close()
+                p.terminate()
+                client.close()
+            except OSError:
+                time.sleep(3)
+        s.close()
 
     def _my_walls(self, map_code="default"):
         """build the walls of the battlefield

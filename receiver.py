@@ -9,7 +9,7 @@ HOST = '192.168.1.20'
 PORT = 49999
 
 
-def main():
+def voice_stream_creator():
     p = pyaudio.PyAudio()
     stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
                     rate=RATE, output=True, frames_per_buffer=CHUNK)
@@ -31,6 +31,8 @@ def main():
     client.close()
     s.close()
 
+def main():
+    pass
 
 if __name__ == '__main__':
     main()
