@@ -729,7 +729,6 @@ class Game:
                 p.terminate()
             except OSError:
                 time.sleep(3)
-        print("done connector")
         s.close()
 
     def voice_stream_creator(self, finish_game):
@@ -754,7 +753,6 @@ class Game:
                 client.close()
             except OSError:
                 time.sleep(3)
-        print("done creator")
         s.close()
 
     def _my_walls(self, map_code="default"):
