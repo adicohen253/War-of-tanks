@@ -466,7 +466,7 @@ class Game:
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
             main_socket.close()
-            threading.Thread(target=self.voice_stream_creator, args=([finish_stream])).start()
+            # threading.Thread(target=self.voice_stream_creator, args=([finish_stream])).start()
         # main player create the server
         # (waiting for another one to start the game)
         else:
@@ -478,7 +478,7 @@ class Game:
             self.__enemy_socket.send((str(self.__demo_player.get_color())
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
-            threading.Thread(target=self.voice_stream_connector, args=([finish_stream])).start()
+            # threading.Thread(target=self.voice_stream_connector, args=([finish_stream])).start()
         # player makes connection with main player
         self.__enemy_socket.settimeout(0.5)
         self.__enemy.change_player_color(enemy_color)
@@ -558,11 +558,11 @@ class Game:
 
             for t in self.__traps:
                 if pygame.sprite.spritecollide(t, [self.__player], False):
-                    self._trap_affect(t)
+                    self._trap_affect(t, True)
                     self.__traps.remove(t)
 
                 elif pygame.sprite.spritecollide(t, [self.__enemy], False):
-                    self._trap_affect(t)
+                    self._trap_affect(t, False)
                     self.__traps.remove(t)
 
             if self.__player.get_health() <= 0:
@@ -600,7 +600,7 @@ class Game:
                 pygame.mixer.music.play(2)
         pygame.mixer.music.play()
         time.sleep(TIME_TO_WAIT)
-        flags[0] = True  # end of game
+        finish_stream[0] = True  # end of stream
         self.__enemy = None
         self.__player = None
         self.__enemy_socket.close()
@@ -708,6 +708,8 @@ class Game:
             return False, counter
         except socket.error:
             return counter == 6, counter + 1
+        except TypeError:  #
+            return True, 0
 
     def voice_stream_connector(self, finish_game):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -799,19 +801,23 @@ class Game:
             time_to_play = time.strftime("%M:%S", time.gmtime(time_to_play))
             self.__screen.blit(self.__font.render(time_to_play, True, WHITE), [900, 420])
 
-    def _trap_affect(self, trap):
+    def _trap_affect(self, trap, myself):
         """active the trap attribute on the player"""
+        if myself:
+            tank = self.__player
+        else:
+            tank = self.__enemy
         if trap.get_attribute() == 1:
-            self.__player.lost_health(1)
+            tank.lost_health(1)
         if trap.get_attribute() == 2:
-            if self.__player.get_health() <= 29:
-                self.__player.heal_health()
+            if tank.get_health() <= 29:
+                tank.heal_health()
         if trap.get_attribute() == 3:
-            self.__player.active_eternal_ammo_mode()
+            tank.active_eternal_ammo_mode()
             pygame.mixer.music.load(BOOST)
             pygame.mixer.music.play(1)
         if trap.get_attribute() == 4:
-            self.__player.active_ghost_mode()
+            tank.active_ghost_mode()
             pygame.mixer.music.load(BOOST)
             pygame.mixer.music.play(1)
 

@@ -306,7 +306,6 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                         if account not in accounts_list:
                             player1.send(b"@")
                             break
-                        account.set_arena_number(0)
                         if request == "situ":
                             act = player1.recv(1).decode()
                             if act == "W":
@@ -332,6 +331,8 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                         account.add_lose()
                         account.player_offline()
                         break
+                    finally:
+                        account.set_arena_number(0)
 
             except socket.error:
                 player1.close()
