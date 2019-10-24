@@ -6,6 +6,8 @@ from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
 from tkinter.ttk import Combobox
+import pygame
+pygame.init()
 
 LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300],
                ["Draws", 370], ["Color", 450], ["Server status", 530], ["Ban until", 680], ["Arena", 820]]

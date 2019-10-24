@@ -85,7 +85,7 @@ class Game:
     def __init__(self, screen):
         self.__screen = screen
         self.__ip = ""
-        self.__font = pygame.font.SysFont('exocet', 50)
+        self.__font = pygame.font.SysFont('arial', 35)
         self._my_ip()
         self.__demo_player = game_obj.Tank(500, 400)
         self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
