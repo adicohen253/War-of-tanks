@@ -273,14 +273,14 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
 
                 elif request == "color":
                     if account not in accounts_list:
-                        player1.send(b"@")
+                        player1.send(b"@")  # account deleted
                         break
                     player1.send(account.get_color().encode())
 
                 elif request == "Color":
                     new_color = player1.recv(6).decode()
                     if account not in accounts_list:
-                        player1.send(b"@")
+                        player1.send(b"@")  # account deleted
                         break
                     account.change_color(new_color)
                     update_users.append([account, "C", new_color])
@@ -289,7 +289,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                 elif request[:4] == "game":
                     mode_code = int(request[4])
                     if account not in accounts_list:
-                        player1.send(b"@")
+                        player1.send(b"@")  # account deleted
                         break
                     player1.send(str(codes[mode_code][0]).encode())
                     if not codes[mode_code][0]:
@@ -304,7 +304,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                     try:
                         request = player1.recv(4).decode()
                         if account not in accounts_list:
-                            player1.send(b"@")
+                            player1.send(b"@")  # account deleted
                             break
                         if request == "situ":
                             act = player1.recv(1).decode()
