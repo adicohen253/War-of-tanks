@@ -130,7 +130,6 @@ class Game:
         try:
             self.__client.send(message_to_send)
         except socket.error:
-            print("server shut down")
             sys.exit()
 
     def _receive_from_server(self, buffersize):
@@ -140,12 +139,10 @@ class Game:
                 raise socket.error
             if "@" in message:
                 self.__client.close()
-                print("Your user has been deleted")
                 sys.exit()
             return message
         except socket.error:
             self.__client.close()
-            print("server shut down")
             sys.exit()
 
     def _get_my_color(self):
@@ -676,8 +673,6 @@ class Game:
 
             flags[1], counter = self._take_care_enemy_packet(counter)
             if flags[1]:
-                if self.__enemy.get_health() != 0:  # enemy disconnect because of losing the match
-                    print("The other play quit you win!")
                 self.__enemy_socket.close()
                 break
         if flags[0]:  # if player disconnect
