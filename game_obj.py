@@ -21,13 +21,14 @@ MAX_BULLET_HOPS = 6
 
 
 class Tank(pygame.sprite.Sprite):
-    def __init__(self, x, y, demo_tank=None):
+    def __init__(self, x, y, direct=0, demo_tank=None):
         super(Tank, self).__init__()
         self.__image = pygame.image.load(IMG_PLY).convert()
         self.__image.set_colorkey(WHITE)
         self.rect = self.__image.get_rect()  # the location of the player
-        self.__pointer = 0  # uses as direct of the tank
+        self.__pointer = direct  # uses as direct of the tank
         self.__original_image = self.__image  # original image (uses to rotate the tank with every direct)
+        self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__pointer][2])
         self.rect.x = x
         self.rect.y = y
         self.__num_bullet = NUM_BULLETS  # the current number of bullets

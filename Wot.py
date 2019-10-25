@@ -137,8 +137,9 @@ class Game:
             message = self.__client.recv(buffersize).decode()
             if message == "":
                 raise socket.error
-            if "@" in message:
+            if "@" in message:  # the account deleted from the server
                 self.__client.close()
+                print("your account deleted from server... :(")
                 sys.exit()
             return message
         except socket.error:
@@ -449,7 +450,7 @@ class Game:
         main_player = self._receive_from_server(5)
         main_player = (main_player == "True")
         if main_player:
-            self.__player = game_obj.Tank(20, 200, self.__demo_player)
+            self.__player = game_obj.Tank(20, 200, direct=6, demo_tank=self.__demo_player)
             self.__enemy = game_obj.Tank(420, 50)
             waiting = pygame.image.load(CONNECT)
             self.__screen.blit(waiting, [0, 0])
@@ -468,7 +469,7 @@ class Game:
         # (waiting for another one to start the game)
         else:
             self.__enemy_ip = self._receive_from_server(ASKED_IP_LEN_PACKET)
-            self.__player = game_obj.Tank(420, 50, self.__demo_player)
+            self.__player = game_obj.Tank(420, 50, direct=2, demo_tank=self.__demo_player)
             self.__enemy = game_obj.Tank(20, 200)
             self.__enemy_socket = socket.socket()
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
@@ -484,12 +485,17 @@ class Game:
         self.__screen.blit(self.__enemy.get_image(), self.__enemy.get_loc())
         pygame.display.flip()
 
-        start_battle_from = time.time()
+        start_battle_from = time.time()  # for time battle mode
+
         last_trap_moment = time.time()
         random_time_for_trap = random.randint(3, 5)
+
         flags = [False, False, False, "0"]
         my_packet = ["D" + str(self.__player.get_pointer())
                      + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])]
+
+        delta_time = time.time()
+
         threading.Thread(target=self._channeling_with_the_enemy,
                          args=(flags, my_packet)).start()
         while not flags[0]:
@@ -525,9 +531,15 @@ class Game:
                 break
 
             if flags[1]:
-                self._send_to_server(b"situW")
-                self._receive_from_server(1)
-                pygame.mixer.music.load(VICTORY)
+                a = time.time() - delta_time
+                if a >= 3:
+                    self._send_to_server(b"situL")
+                    self._receive_from_server(1)
+                    pygame.mixer.music.load(DEFEAT)
+                else:
+                    self._send_to_server(b"situW")
+                    self._receive_from_server(1)
+                    pygame.mixer.music.load(VICTORY)
                 break
 
             if main_player and time.time() - last_trap_moment >= random_time_for_trap:
@@ -595,6 +607,7 @@ class Game:
             if self.__player.reload_ammo():  # only makes sound of reload when the player reloads
                 pygame.mixer.music.load(RELOAD)
                 pygame.mixer.music.play(2)
+            delta_time = time.time()
         pygame.mixer.music.play()
         time.sleep(TIME_TO_WAIT)
         finish_stream[0] = True  # end of stream
@@ -656,6 +669,7 @@ class Game:
 
             try:
                 packet_to_send = my_packet[0] + "S" + flags[3]
+                flags[3] = "0"
                 if flags[2] is not False:  # run if there is a new trap
                     packet_to_send += "T" + str(flags[2].get_attribute()) \
                                       + str(flags[2].get_loc()[0]) + "," + str(flags[2].get_loc()[1])
@@ -664,19 +678,15 @@ class Game:
                     packet_to_send += "C"  # flag to enemy if there was a collapse
                 self.__enemy_socket.send((chr(len(packet_to_send))).encode())
                 self.__enemy_socket.send(packet_to_send.encode())
-                flags[3] = "0"
                 time.sleep(TIME_TO_PREVENT_FLOW)
-            except socket.error:
+            except socket.error:  # enemy player quit
                 flags[1] = True
-                self.__enemy_socket.close()
                 break
 
             flags[1], counter = self._take_care_enemy_packet(counter)
-            if flags[1]:
-                self.__enemy_socket.close()
+            if flags[1]:  # enemy player doesn't responding
                 break
-        if flags[0]:  # if player disconnect
-            self.__enemy_socket.close()
+        self.__enemy_socket.close()
 
     def _take_care_enemy_packet(self, counter):
         try:
@@ -707,8 +717,8 @@ class Game:
             return True, 0
 
     def voice_stream_connector(self, finish_game):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self.__enemy_ip, STREAM_OUTPUT_PORT))
+        stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        stream_socket.connect((self.__enemy_ip, STREAM_OUTPUT_PORT))
         p = pyaudio.PyAudio()
         while not finish_game[0]:
             try:
@@ -716,7 +726,8 @@ class Game:
                 while not finish_game[0]:
                     try:
                         data = stream.read(CHUNK)
-                        s.sendall(data)
+                        stream_socket.send(data)
+                        stream.write(stream_socket.recv(CHUNK))
                     except IOError:
                         break
                 stream.stop_stream()
@@ -724,20 +735,22 @@ class Game:
                 p.terminate()
             except OSError:
                 time.sleep(3)
-        s.close()
+        stream_socket.close()
 
     def voice_stream_creator(self, finish_game):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((self.__ip, STREAM_OUTPUT_PORT))
-        s.listen(1)
+        stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        stream_socket.bind((self.__ip, STREAM_OUTPUT_PORT))
+        stream_socket.listen(1)
         p = pyaudio.PyAudio()
-        client, address = s.accept()
+        client, address = stream_socket.accept()
         while not finish_game[0]:
             try:
                 stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
                                 rate=RATE, output=True, frames_per_buffer=CHUNK)
                 while not finish_game[0]:
                     try:
+                        data = stream.read(CHUNK)
+                        client.send(data)
                         stream.write(client.recv(CHUNK))
                     except IOError:
                         break
@@ -748,7 +761,7 @@ class Game:
                 client.close()
             except OSError:
                 time.sleep(3)
-        s.close()
+        stream_socket.close()
 
     def _my_walls(self, map_code="default"):
         """build the walls of the battlefield
