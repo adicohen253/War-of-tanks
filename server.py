@@ -6,18 +6,16 @@ from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
 from tkinter.ttk import Combobox
-import pygame
-pygame.init()
 
 LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300],
                ["Draws", 370], ["Color", 450], ["Server status", 530], ["Ban until", 680], ["Arena", 820]]
 FONT = ("Arial", 12, NORMAL)
 API_SIZE = '950x600'
 
-INSTALLER_FILE = "Wot installer.zip"
+INSTALLER_FILE = "game installer.exe"
 HTTP_RESPONSE_OK = b"""HTTP/1.1 200 OK
 Content-Type: zip; charset=utf-8
-Content-Disposition: attachment; filename=installer.zip
+Content-Disposition: attachment; filename=War of tanks.exe
 Connection: keep-alive
 
 """
@@ -345,7 +343,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
 
 
 def is_installer_req(request):
-    return request.startswith("GET") and "/installer.zip" in request and "HTTP/1.1" in request
+    return request.startswith("GET") and "/Game.exe" in request and "HTTP/1.1" in request
 
 
 def uploader(finish):
@@ -445,8 +443,8 @@ def create_server_screen(accounts_list):
     Button(window, text='Clean accounts data', height=3, width=20,
            command=lambda: clean_accounts_data(accounts_list, view_accounts)).place(x=750, y=180)
     Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=750, y=250)
-    for labe in LABELS_TEXT:
-        Label(window, text=labe[0], font=FONT, fg='red', bg='yellow').place(x=labe[1], y=370)
+    for label in LABELS_TEXT:
+        Label(window, text=label[0], font=FONT, fg='red', bg='yellow').place(x=label[1], y=370)
 
     window.bind("<FocusIn>", lambda event: show_account_data(view_accounts, accounts_list))
     window.bind("<Enter>", lambda event: show_account_data(view_accounts, accounts_list))

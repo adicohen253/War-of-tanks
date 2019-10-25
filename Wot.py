@@ -443,10 +443,9 @@ class Game:
         battlefield = pygame.image.load(FIELD)
         self._my_walls()
         self._send_to_server(b"game" + mode_code.encode())
-        finish_stream = [False]
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
-
+        flags = [False, False, False, "0"]
         main_player = self._receive_from_server(5)
         main_player = (main_player == "True")
         if main_player:
@@ -464,7 +463,7 @@ class Game:
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
             main_socket.close()
-            threading.Thread(target=self.voice_stream_creator, args=([finish_stream])).start()
+            threading.Thread(target=self.voice_stream_creator, args=([flags])).start()
         # main player create the server
         # (waiting for another one to start the game)
         else:
@@ -476,7 +475,7 @@ class Game:
             self.__enemy_socket.send((str(self.__demo_player.get_color())
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
-            threading.Thread(target=self.voice_stream_connector, args=([finish_stream])).start()
+            threading.Thread(target=self.voice_stream_connector, args=([flags])).start()
         # player makes connection with main player
         self.__enemy_socket.settimeout(0.5)
         self.__enemy.change_player_color(enemy_color)
@@ -490,11 +489,8 @@ class Game:
         last_trap_moment = time.time()
         random_time_for_trap = random.randint(3, 5)
 
-        flags = [False, False, False, "0"]
         my_packet = ["D" + str(self.__player.get_pointer())
                      + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])]
-
-        delta_time = time.time()
 
         threading.Thread(target=self._channeling_with_the_enemy,
                          args=(flags, my_packet)).start()
@@ -521,25 +517,20 @@ class Game:
                         self._receive_from_server(1)
 
                     self.__player.update_direct(self.__walls, event)
-                    if self.__player.shoot_bullet(event, self.__bullets):
+                    is_shoot, new_bullet = self.__player.shoot_bullet(event, self.__bullets, 0)
+                    if is_shoot:
                         pygame.mixer.music.load(FIRE)
                         pygame.mixer.music.play()
-                        flags[3] = "1"
+                        flags[3] = f"1{new_bullet.get_first_lunch_direct() + 1}"
 
             if flags[0] or flags[0] is None:  # already send to server the result of match
                 # None when battle ends as well
                 break
 
             if flags[1]:
-                a = time.time() - delta_time
-                if a >= 3:
-                    self._send_to_server(b"situL")
-                    self._receive_from_server(1)
-                    pygame.mixer.music.load(DEFEAT)
-                else:
-                    self._send_to_server(b"situW")
-                    self._receive_from_server(1)
-                    pygame.mixer.music.load(VICTORY)
+                self._send_to_server(b"situW")
+                self._receive_from_server(1)
+                pygame.mixer.music.load(VICTORY)
                 break
 
             if main_player and time.time() - last_trap_moment >= random_time_for_trap:
@@ -607,10 +598,8 @@ class Game:
             if self.__player.reload_ammo():  # only makes sound of reload when the player reloads
                 pygame.mixer.music.load(RELOAD)
                 pygame.mixer.music.play(2)
-            delta_time = time.time()
         pygame.mixer.music.play()
         time.sleep(TIME_TO_WAIT)
-        finish_stream[0] = True  # end of stream
         self.__enemy = None
         self.__player = None
         self.__enemy_socket.close()
@@ -699,7 +688,11 @@ class Game:
                     x_pos, y_pos = info[info.index("X") + 1:info.index("S")].split("Y")
                     self.__enemy.update_enemy_loc(int(x_pos), int(y_pos))
                 if info[info.index("S") + 1] == "1":
-                    self.__enemy.shoot_bullet(pygame.K_f, self.__bullets)
+                    lunch_direct_of_bullet = int(info[info.index("S") + 2]) - 1
+                    if lunch_direct_of_bullet == 0:
+                        self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, 2)
+                    else:
+                        self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
                 if "T" in info:
                     attr = int(info[info.index("T") + 1])
                     poses = info[info.index("T") + 2:].split(",")
@@ -720,10 +713,10 @@ class Game:
         stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         stream_socket.connect((self.__enemy_ip, STREAM_OUTPUT_PORT))
         p = pyaudio.PyAudio()
-        while not finish_game[0]:
+        while not (finish_game[0] or finish_game[1]):
             try:
                 stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
-                while not finish_game[0]:
+                while not (finish_game[0] or finish_game[1]):
                     try:
                         data = stream.read(CHUNK)
                         stream_socket.send(data)
@@ -743,11 +736,11 @@ class Game:
         stream_socket.listen(1)
         p = pyaudio.PyAudio()
         client, address = stream_socket.accept()
-        while not finish_game[0]:
+        while not (finish_game[0] or finish_game[1]):
             try:
                 stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
                                 rate=RATE, output=True, frames_per_buffer=CHUNK)
-                while not finish_game[0]:
+                while not (finish_game[0] or finish_game[1]):
                     try:
                         data = stream.read(CHUNK)
                         client.send(data)
