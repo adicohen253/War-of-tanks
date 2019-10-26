@@ -97,6 +97,8 @@ class Account:
         self.__favorite_color = "ff0000"
         self.__ban_string = "00/00/0000 00:00"
         self.__ban_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
+        if self.__client_status == "Ban":
+            self.__client_status = "Off"
 
     def set_ban_until(self, new_date):
         self.__ban_string = new_date
@@ -398,6 +400,7 @@ def create_server_screen(accounts_list):
     window.geometry(API_SIZE)
     window.title("My server")
     window.resizable(OFF, OFF)
+    window.iconbitmap('server.ico')
     Label(window, text="My IP is: " + my_ip(), fg='blue',
           bg='white', borderwidth=5, relief=SUNKEN).place(x=800, y=30)
 
@@ -417,13 +420,13 @@ def create_server_screen(accounts_list):
     Label(lf, text="Date:", font=FONT).place(x=280, y=10)
     Label(lf, text='Hour:', font=FONT).place(x=280, y=45)
     Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=day,
-             values=[f"0{x}" if x < 10 else x for x in range(1, 32)]).place(x=330, y=10)
+             values=["day"] + [f"0{x}" if x < 10 else x for x in range(1, 32)]).place(x=330, y=10)
     Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=month,
-             values=[f"0{x}" if x < 10 else x for x in range(1, 13)]).place(x=400, y=10)
+             values=["month"] + [f"0{x}" if x < 10 else x for x in range(1, 13)]).place(x=400, y=10)
     Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=year,
-             values=[x for x in range(2019, 3000)]).place(x=470, y=10)
+             values=["year"] + [str(x) for x in range(2019, 3000)]).place(x=470, y=10)
     Combobox(lf, state='readonly', width=6, textvariable=hour,
-             values=[f"0{x}:00" if x < 10 else f"{x}:00" for x in range(0, 24)]).place(x=330, y=45)
+             values=["hour"] + [f"0{x}:00" if x < 10 else f"{x}:00" for x in range(0, 24)]).place(x=330, y=45)
 
     Button(lf, command=lambda: admin_register(accounts_list, user, password, view_accounts),
            text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
@@ -586,6 +589,7 @@ def main():
     threading.Thread(target=is_ban_date_passed, args=(accounts_list, finish)).start()
     create_server_screen(accounts_list)
     finish[0] = True
+    server.close()
 
 
 if __name__ == '__main__':
