@@ -68,7 +68,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.20"
+IP = "192.168.43.252"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
