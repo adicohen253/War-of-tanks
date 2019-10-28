@@ -16,7 +16,6 @@ from re import findall
 # constants
 pygame.init()
 TIME_TO_WAIT = 1.8
-TIME_TO_PREVENT_FLOW = 0.002
 SIZE = (1200, 600)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
@@ -68,7 +67,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.43.252"
+IP = "192.168.1.20"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -463,10 +462,10 @@ class Game:
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
             main_socket.close()
-            threading.Thread(target=self.voice_stream_creator, args=([flags])).start()
+            # threading.Thread(target=self.voice_stream_creator, args=([flags])).start()
         # main player create the server
-        # (waiting for another one to start the game)
-        else:
+        # (waiting for another one for starting the game)
+        else:  # player makes connection with main player
             self.__enemy_ip = self._receive_from_server(ASKED_IP_LEN_PACKET)
             self.__player = game_obj.Tank(420, 50, direct=2, demo_tank=self.__demo_player)
             self.__enemy = game_obj.Tank(20, 200)
@@ -475,8 +474,7 @@ class Game:
             self.__enemy_socket.send((str(self.__demo_player.get_color())
                                       .replace(" ", '').replace("[", "").replace("]", "")).encode())
             enemy_color = self.__enemy_socket.recv(COLOR_PACKET_LEN).decode().split(",")
-            threading.Thread(target=self.voice_stream_connector, args=([flags])).start()
-        # player makes connection with main player
+            # threading.Thread(target=self.voice_stream_connector, args=([flags])).start()
         self.__enemy_socket.settimeout(0.5)
         self.__enemy.change_player_color(enemy_color)
         self.__screen.blit(battlefield, [0, 0])
@@ -649,13 +647,6 @@ class Game:
     def _channeling_with_the_enemy(self, flags, my_packet):
         counter = 0
         while flags[0] is False:
-            is_collide = False
-            if pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
-                self.__player.lost_health(2)
-                self.__enemy.lost_health(2)
-                self.__player.hit_wall()
-                is_collide = True
-
             try:
                 packet_to_send = my_packet[0] + "S" + flags[3]
                 flags[3] = "0"
@@ -663,11 +654,8 @@ class Game:
                     packet_to_send += "T" + str(flags[2].get_attribute()) \
                                       + str(flags[2].get_loc()[0]) + "," + str(flags[2].get_loc()[1])
                     flags[2] = False
-                if is_collide:
-                    packet_to_send += "C"  # flag to enemy if there was a collapse
                 self.__enemy_socket.send((chr(len(packet_to_send))).encode())
                 self.__enemy_socket.send(packet_to_send.encode())
-                time.sleep(TIME_TO_PREVENT_FLOW)
             except socket.error:  # enemy player quit
                 flags[1] = True
                 break
@@ -698,10 +686,6 @@ class Game:
                     poses = info[info.index("T") + 2:].split(",")
                     x_loc_of_trap, y_loc_of_trap = [int(x) for x in poses]
                     self.__traps.append(game_obj.Surprise(x_loc_of_trap, y_loc_of_trap, attr))
-                if "C" in info:
-                    self.__enemy.lost_health(2)
-                    self.__player.lost_health(2)
-                    self.__player.hit_wall()
             counter = 0
             return False, counter
         except socket.error:
@@ -727,7 +711,7 @@ class Game:
                 stream.close()
                 p.terminate()
             except OSError:
-                time.sleep(3)
+                time.sleep(0.5)
         stream_socket.close()
 
     def voice_stream_creator(self, finish_game):
@@ -753,7 +737,7 @@ class Game:
                 p.terminate()
                 client.close()
             except OSError:
-                time.sleep(3)
+                time.sleep(0.5)
         stream_socket.close()
 
     def _my_walls(self, map_code="default"):

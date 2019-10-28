@@ -64,6 +64,10 @@ class Tank(pygame.sprite.Sprite):
             for y in range(self.__image.get_size()[1]):
                 if self.__image.get_at((x, y)) != BLACK and self.__image.get_at((x, y)) != WHITE:
                     self.__image.set_at((x, y), new_color)
+        for x in range(self.__original_image.get_size()[0]):
+            for y in range(self.__original_image.get_size()[1]):
+                if self.__original_image.get_at((x, y)) != BLACK and self.__original_image.get_at((x, y)) != WHITE:
+                    self.__original_image.set_at((x, y), new_color)
         self.update_color(new_color)
 
     def is_done_ghost(self):

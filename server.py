@@ -140,6 +140,11 @@ def find_first_taken_arena(accounts_list):
     else:
         return 1
 
+def find_next_arena(accounts_list):
+    min_arena = min([player.get_arena_number() for player in accounts_list])
+    if min_arena == 0:
+        return
+
 
 def my_ip():
     """return my current ip in string"""
@@ -305,6 +310,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                     codes[mode_code][0] = not codes[mode_code][0]
                     try:
                         request = player1.recv(4).decode()
+                        account.set_arena_number(0)
                         if account not in accounts_list:
                             player1.send(b"@")  # account deleted
                             break
@@ -327,14 +333,13 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                             break
 
                     except socket.error:
+                        account.set_arena_number(0)
                         print(account.get_username() + " illegal exit from battle count as losing")
                         update_users.append([account, "L"])
                         player1.close()
                         account.add_lose()
                         account.player_offline()
                         break
-                    finally:
-                        account.set_arena_number(0)
 
             except socket.error:
                 player1.close()
@@ -363,6 +368,7 @@ def uploader(finish):
             client.settimeout(3)
             request = client.recv(1024).decode().split("\r\n")
             if request == ['']:
+                client.close()
                 raise socket.error
             if is_installer_req(request[0]):
                 client.send(HTTP_RESPONSE_OK + data)
@@ -372,7 +378,7 @@ def uploader(finish):
                 client.send(HTTP_RESPONSE_NOT_FOUND)
             client.close()
         except socket.error:
-            pass
+            continue
     print("uploader shut down...")
     server.close()
 
@@ -400,7 +406,6 @@ def create_server_screen(accounts_list):
     window.geometry(API_SIZE)
     window.title("My server")
     window.resizable(OFF, OFF)
-    window.iconbitmap('server.ico')
     Label(window, text="My IP is: " + my_ip(), fg='blue',
           bg='white', borderwidth=5, relief=SUNKEN).place(x=800, y=30)
 
@@ -584,8 +589,8 @@ def main():
         element = threading.Thread(target=help_player, args=(server, channels_for_matches, account_updates_to_table,
                                                              accounts_list, finish, index, available_arena))
         element.start()
+    # uploader off
     threading.Thread(target=update_users_data, args=(account_updates_to_table, finish)).start()
-    threading.Thread(target=uploader, args=([finish])).start()
     threading.Thread(target=is_ban_date_passed, args=(accounts_list, finish)).start()
     create_server_screen(accounts_list)
     finish[0] = True
