@@ -159,7 +159,7 @@ class Tank(pygame.sprite.Sprite):
             else:
                 self.rect.x, self.rect.y = x, y
 
-    def move_tank(self, walls):
+    def move_tank(self, walls, enemy_tank):
         """moves the tank in step the player input, helped with hit_wall to avoid stuck in walls
         :argument:
             walls: type- list of walls, every wall in the game
@@ -171,23 +171,28 @@ class Tank(pygame.sprite.Sprite):
             if not pygame.sprite.spritecollide(self, walls, False):
                 self.__is_stuck_in_ghost = False
                 self.update_loc()
-                return False
+                is_get_into_wall = False
             else:
-                self.update_loc()
                 if self.__is_stuck_in_ghost:
-                    return False
+                    is_get_into_wall = False
+                else:
+                    self.hit_wall()
+                    is_get_into_wall = True
+
+            if not pygame.sprite.spritecollide(self, [enemy_tank], False):
+                is_get_into_enemy = False
+            else:
+                self.lost_health(2)
+                enemy_tank.lost_health(2)
                 self.hit_wall()
-                return True
+                is_get_into_enemy = True
+            return is_get_into_wall, is_get_into_enemy
+        return False, False
 
     def hit_wall(self):
         """Reflects the tank when in the wall"""
-        self.rect.x -= MOVES[self.__tank_direct][0] * 2
-        self.rect.y -= MOVES[self.__tank_direct][1] * 2
-        self.__tank_direct += 4
-        self.absolute_pointer()
-        self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
-
-    def spin(self):
+        self.rect.x -= MOVES[self.__tank_direct][0]
+        self.rect.y -= MOVES[self.__tank_direct][1]
         self.__tank_direct += 4
         self.absolute_pointer()
         self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])

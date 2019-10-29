@@ -492,7 +492,6 @@ class Game:
 
         threading.Thread(target=self._channeling_with_the_enemy,
                          args=(flags, my_packet)).start()
-        print(f"{self.__enemy.rect.x} {self.__enemy.rect.y}")
         while not flags[0]:
             my_packet[0] = "D" + str(self.__player.get_pointer()) \
                            + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])
@@ -520,7 +519,7 @@ class Game:
                     if is_shoot:
                         pygame.mixer.music.load(FIRE)
                         pygame.mixer.music.play()
-                        flags[3] = f"1{new_bullet.get_first_lunch_direct() + 1}"
+                        flags[4] = f"1{new_bullet.get_first_lunch_direct() + 1}"
 
             if flags[0] or flags[0] is None:  # already send to server the result of match
                 # None when battle ends as well
@@ -531,10 +530,6 @@ class Game:
                 self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
                 break
-
-            if main_player and pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
-                self.__player.hit_wall()
-                flags[3] = True
 
             if main_player and time.time() - last_trap_moment >= random_time_for_trap:
                 last_trap_moment, random_time_for_trap = self._create_trap()
@@ -581,9 +576,12 @@ class Game:
                 pygame.mixer.music.load(VICTORY)
                 break
 
-            if self.__player.move_tank(self.__walls):
+            is_get_into_wall, is_get_into_enemy = self.__player.move_tank(self.__walls, self.__enemy)
+            if is_get_into_wall:
                 pygame.mixer.music.load(BRAKE)
                 pygame.mixer.music.play()
+            if is_get_into_enemy:
+                flags[3] = True
 
             self.__player.is_done_eternal_ammo()
             self.__player.is_done_ghost()
@@ -656,8 +654,8 @@ class Game:
                 packet_to_send = my_packet[0] + "S" + flags[4]
                 flags[4] = "0"
                 if flags[3]:
-                    packet_to_send += "C"
                     flags[3] = False
+                    packet_to_send += "C"
                 if flags[2] is not False:  # run if there is a new trap
                     packet_to_send += "T" + str(flags[2].get_attribute()) \
                                       + str(flags[2].get_loc()[0]) + "," + str(flags[2].get_loc()[1])
@@ -690,14 +688,15 @@ class Game:
                     else:
                         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
                 if "C" in info:
-                    self.__enemy.spin()
+                    self.__player.lost_health(2)
+                    self.__enemy.lost_health(2)
+                    self.__player.hit_wall()
                 if "T" in info:
                     attr = int(info[info.index("T") + 1])
                     poses = info[info.index("T") + 2:].split(",")
                     x_loc_of_trap, y_loc_of_trap = [int(x) for x in poses]
                     self.__traps.append(game_obj.Surprise(x_loc_of_trap, y_loc_of_trap, attr))
-            counter = 0
-            return False, counter
+            return False, 0
         except socket.error:
             return counter == 6, counter + 1
         except TypeError:  #
