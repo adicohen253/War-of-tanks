@@ -444,7 +444,7 @@ class Game:
         self._send_to_server(b"game" + mode_code.encode())
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
-        flags = [False, False, False, "0"]
+        flags = [False, False, False, False, "0"]
         main_player = self._receive_from_server(5)
         main_player = (main_player == "True")
         if main_player:
@@ -492,6 +492,7 @@ class Game:
 
         threading.Thread(target=self._channeling_with_the_enemy,
                          args=(flags, my_packet)).start()
+        print(f"{self.__enemy.rect.x} {self.__enemy.rect.y}")
         while not flags[0]:
             my_packet[0] = "D" + str(self.__player.get_pointer()) \
                            + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])
@@ -530,6 +531,10 @@ class Game:
                 self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
                 break
+
+            if main_player and pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
+                self.__player.hit_wall()
+                flags[3] = True
 
             if main_player and time.time() - last_trap_moment >= random_time_for_trap:
                 last_trap_moment, random_time_for_trap = self._create_trap()
@@ -648,8 +653,11 @@ class Game:
         counter = 0
         while flags[0] is False:
             try:
-                packet_to_send = my_packet[0] + "S" + flags[3]
-                flags[3] = "0"
+                packet_to_send = my_packet[0] + "S" + flags[4]
+                flags[4] = "0"
+                if flags[3]:
+                    packet_to_send += "C"
+                    flags[3] = False
                 if flags[2] is not False:  # run if there is a new trap
                     packet_to_send += "T" + str(flags[2].get_attribute()) \
                                       + str(flags[2].get_loc()[0]) + "," + str(flags[2].get_loc()[1])
@@ -681,6 +689,8 @@ class Game:
                         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, 2)
                     else:
                         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
+                if "C" in info:
+                    self.__enemy.spin()
                 if "T" in info:
                     attr = int(info[info.index("T") + 1])
                     poses = info[info.index("T") + 2:].split(",")

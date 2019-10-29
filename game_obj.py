@@ -187,6 +187,11 @@ class Tank(pygame.sprite.Sprite):
         self.absolute_pointer()
         self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
 
+    def spin(self):
+        self.__tank_direct += 4
+        self.absolute_pointer()
+        self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
+
     def shoot_bullet(self, event, bullets, lunch_direct_of_bullet):
         """add new bullets to the bullets in the battlefield, if there option to shoot
         argument:
