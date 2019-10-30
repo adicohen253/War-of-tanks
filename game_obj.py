@@ -174,6 +174,7 @@ class Tank(pygame.sprite.Sprite):
                 is_get_into_wall = False
             else:
                 if self.__is_stuck_in_ghost:
+                    self.update_loc()
                     is_get_into_wall = False
                 else:
                     self.hit_wall()
