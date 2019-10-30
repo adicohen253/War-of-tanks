@@ -650,14 +650,12 @@ class Game:
     def _channeling_with_the_enemy(self, flags, my_packet):
         counter = 0
         while flags[0] is False:
-            is_collide = False
             try:
                 packet_to_send = my_packet[0] + "S" + flags[4]
                 flags[4] = "0"
                 if flags[3]:
                     flags[3] = False
                     packet_to_send += "C"
-                    is_collide = True
                 if flags[2] is not False:  # run if there is a new trap
                     packet_to_send += "T" + str(flags[2].get_attribute()) \
                                       + str(flags[2].get_loc()[0]) + "," + str(flags[2].get_loc()[1])
@@ -668,12 +666,12 @@ class Game:
                 flags[1] = True
                 break
 
-            flags[1], counter = self._take_care_enemy_packet(counter, is_collide)
+            flags[1], counter = self._take_care_enemy_packet(counter)
             if flags[1]:  # enemy player doesn't responding
                 break
         self.__enemy_socket.close()
 
-    def _take_care_enemy_packet(self, counter, is_collide):
+    def _take_care_enemy_packet(self, counter):
         try:
             msg_len = ord(self.__enemy_socket.recv(1).decode())
             info = str(self.__enemy_socket.recv(msg_len).decode())
@@ -689,7 +687,7 @@ class Game:
                         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, 2)
                     else:
                         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
-                if "C" in info and not is_collide:
+                if "C" in info:
                     self.__player.lost_health(2)
                     self.__enemy.lost_health(2)
                     self.__player.hit_wall()
