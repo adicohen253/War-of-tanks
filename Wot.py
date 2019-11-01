@@ -67,7 +67,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.20"
+IP = "192.168.1.24"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -440,7 +440,6 @@ class Game:
         self._get_my_color()
         clock = pygame.time.Clock()
         battlefield = pygame.image.load(FIELD)
-        self._my_walls()
         self._send_to_server(b"game" + mode_code.encode())
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
@@ -481,6 +480,7 @@ class Game:
         self.__screen.blit(self.__player.get_image(), self.__player.get_loc())
         self.__screen.blit(self.__enemy.get_image(), self.__enemy.get_loc())
         pygame.display.flip()
+        self._demo_my_walls()
 
         start_battle_from = time.time()  # for time battle mode
 
@@ -769,6 +769,14 @@ class Game:
                     s_pos, e_pos = wall.split(" ")
                     s_pos, e_pos = [int(x) for x in s_pos.split(",")], [int(y) for y in e_pos.split(",")]
                     self.__walls.append(game_obj.Wall(self.__screen, s_pos, e_pos))
+
+    def _demo_my_walls(self, map_code="<>-default"):
+        self._send_to_server(map_code.encode())
+        all_walls = self._receive_from_server(1024).split("\n")
+        for wall in all_walls:
+            s_pos, e_pos = wall.split(" ")
+            s_pos, e_pos = [int(x) for x in s_pos.split(",")], [int(y) for y in e_pos.split(",")]
+            self.__walls.append(game_obj.Wall(self.__screen, s_pos, e_pos))
 
     def _take_care_timer_of_time_mode(self, flags, start_time):
         time_to_play = SECS_TO_PLAY - (time.time() - start_time)

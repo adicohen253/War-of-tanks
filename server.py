@@ -140,6 +140,7 @@ def find_first_taken_arena(accounts_list):
     else:
         return 1
 
+
 def find_next_arena(accounts_list):
     min_arena = min([player.get_arena_number() for player in accounts_list])
     if min_arena == 0:
@@ -222,6 +223,14 @@ def player_login(client, accounts_list):
         client.send(b"F")  # desired account does not exist
 
 
+def find_asked_map(map_code):
+    conn = connect("my database.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT Walls FROM Maps WHERE MapCode = (?)", (map_code, ))
+    walls_of_asked_map = cursor.fetchall()[0][0]
+    return walls_of_asked_map
+
+
 def update_users_data(new_updates_list, finish):
     print("Accounts updater start...")
     conn = connect('my database.db')
@@ -298,6 +307,7 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                     if account not in accounts_list:
                         player1.send(b"@")  # account deleted
                         break
+
                     player1.send(str(codes[mode_code][0]).encode())
                     if not codes[mode_code][0]:
                         # player connects, send ip of client who made connection
@@ -308,6 +318,9 @@ def help_player(server, codes, update_users, accounts_list, finish, index, avail
                         codes[mode_code][1] = address1[0]  # player makes connection
                         account.set_arena_number(available_arena[0])
                     codes[mode_code][0] = not codes[mode_code][0]
+
+                    asked_map = find_asked_map(player1.recv(30).decode())
+                    player1.send(asked_map.encode())
                     try:
                         request = player1.recv(4).decode()
                         account.set_arena_number(0)
