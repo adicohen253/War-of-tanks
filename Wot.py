@@ -569,6 +569,7 @@ class Game:
                 self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
                 break
+
             elif self.__enemy.get_health() <= 0:
                 flags[0] = None
                 self._send_to_server(b"situW")
@@ -688,9 +689,9 @@ class Game:
                     else:
                         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
                 if "C" in info:
-                    self.__player.lost_health(2)
-                    self.__enemy.lost_health(2)
-                    self.__player.hit_wall()
+                    # self.__player.lost_health(2)
+                    # self.__enemy.lost_health(2)
+                    self.__player.hit_object()
                 if "T" in info:
                     attr = int(info[info.index("T") + 1])
                     poses = info[info.index("T") + 2:].split(",")

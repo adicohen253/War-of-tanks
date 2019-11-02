@@ -160,7 +160,7 @@ class Tank(pygame.sprite.Sprite):
                 self.rect.x, self.rect.y = x, y
 
     def move_tank(self, walls, enemy_tank):
-        """moves the tank in step the player input, helped with hit_wall to avoid stuck in walls
+        """moves the tank in step the player input, helped with hit_object to avoid stuck in walls
         :argument:
             walls: type- list of walls, every wall in the game
         """
@@ -177,20 +177,20 @@ class Tank(pygame.sprite.Sprite):
                     self.update_loc()
                     is_get_into_wall = False
                 else:
-                    self.hit_wall()
+                    self.hit_object()
                     is_get_into_wall = True
 
             if not pygame.sprite.spritecollide(self, [enemy_tank], False):
                 is_get_into_enemy = False
             else:
-                self.lost_health(2)
-                enemy_tank.lost_health(2)
-                self.hit_wall()
+                # self.lost_health(2)
+                # enemy_tank.lost_health(2)
+                self.hit_object()
                 is_get_into_enemy = True
             return is_get_into_wall, is_get_into_enemy
         return False, False
 
-    def hit_wall(self):
+    def hit_object(self):
         """Reflects the tank when in the wall"""
         self.rect.x -= MOVES[self.__tank_direct][0]
         self.rect.y -= MOVES[self.__tank_direct][1]
