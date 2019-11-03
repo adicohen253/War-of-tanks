@@ -161,7 +161,7 @@ class Tank(pygame.sprite.Sprite):
                 self.rect.x, self.rect.y = x, y
 
     def move_tank(self, walls):
-        """moves the tank in step the player input, helped with hit_object to avoid stuck in walls
+        """make the tank move forward
         :argument:
             walls: type- list of walls, every wall in the game
         """
