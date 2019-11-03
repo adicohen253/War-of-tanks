@@ -67,7 +67,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.24"
+IP = "192.168.11.185"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -443,12 +443,12 @@ class Game:
         self._send_to_server(b"game" + mode_code.encode())
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
-        flags = [False, False, False, False, "0"]
+        flags = [False, False, False, "0"]
         main_player = self._receive_from_server(5)
         main_player = (main_player == "True")
         if main_player:
             self.__player = game_obj.Tank(20, 200, direct=6, demo_tank=self.__demo_player)
-            self.__enemy = game_obj.Tank(420, 50)
+            self.__enemy = game_obj.Tank(420, 50, direct=2)
             waiting = pygame.image.load(CONNECT)
             self.__screen.blit(waiting, [0, 0])
             pygame.display.flip()
@@ -467,7 +467,7 @@ class Game:
         else:  # player makes connection with main player
             self.__enemy_ip = self._receive_from_server(ASKED_IP_LEN_PACKET)
             self.__player = game_obj.Tank(420, 50, direct=2, demo_tank=self.__demo_player)
-            self.__enemy = game_obj.Tank(20, 200)
+            self.__enemy = game_obj.Tank(20, 200, direct=6)
             self.__enemy_socket = socket.socket()
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
             self.__enemy_socket.send((str(self.__demo_player.get_color())
@@ -519,7 +519,7 @@ class Game:
                     if is_shoot:
                         pygame.mixer.music.load(FIRE)
                         pygame.mixer.music.play()
-                        flags[4] = f"1{new_bullet.get_first_lunch_direct() + 1}"
+                        flags[3] = f"1{new_bullet.get_first_lunch_direct() + 1}"
 
             if flags[0] or flags[0] is None:  # already send to server the result of match
                 # None when battle ends as well
@@ -577,12 +577,9 @@ class Game:
                 pygame.mixer.music.load(VICTORY)
                 break
 
-            is_get_into_wall, is_get_into_enemy = self.__player.move_tank(self.__walls, self.__enemy)
-            if is_get_into_wall:
+            if self.__player.move_tank(self.__walls):
                 pygame.mixer.music.load(BRAKE)
                 pygame.mixer.music.play()
-            if is_get_into_enemy:
-                flags[3] = True
 
             self.__player.is_done_eternal_ammo()
             self.__player.is_done_ghost()
@@ -652,11 +649,8 @@ class Game:
         counter = 0
         while flags[0] is False:
             try:
-                packet_to_send = my_packet[0] + "S" + flags[4]
-                flags[4] = "0"
-                if flags[3]:
-                    flags[3] = False
-                    packet_to_send += "C"
+                packet_to_send = my_packet[0] + "S" + flags[3]
+                flags[3] = "0"
                 if flags[2] is not False:  # run if there is a new trap
                     packet_to_send += "T" + str(flags[2].get_attribute()) \
                                       + str(flags[2].get_loc()[0]) + "," + str(flags[2].get_loc()[1])
@@ -688,10 +682,6 @@ class Game:
                         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, 2)
                     else:
                         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
-                if "C" in info:
-                    # self.__player.lost_health(2)
-                    # self.__enemy.lost_health(2)
-                    self.__player.hit_object()
                 if "T" in info:
                     attr = int(info[info.index("T") + 1])
                     poses = info[info.index("T") + 2:].split(",")
@@ -749,27 +739,6 @@ class Game:
             except OSError:
                 time.sleep(0.5)
         stream_socket.close()
-
-    def _my_walls(self, map_code="default"):
-        """build the walls of the battlefield
-        argument:
-            screen: pygame.surface, the battlefield
-            screen: pygame.surface, the battlefield
-            code: type - int,
-            code: type - str,
-        """
-        found = False
-        with open(MAPS, "r") as my_maps:
-            all_maps = [m.split("\n" * 2) for m in my_maps.read().split("\n" * 3)[:-1]]
-            for element in all_maps:
-                if element[0] == map_code:
-                    all_walls = element[1].split("\n")
-                    found = True
-            if found:
-                for wall in all_walls:
-                    s_pos, e_pos = wall.split(" ")
-                    s_pos, e_pos = [int(x) for x in s_pos.split(",")], [int(y) for y in e_pos.split(",")]
-                    self.__walls.append(game_obj.Wall(self.__screen, s_pos, e_pos))
 
     def _demo_my_walls(self, map_code="<>-default"):
         self._send_to_server(map_code.encode())

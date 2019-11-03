@@ -23,21 +23,22 @@ class Tank(pygame.sprite.Sprite):
         super(Tank, self).__init__()
         self.__image = pygame.image.load(IMG_PLY).convert()
         self.__image.set_colorkey(WHITE)
+        self.__original_image = self.__image  # original image (uses to rotate the tank with every direct)
         self.rect = self.__image.get_rect()  # the location of the player
         self.__tank_direct = direct  # uses as direct of the tank
-        self.__original_image = self.__image  # original image (uses to rotate the tank with every direct)
         self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
         self.rect.x = x
         self.rect.y = y
-        self.__num_bullet = NUM_BULLETS  # the current number of bullets
-        self.__health = START_HEALTH  # health of the player
-        self.__color = None
-        self.__need_pointing = True
-        self.__last_time_of_shot = time.time()
         if type(demo_tank) == Tank:
             self.change_player_color(demo_tank.get_color())
         else:
             self.__color = [255, 0, 0]  # the default color of the player
+
+        self.__num_bullet = NUM_BULLETS  # the current number of bullets
+        self.__health = START_HEALTH  # health of the player
+        self.__need_pointing = True
+
+        self.__last_time_of_shot = time.time()
         self.reload_time = time.time()  # time passes from the last reload
         self.__eternal_ammo_mode = False  # flag is tank has infinite ammo now, lasts for 6 seconds
         self.__eternal_ammo_time = None  # the moment it became to be with endless ammo
@@ -68,7 +69,7 @@ class Tank(pygame.sprite.Sprite):
             for y in range(self.__original_image.get_size()[1]):
                 if self.__original_image.get_at((x, y)) != BLACK and self.__original_image.get_at((x, y)) != WHITE:
                     self.__original_image.set_at((x, y), new_color)
-        self.update_color(new_color)
+        self.__color = new_color
 
     def is_done_ghost(self):
         """"Checks if it's time to turn off ghost mode"""
@@ -159,7 +160,7 @@ class Tank(pygame.sprite.Sprite):
             else:
                 self.rect.x, self.rect.y = x, y
 
-    def move_tank(self, walls, enemy_tank):
+    def move_tank(self, walls):
         """moves the tank in step the player input, helped with hit_object to avoid stuck in walls
         :argument:
             walls: type- list of walls, every wall in the game
@@ -171,24 +172,15 @@ class Tank(pygame.sprite.Sprite):
             if not pygame.sprite.spritecollide(self, walls, False):
                 self.__is_stuck_in_ghost = False
                 self.update_loc()
-                is_get_into_wall = False
+                return False
             else:
                 if self.__is_stuck_in_ghost:
                     self.update_loc()
-                    is_get_into_wall = False
+                    return False
                 else:
                     self.hit_object()
-                    is_get_into_wall = True
-
-            if not pygame.sprite.spritecollide(self, [enemy_tank], False):
-                is_get_into_enemy = False
-            else:
-                # self.lost_health(2)
-                # enemy_tank.lost_health(2)
-                self.hit_object()
-                is_get_into_enemy = True
-            return is_get_into_wall, is_get_into_enemy
-        return False, False
+                    return True
+        return False
 
     def hit_object(self):
         """Reflects the tank when in the wall"""
@@ -237,9 +229,6 @@ class Tank(pygame.sprite.Sprite):
 
     def get_color(self):
         return self.__color
-
-    def update_color(self, new_color):
-        self.__color = new_color
 
     def get_health(self):
         return self.__health
