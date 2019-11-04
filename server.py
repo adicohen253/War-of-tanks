@@ -29,6 +29,7 @@ MAX_NUM_DAY_IN_MONTHS = {"01": 31, "02": 28, "03": 31, "04": 30, "05": 31, "06":
 # make creator of games more secure
 # make 2 types of arena for each mode - death and time
 
+
 class Account:
     def __init__(self, username, password, wins=0, loses=0, draws=0, favorite_color="ff0000",
                  ban_until="00/00/0000 00:00"):
@@ -163,12 +164,13 @@ class Server:
         window.geometry(API_SIZE)
         window.title("My server")
         window.resizable(OFF, OFF)
+        window.configure(background='azure')
         Label(window, text="My IP is: " + my_ip(), fg='blue',
               bg='white', borderwidth=5, relief=SUNKEN).place(x=800, y=30)
 
         # Admin options's widgets
         lf = LabelFrame(window, font=FONT, text="Admin interface:")
-        lf.place(x=0, y=10, width=600, height=200)
+        lf.place(x=0, y=0, width=600, height=200)
 
         user, password = StringVar(), StringVar()
         day, month = StringVar(value="day"), StringVar(value="month")
@@ -204,7 +206,7 @@ class Server:
         view_accounts = Listbox(window, width=100, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
         view_accounts.place(y=410)
         scroll.config(command=view_accounts.yview)
-        scroll.place(x=905, y=400, height=200)
+        scroll.place(x=905, y=410, height=190)
         Button(window, text='Clean accounts data', height=3, width=20,
                command=lambda: self.clean_accounts_data(view_accounts)).place(x=750, y=180)
         Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=750, y=250)
