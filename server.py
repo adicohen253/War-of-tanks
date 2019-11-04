@@ -129,6 +129,19 @@ class Account:
                f"{self.__ban_string}{' '* 14}{self.__arena_number}"
 
 
+class server:
+    def __init__(self):
+        self.__ip = my_ip()
+        self.__server_socket = socket.socket()
+        self.__server_socket.bind((my_ip(), 2020))
+        self.__server_socket.listen(1)
+        self.__server_socket.settimeout(0.2)
+        conn = connect("my database.db")
+        curs = conn.cursor()
+        self.__accounts_list = build_my_accounts(curs)
+        self.__available_arena = 1
+
+
 def find_first_taken_arena(accounts_list):
     my_arenas = [x.get_arena_number() for x in accounts_list if x.get_arena_number() >= 1]
     if my_arenas:  # not empty list
