@@ -27,8 +27,8 @@ ASKED_IP_LEN_PACKET = 15
 TICK = 80
 SECS_TO_PLAY = 150  # 2:30 minutes
 MAPS = "maps.txt"
-BATTLE_TO_DEATH = "0"
-BATTLE_ON_TIME = "1"
+BATTLE_TO_DEATH = 0
+BATTLE_ON_TIME = 1
 
 # screens and widgets
 POINTER = "pointer.png"
@@ -439,7 +439,7 @@ class Game:
         """
         self._get_my_color()
         battlefield = pygame.image.load(FIELD)
-        self._send_to_server(b"game" + mode_code.encode())
+        self._send_to_server(b"game" + str(mode_code).encode())
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
         flags = [False, False, False, "0"]
