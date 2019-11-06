@@ -143,7 +143,8 @@ class Server:
         self.__server_socket.listen(1)
         self.__server_socket.settimeout(0.2)
         self.__accounts_list = build_my_accounts()
-        self.__available_arena = 1
+        self.__available_death_arena = 1
+        self.__available_time_arena = 2
         self.__accounts_updates_to_table = []
         self.__stop_running = False
 
@@ -196,10 +197,10 @@ class Server:
                text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
         Button(lf, command=lambda: self.admin_ban(user, password, [day, month, year, hour], view_accounts),
                text='Ban', borderwidth=3, width=10, bg='yellow').place(x=110, y=140)
-        Button(lf, command=lambda: self.admin_delete(user, password, view_accounts),
-               text='Delete', borderwidth=3, width=10, bg='red').place(x=290, y=140)
         Button(lf, command=lambda: self.admin_free_ban(user, password, view_accounts),
                text="Free", borderwidth=3, width=10, bg='azure').place(x=200, y=140)
+        Button(lf, command=lambda: self.admin_delete(user, password, view_accounts),
+               text='Delete', borderwidth=3, width=10, bg='red').place(x=290, y=140)
 
         # Clients data's widgets
         scroll = Scrollbar(window, orient=VERTICAL)
@@ -409,23 +410,23 @@ class Server:
                             if self.__death_battle_ip == "":  # player create connection
                                 player.send(b"T")
                                 self.__death_battle_ip = address[0]
-                                account.set_arena_number(self.__available_arena)
+                                account.set_arena_number(self.__available_death_arena)
                             else:
                                 player.send(b"F" + self.__death_battle_ip.encode())
                                 self.__death_battle_ip = ""
-                                account.set_arena_number(self.__available_arena)
-                                self.__available_arena = self.find_next_death_arena()
+                                account.set_arena_number(self.__available_death_arena)
+                                self.__available_death_arena = self.find_next_arena(self.DEATH_MODE)
 
                         elif mode_code == self.TIME_MODE:
                             if self.__time_battle_ip == "":
                                 player.send(b"T")
                                 self.__time_battle_ip = address[0]
-                                account.set_arena_number(self.__available_arena)
+                                account.set_arena_number(self.__available_time_arena)
                             else:
                                 player.send(b"F" + self.__time_battle_ip.encode())
                                 self.__time_battle_ip = ""
-                                account.set_arena_number(self.__available_arena)
-                                self.__available_arena = self.find_next_death_arena()
+                                account.set_arena_number(self.__available_time_arena)
+                                self.__available_time_arena = self.find_next_arena(self.TIME_MODE)
 
                         asked_map = find_asked_map(player.recv(30).decode())
                         player.send(asked_map.encode())
@@ -439,7 +440,10 @@ class Server:
                                 act = player.recv(1).decode()
                                 if act == "W":
                                     account.add_win()
-                                    self.__available_arena = self.find_next_death_arena()
+                                    if mode_code == self.DEATH_MODE:
+                                        self.__available_death_arena = self.find_next_arena(self.DEATH_MODE)
+                                    else:
+                                        self.__available_time_arena = self.find_next_arena(self.TIME_MODE)
                                 elif act == "L":
                                     account.add_lose()
                                 elif act == "E":
@@ -527,17 +531,29 @@ class Server:
         if not exist:
             client.send(b"F")  # desired account does not exist
 
-    def find_next_death_arena(self):
-        my_arenas = [x.get_arena_number() for x in self.__accounts_list if x.get_arena_number() >= 1
-                     and x.get_arena_number() % 2]
-        if my_arenas:  # not empty list
-            min_arena = min(my_arenas)
-            if min_arena == 1:
-                return max(my_arenas) + 2
+    def find_next_arena(self, mode_code):
+        if mode_code == self.DEATH_MODE:
+            my_arenas = [x.get_arena_number() for x in self.__accounts_list if x.get_arena_number() >= 1
+                         and x.get_arena_number() % 2]
+            if my_arenas:  # not empty list
+                min_arena = min(my_arenas)
+                if min_arena == 1:
+                    return max(my_arenas) + 2
+                else:
+                    return min_arena - 2
             else:
-                return min_arena - 2
+                return 1
         else:
-            return 1
+            my_arenas = [x.get_arena_number() for x in self.__accounts_list if x.get_arena_number() >= 1
+                         and not (x.get_arena_number() % 2)]
+            if my_arenas:  # not empty list
+                min_arena = min(my_arenas)
+                if min_arena == 2:
+                    return max(my_arenas) + 2
+                else:
+                    return min_arena - 2
+            else:
+                return 2
 
 
 # filters and sub-functions for Server class
