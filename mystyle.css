@@ -1,0 +1,32 @@
+body 
+{
+  background-color: lightgray;
+}
+
+h1 
+{
+  color: rgb(78, 109, 243);
+  margin-left: 500px;
+  font-size: 40px;
+  font-style: initial;
+}
+
+p
+{
+    color: darkslateblue;
+    margin-top: 100px;
+    margin-left: 300;
+    font-size: 20px;
+}
+
+button
+{
+    color: blue;
+    background-color: lime;
+    border-color: rgb(224, 255, 240);
+    font-size: 32px;
+    border-width: 5px;
+    border-style: inset;
+}
+
+
