@@ -407,25 +407,25 @@ class Server:
 
                         if mode_code == self.DEATH_MODE:
                             if self.__death_battle_ip == "":  # player create connection
-                                player.send(b"True")
+                                player.send(b"T")
                                 self.__death_battle_ip = address[0]
                                 account.set_arena_number(self.__available_arena)
                             else:
-                                player.send(b"False" + self.__death_battle_ip.encode())
+                                player.send(b"F" + self.__death_battle_ip.encode())
                                 self.__death_battle_ip = ""
                                 account.set_arena_number(self.__available_arena)
-                                self.__available_arena = self.find_first_taken_arena()
+                                self.__available_arena = self.find_next_death_arena()
 
                         elif mode_code == self.TIME_MODE:
                             if self.__time_battle_ip == "":
-                                player.send(b"True")
+                                player.send(b"T")
                                 self.__time_battle_ip = address[0]
                                 account.set_arena_number(self.__available_arena)
                             else:
-                                player.send(b"False" + self.__death_battle_ip.encode())
+                                player.send(b"F" + self.__time_battle_ip.encode())
                                 self.__time_battle_ip = ""
                                 account.set_arena_number(self.__available_arena)
-                                self.__available_arena = self.find_first_taken_arena()
+                                self.__available_arena = self.find_next_death_arena()
 
                         asked_map = find_asked_map(player.recv(30).decode())
                         player.send(asked_map.encode())
@@ -439,7 +439,7 @@ class Server:
                                 act = player.recv(1).decode()
                                 if act == "W":
                                     account.add_win()
-                                    self.__available_arena = self.find_first_taken_arena()
+                                    self.__available_arena = self.find_next_death_arena()
                                 elif act == "L":
                                     account.add_lose()
                                 elif act == "E":
@@ -527,14 +527,15 @@ class Server:
         if not exist:
             client.send(b"F")  # desired account does not exist
 
-    def find_first_taken_arena(self):
-        my_arenas = [x.get_arena_number() for x in self.__accounts_list if x.get_arena_number() >= 1]
+    def find_next_death_arena(self):
+        my_arenas = [x.get_arena_number() for x in self.__accounts_list if x.get_arena_number() >= 1
+                     and x.get_arena_number() % 2]
         if my_arenas:  # not empty list
             min_arena = min(my_arenas)
             if min_arena == 1:
-                return max(my_arenas) + 1
+                return max(my_arenas) + 2
             else:
-                return min_arena - 1
+                return min_arena - 2
         else:
             return 1
 

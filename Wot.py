@@ -444,8 +444,8 @@ class Game:
         player_point.set_colorkey(WHITE)
         flags = [False, False, False, "0"]
         clock = pygame.time.Clock()
-        main_player = self._receive_from_server(5)
-        main_player = (main_player == "True")
+        main_player = self._receive_from_server(1)
+        main_player = (main_player == "T")
         if main_player:
             self.__player = game_obj.Tank(20, 200, direct=6, demo_tank=self.__demo_player)
             self.__enemy = game_obj.Tank(420, 50, direct=2)
