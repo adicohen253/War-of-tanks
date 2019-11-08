@@ -143,13 +143,13 @@ class Server:
         self.__server_socket.listen(1)
         self.__server_socket.settimeout(0.2)
         self.__accounts_list = build_my_accounts()
-        self.__available_death_arena = 1
-        self.__available_time_arena = 2
         self.__accounts_updates_to_table = []
         self.__stop_running = False
 
         self.__death_battle_ip = ""
+        self.__death_battle_arena = 0
         self.__time_battle_ip = ""
+        self.__time_battle_arena = 0
 
     def active(self):
         for index in range(10):
@@ -410,23 +410,23 @@ class Server:
                             if self.__death_battle_ip == "":  # player create connection
                                 player.send(b"T")
                                 self.__death_battle_ip = address[0]
-                                account.set_arena_number(self.__available_death_arena)
+                                self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
+                                account.set_arena_number(self.__death_battle_arena)
                             else:
                                 player.send(b"F" + self.__death_battle_ip.encode())
                                 self.__death_battle_ip = ""
-                                account.set_arena_number(self.__available_death_arena)
-                                self.__available_death_arena = self.find_next_arena(self.DEATH_MODE)
+                                account.set_arena_number(self.__death_battle_arena)
 
                         elif mode_code == self.TIME_MODE:
                             if self.__time_battle_ip == "":
                                 player.send(b"T")
                                 self.__time_battle_ip = address[0]
-                                account.set_arena_number(self.__available_time_arena)
+                                self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
+                                account.set_arena_number(self.__time_battle_arena)
                             else:
                                 player.send(b"F" + self.__time_battle_ip.encode())
                                 self.__time_battle_ip = ""
-                                account.set_arena_number(self.__available_time_arena)
-                                self.__available_time_arena = self.find_next_arena(self.TIME_MODE)
+                                account.set_arena_number(self.__time_battle_arena)
 
                         asked_map = find_asked_map(player.recv(30).decode())
                         player.send(asked_map.encode())
@@ -440,10 +440,6 @@ class Server:
                                 act = player.recv(1).decode()
                                 if act == "W":
                                     account.add_win()
-                                    if mode_code == self.DEATH_MODE:
-                                        self.__available_death_arena = self.find_next_arena(self.DEATH_MODE)
-                                    else:
-                                        self.__available_time_arena = self.find_next_arena(self.TIME_MODE)
                                 elif act == "L":
                                     account.add_lose()
                                 elif act == "E":

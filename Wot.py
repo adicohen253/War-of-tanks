@@ -15,18 +15,15 @@ from re import findall
 
 # constants
 pygame.init()
-TIME_TO_WAIT = 1.8
+TIME_TO_WAIT = 1.3
 SIZE = (1200, 600)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
-BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 POINT_POS = ([180, 165], [180, 360])
-COLOR_PACKET_LEN = 11
 ASKED_IP_LEN_PACKET = 15
 TICK = 80
 SECS_TO_PLAY = 150  # 2:30 minutes
-MAPS = "maps.txt"
 BATTLE_TO_DEATH = 0
 BATTLE_ON_TIME = 1
 
@@ -139,10 +136,13 @@ class Game:
             if "@" in message:  # the account deleted from the server
                 self.__client.close()
                 print("your account deleted from server...")
+                time.sleep(TIME_TO_WAIT)
                 sys.exit()
             return message
         except socket.error:
+            print("server shut down...")
             self.__client.close()
+            time.sleep(TIME_TO_WAIT)
             sys.exit()
 
     def _get_my_color(self):
