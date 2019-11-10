@@ -1,26 +1,24 @@
-body 
-{
-  background-color: lightgray;
+body {
+    background-color: lightgray;
 }
 
-h1 
-{
-  color: rgb(78, 109, 243);
-  margin-left: 500px;
-  font-size: 40px;
-  font-style: initial;
+h1 {
+    text-align: center;
+    margin-top: 0%;
+    color: rgb(78, 109, 243);
+    text-decoration: underline;
+    font-size: 70px;
+    font-style: initial;
 }
 
-p
-{
+p {
     color: darkslateblue;
     margin-top: 100px;
     margin-left: 300;
     font-size: 20px;
 }
 
-button
-{
+button {
     color: blue;
     background-color: lime;
     border-color: rgb(224, 255, 240);
@@ -28,5 +26,3 @@ button
     border-width: 5px;
     border-style: inset;
 }
-
-

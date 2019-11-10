@@ -148,8 +148,10 @@ class Server:
 
         self.__death_battle_ip = ""
         self.__death_battle_arena = 0
+        self.__death_battle_creator = None
         self.__time_battle_ip = ""
         self.__time_battle_arena = 0
+        self.__time_battle_creator = None
 
     def active(self):
         for index in range(10):
@@ -412,7 +414,10 @@ class Server:
                                 self.__death_battle_ip = address[0]
                                 self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
                                 account.set_arena_number(self.__death_battle_arena)
+                                self.__death_battle_creator = player
                             else:
+                                self.__death_battle_creator.send(b"found an enemy")
+                                self.__death_battle_creator = None
                                 player.send(b"F" + self.__death_battle_ip.encode())
                                 self.__death_battle_ip = ""
                                 account.set_arena_number(self.__death_battle_arena)
@@ -423,7 +428,10 @@ class Server:
                                 self.__time_battle_ip = address[0]
                                 self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
                                 account.set_arena_number(self.__time_battle_arena)
+                                self.__time_battle_creator = player
                             else:
+                                self.__time_battle_creator.send(b"found an enemy")
+                                self.__time_battle_creator = None
                                 player.send(b"F" + self.__time_battle_ip.encode())
                                 self.__time_battle_ip = ""
                                 account.set_arena_number(self.__time_battle_arena)

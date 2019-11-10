@@ -455,6 +455,7 @@ class Game:
             main_socket = socket.socket()
             main_socket.bind((self.__ip, GAME_PORT))
             main_socket.listen(1)
+            self._receive_from_server(15) # server found an enemy
             self.__enemy_socket, address = main_socket.accept()
             self.__enemy_ip = address[0]  # only ip address
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
