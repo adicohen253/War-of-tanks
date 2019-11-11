@@ -64,7 +64,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.24"
+IP = "192.168.11.121"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -456,6 +456,7 @@ class Game:
             main_socket.bind((self.__ip, GAME_PORT))
             main_socket.listen(1)
             self._receive_from_server(15) # server found an enemy
+            self._send_to_server(b"Ok")
             self.__enemy_socket, address = main_socket.accept()
             self.__enemy_ip = address[0]  # only ip address
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())

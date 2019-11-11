@@ -149,6 +149,7 @@ class Server:
         self.__death_battle_ip = ""
         self.__death_battle_arena = 0
         self.__death_battle_creator = None
+
         self.__time_battle_ip = ""
         self.__time_battle_arena = 0
         self.__time_battle_creator = None
@@ -407,35 +408,8 @@ class Server:
                         if account not in self.__accounts_list:
                             player.send(b"@")  # account deleted
                             break
-
-                        if mode_code == self.DEATH_MODE:
-                            if self.__death_battle_ip == "":  # player create connection
-                                player.send(b"T")
-                                self.__death_battle_ip = address[0]
-                                self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
-                                account.set_arena_number(self.__death_battle_arena)
-                                self.__death_battle_creator = player
-                            else:
-                                self.__death_battle_creator.send(b"found an enemy")
-                                self.__death_battle_creator = None
-                                player.send(b"F" + self.__death_battle_ip.encode())
-                                self.__death_battle_ip = ""
-                                account.set_arena_number(self.__death_battle_arena)
-
-                        elif mode_code == self.TIME_MODE:
-                            if self.__time_battle_ip == "":
-                                player.send(b"T")
-                                self.__time_battle_ip = address[0]
-                                self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
-                                account.set_arena_number(self.__time_battle_arena)
-                                self.__time_battle_creator = player
-                            else:
-                                self.__time_battle_creator.send(b"found an enemy")
-                                self.__time_battle_creator = None
-                                player.send(b"F" + self.__time_battle_ip.encode())
-                                self.__time_battle_ip = ""
-                                account.set_arena_number(self.__time_battle_arena)
-
+                        if self.handle_battle_request(mode_code, address, player, account):
+                            break
                         asked_map = find_asked_map(player.recv(30).decode())
                         player.send(asked_map.encode())
                         try:
@@ -477,6 +451,47 @@ class Server:
                     break
 
             player.close()
+
+    def handle_battle_request(self, mode_code, address, client_socket, account):
+        if mode_code == self.DEATH_MODE:
+            if self.__death_battle_ip == "":  # player create connection
+                client_socket.send(b"T")
+                self.__death_battle_ip = address[0]
+                self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
+                account.set_arena_number(self.__death_battle_arena)
+                self.__death_battle_creator = client_socket
+                try:
+                    client_socket.recv(2)
+                except socket.error:
+                    account.set_arena_number(0)
+                    account.player_offline()
+                    client_socket.close()
+                    return True
+            else:
+                try:
+                    self.__death_battle_creator.send(b"found an enemy")
+                    self.__death_battle_creator = None
+                except socket.error:
+                    self.__death_battle_ip = ""
+                    return self.handle_battle_request(mode_code, address, client_socket, account)
+
+                client_socket.send(b"F" + self.__death_battle_ip.encode())
+                self.__death_battle_ip = ""
+                account.set_arena_number(self.__death_battle_arena)
+
+        elif mode_code == self.TIME_MODE:
+            if self.__time_battle_ip == "":
+                client_socket.send(b"T")
+                self.__time_battle_ip = address[0]
+                self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
+                account.set_arena_number(self.__time_battle_arena)
+                self.__time_battle_creator = client_socket
+            else:
+                self.__time_battle_creator.send(b"found an enemy")
+                self.__time_battle_creator = None
+                client_socket.send(b"F" + self.__time_battle_ip.encode())
+                self.__time_battle_ip = ""
+                account.set_arena_number(self.__time_battle_arena)
 
     def is_can_register(self, client):
         """return to the player if username is already exist in the accounts list
