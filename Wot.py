@@ -455,13 +455,13 @@ class Game:
             main_socket = socket.socket()
             main_socket.bind((self.__ip, GAME_PORT))
             main_socket.listen(1)
-            self._receive_from_server(15) # server found an enemy
+            self._receive_from_server(15)  # server found an enemy
             self._send_to_server(b"Ok")
             self.__enemy_socket, address = main_socket.accept()
             self.__enemy_ip = address[0]  # only ip address
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
             main_socket.close()
-            # threading.Thread(target=self.voice_stream_creator, args=([flags])).start()
+            threading.Thread(target=self.voice_stream_creator, args=([flags])).start()
         # main player create the server
         # (waiting for another one for starting the game)
         else:  # player makes connection with main player
@@ -471,7 +471,7 @@ class Game:
             self.__enemy_socket = socket.socket()
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
-            # threading.Thread(target=self.voice_stream_connector, args=([flags])).start()
+            threading.Thread(target=self.voice_stream_connector, args=([flags])).start()
         self.__enemy_socket.settimeout(0.5)
         enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
         self.__enemy.change_player_color(enemy_color)
@@ -692,49 +692,53 @@ class Game:
 
     def voice_stream_connector(self, finish_game):
         stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        stream_socket.connect((self.__enemy_ip, STREAM_OUTPUT_PORT))
+        try:
+            stream_socket.connect((self.__enemy_ip, STREAM_OUTPUT_PORT))
+        except socket.error:
+            return
         p = pyaudio.PyAudio()
-        while not (finish_game[0] or finish_game[1]):
-            try:
-                stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
-                while not (finish_game[0] or finish_game[1]):
-                    try:
-                        data = stream.read(CHUNK)
-                        stream_socket.send(data)
-                        stream.write(stream_socket.recv(CHUNK))
-                    except IOError:
-                        break
-                stream.stop_stream()
-                stream.close()
-                p.terminate()
-            except OSError:
-                time.sleep(0.5)
+        try:
+            stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+            while not (finish_game[0] or finish_game[1]):
+                try:
+                    data = stream.read(CHUNK)
+                    stream_socket.send(data)
+                    stream.write(stream_socket.recv(CHUNK))
+                except (IOError, socket.error):
+                    break
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
+        except OSError:
+            pass
         stream_socket.close()
 
     def voice_stream_creator(self, finish_game):
         stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        stream_socket.bind((self.__ip, STREAM_OUTPUT_PORT))
-        stream_socket.listen(1)
+        try:
+            stream_socket.bind((self.__ip, STREAM_OUTPUT_PORT))
+            stream_socket.listen(1)
+            client, address = stream_socket.accept()
+        except socket.error:
+            return
         p = pyaudio.PyAudio()
-        client, address = stream_socket.accept()
-        while not (finish_game[0] or finish_game[1]):
-            try:
-                stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
-                                rate=RATE, output=True, frames_per_buffer=CHUNK)
-                while not (finish_game[0] or finish_game[1]):
-                    try:
-                        data = stream.read(CHUNK)
-                        client.send(data)
-                        stream.write(client.recv(CHUNK))
-                    except IOError:
-                        break
+        try:
+            stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
+                            rate=RATE, output=True, frames_per_buffer=CHUNK)
+            while not (finish_game[0] or finish_game[1]):
+                try:
+                    data = stream.read(CHUNK)
+                    client.send(data)
+                    stream.write(client.recv(CHUNK))
+                except (IOError, socket.error):
+                    break
 
-                stream.stop_stream()
-                stream.close()
-                p.terminate()
-                client.close()
-            except OSError:
-                time.sleep(0.5)
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
+            client.close()
+        except OSError:
+            pass
         stream_socket.close()
 
     def _my_walls(self, map_code="<>-default"):

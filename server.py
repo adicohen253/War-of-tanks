@@ -26,9 +26,6 @@ HTTP_RESPONSE_FORBIDDEN = b"""HTTP/1.1 403 FORBIDDEN
 MAX_NUM_DAY_IN_MONTHS = {"01": 31, "02": 28, "03": 31, "04": 30, "05": 31, "06": 30,
                          "07": 31, "08": 31, "09": 30, "10": 31, "11": 30, "12": 31}
 
-# make creator of games more secure
-# make 2 types of arena for each mode - death and time
-
 
 class Account:
     def __init__(self, username, password, wins=0, loses=0, draws=0, favorite_color="ff0000",
