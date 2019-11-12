@@ -1,3 +1,3 @@
 function MyName() {
-    document.getElementById("demo").value += 43;
+    window.alert(document.getElementById("demo").value)
 }
