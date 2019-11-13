@@ -477,15 +477,27 @@ class Server:
                 account.set_arena_number(self.__death_battle_arena)
 
         elif mode_code == self.TIME_MODE:
-            if self.__time_battle_ip == "":
+            if self.__time_battle_ip == "":  # player create connection
                 client_socket.send(b"T")
                 self.__time_battle_ip = address[0]
                 self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
-                account.set_arena_number(self.__time_battle_arena)
+                account.set_arena_number(self.__death_battle_arena)
                 self.__time_battle_creator = client_socket
+                try:
+                    client_socket.recv(2)
+                except socket.error:
+                    account.set_arena_number(0)
+                    account.player_offline()
+                    client_socket.close()
+                    return True
             else:
-                self.__time_battle_creator.send(b"found an enemy")
-                self.__time_battle_creator = None
+                try:
+                    self.__time_battle_creator.send(b"found an enemy")
+                    self.__time_battle_creator = None
+                except socket.error:
+                    self.__time_battle_ip = ""
+                    return self.handle_battle_request(mode_code, address, client_socket, account)
+
                 client_socket.send(b"F" + self.__time_battle_ip.encode())
                 self.__time_battle_ip = ""
                 account.set_arena_number(self.__time_battle_arena)
