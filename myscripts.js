@@ -1,4 +1,4 @@
 function MyName()
- {
-   window.alert(document.getElementById("demo").value)
- }
+{
+  window.alert(document.getElementById("demo").value)
+}

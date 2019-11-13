@@ -11,11 +11,17 @@ h1 {
     font-style: initial;
 }
 
-button {
+#mylink{
     color: blue;
     background-color: lime;
     border-color: rgb(224, 255, 240);
     font-size: 32px;
     border-width: 5px;
     border-style: inset;
+}
+
+#echo
+{
+    color: gray;
+    font-size: 27px;
 }
