@@ -1,3 +1,4 @@
-function MyName() {
-    window.alert(document.getElementById("demo").value)
-}
+function MyName()
+ {
+   window.alert(document.getElementById("demo").value)
+ }
