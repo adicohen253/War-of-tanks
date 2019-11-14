@@ -64,7 +64,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.43.252"
+IP = "192.168.1.33"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -75,6 +75,9 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
 WIDTH = 2
+
+
+# take care of sending collapse, surprise and bullets
 
 
 class Game:
@@ -442,7 +445,7 @@ class Game:
         self._send_to_server(b"game" + str(mode_code).encode())
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
-        flags = [False, False, False, "0"]
+        flags = [False, False]
         clock = pygame.time.Clock()
         main_player = self._receive_from_server(1)
         main_player = (main_player == "T")
@@ -461,7 +464,6 @@ class Game:
             self.__enemy_ip = address[0]  # only ip address
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
             main_socket.close()
-            threading.Thread(target=self.voice_stream_creator, args=([flags])).start()
         # main player create the server
         # (waiting for another one for starting the game)
         else:  # player makes connection with main player
@@ -471,7 +473,6 @@ class Game:
             self.__enemy_socket = socket.socket()
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
-            threading.Thread(target=self.voice_stream_connector, args=([flags])).start()
         self.__enemy_socket.settimeout(0.5)
         enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
         self.__enemy.change_player_color(enemy_color)
@@ -486,15 +487,10 @@ class Game:
         last_trap_moment = time.time()
         random_time_for_trap = random.randint(3, 5)
 
-        my_packet = ["D" + str(self.__player.get_pointer())
-                     + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])]
-
         threading.Thread(target=self._channeling_with_the_enemy,
-                         args=(flags, my_packet)).start()
+                         args=([flags])).start()
         while not flags[0]:
             clock.tick(TICK)
-            my_packet[0] = "D" + str(self.__player.get_pointer()) \
-                           + "X" + str(self.__player.get_loc()[0]) + "Y" + str(self.__player.get_loc()[1])
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
@@ -519,7 +515,7 @@ class Game:
                     if is_shoot:
                         pygame.mixer.music.load(FIRE)
                         pygame.mixer.music.play()
-                        flags[3] = f"1{new_bullet.get_first_lunch_direct() + 1}"
+                        # flags[3] = f"1{new_bullet.get_first_lunch_direct() + 1}"
 
             if flags[0]:
                 break
@@ -528,9 +524,9 @@ class Game:
                 pygame.mixer.music.load(VICTORY)
                 break
 
-            if main_player and time.time() - last_trap_moment >= random_time_for_trap:
-                last_trap_moment, random_time_for_trap = self._create_trap()
-                flags[2] = self.__traps[-1]
+            # if main_player and time.time() - last_trap_moment >= random_time_for_trap:
+            #     last_trap_moment, random_time_for_trap = self._create_trap()
+            #     flags[2] = self.__traps[-1]
 
             if len(self.__traps) > 4:
                 self.__traps.remove(self.__traps[0])
@@ -640,16 +636,12 @@ class Game:
                 continue
             self.__screen.blit(self.__font.render(element[0], True, WHITE), element[1])
 
-    def _channeling_with_the_enemy(self, flags, my_packet):
+    def _channeling_with_the_enemy(self, flags):
         counter = 0
         while not flags[0]:
             try:
-                packet_to_send = my_packet[0] + "S" + flags[3]
-                flags[3] = "0"
-                if flags[2] is not False:  # run if there is a new trap
-                    packet_to_send += "T" + str(flags[2].get_attribute()) \
-                                      + str(flags[2].get_loc()[0]) + "," + str(flags[2].get_loc()[1])
-                    flags[2] = False
+                packet_to_send = \
+                    f"D{self.__player.get_pointer()}X{self.__player.get_loc()[0]}Y{self.__player.get_loc()[1]}."
                 self.__enemy_socket.send((chr(len(packet_to_send))).encode())
                 self.__enemy_socket.send(packet_to_send.encode())
             except socket.error:  # enemy player quit
@@ -673,19 +665,19 @@ class Game:
             if "D" in info:
                 self.__enemy.set_enemy_pointer(int(info[info.index("D") + 1]))
             if "X" in info and "Y" in info:
-                x_pos, y_pos = info[info.index("X") + 1:info.index("S")].split("Y")
+                x_pos, y_pos = info[info.index("X") + 1:info.index(".")].split("Y")
                 self.__enemy.update_enemy_loc(int(x_pos), int(y_pos))
-            if info[info.index("S") + 1] == "1":
-                lunch_direct_of_bullet = int(info[info.index("S") + 2]) - 1
-                if lunch_direct_of_bullet == 0:
-                    self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, 2)
-                else:
-                    self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
-            if "T" in info:
-                attr = int(info[info.index("T") + 1])
-                poses = info[info.index("T") + 2:].split(",")
-                x_loc_of_trap, y_loc_of_trap = [int(x) for x in poses]
-                self.__traps.append(game_obj.Surprise(x_loc_of_trap, y_loc_of_trap, attr))
+            # if "S" in info and info[info.index("S") + 1] == "1":
+            #     lunch_direct_of_bullet = int(info[info.index("S") + 2]) - 1
+            #     if lunch_direct_of_bullet == 0:
+            #         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, 2)
+            #     else:
+            #         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
+            # if "T" in info:
+            #     attr = int(info[info.index("T") + 1])
+            #     poses = info[info.index("T") + 2:].split(",")
+            #     x_loc_of_trap, y_loc_of_trap = [int(x) for x in poses]
+            #     self.__traps.append(game_obj.Surprise(x_loc_of_trap, y_loc_of_trap, attr))
             return False, 0
         except socket.error:
             return counter == 6, counter + 1
