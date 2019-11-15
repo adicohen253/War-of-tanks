@@ -190,29 +190,27 @@ class Tank(pygame.sprite.Sprite):
         self.absolute_pointer()
         self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
 
-    def shoot_bullet(self, event, bullets, lunch_direct_of_bullet):
+    def shoot_bullet(self, event, bullets, enemy_bullet_direct=0):
         """add new bullets to the bullets in the battlefield, if there option to shoot
         argument:
             event: type- event (pygame class)
             bullets: type - list of bullet, all the bullets in the battlefield
         """
-        if time.time() - self.__last_time_of_shot >= 0.5:
-            if event == pygame.K_f:
+        if event == pygame.K_f:
+            if self.__eternal_ammo_mode is False:
+                self.update_num_bullet()
+            bullet = Bullet(self, enemy_bullet_direct)
+            bullets.append(bullet)
+            self.__last_time_of_shot = time.time()
+            return True, bullet
+        elif (event.key == pygame.K_SPACE) and (self.__num_bullet > 0):
+            if time.time() - self.__last_time_of_shot >= 0.5:
                 if self.__eternal_ammo_mode is False:
                     self.update_num_bullet()
-                bullet = Bullet(self, lunch_direct_of_bullet)
+                bullet = Bullet(self, enemy_bullet_direct)
                 bullets.append(bullet)
                 self.__last_time_of_shot = time.time()
                 return True, bullet
-            elif (event.key == pygame.K_SPACE) and (self.__num_bullet > 0):
-                if self.__eternal_ammo_mode is False:
-                    self.update_num_bullet()
-                bullet = Bullet(self, lunch_direct_of_bullet)
-                bullets.append(bullet)
-                self.__last_time_of_shot = time.time()
-                return True, bullet
-            else:
-                return False, None
         return False, None
 
     def get_is_ghost_mode(self):
@@ -280,26 +278,24 @@ class Wall(pygame.sprite.Sprite):
 
 
 class Bullet(pygame.sprite.Sprite):
-    RIGHT = 1
-    LEFT = -1
+    RIGHT_SIGNAL = 1
+    LEFT_SIGNAL = 2
+    SHIFTING_DIRECT = {1: 3, 2: -3}
     BULLET_MOVES = [(4, 0, 30, 13), (3, 3, 27, 24), (0, 4, 12, 30), (-3, 3, 2, 27),
                     (-4, 0, -11, 12), (-3, -3, -10, -9), (0, -4, 12, -11), (3, -3, 33, -7)]
     MAX_BULLET_HOPS = 6
 
-    def __init__(self, shooter, lunch_direct_of_enemy_bullet):  # get the tank's as shooter
+    def __init__(self, shooter, new_direct_hit_wall_flag):  # get the tank's as shooter
         super(Bullet, self).__init__()
         self.__image = pygame.image.load(BULLET).convert()
         self.__image.set_colorkey(WHITE)
         self.__bullet_direct = shooter.get_pointer()  # the direct of thr bullet
+        self.__first_lunch_direct = 0
         if self.__bullet_direct % 2 == 0:
-            if lunch_direct_of_enemy_bullet == 0:
-                self.__first_lunch_direct = [self.RIGHT, self.LEFT][random.randint(0, 1)]
-            elif lunch_direct_of_enemy_bullet == 2:
-                self.__first_lunch_direct = 0
+            if new_direct_hit_wall_flag == 0:
+                self.__first_lunch_direct = [self.RIGHT_SIGNAL, self.LEFT_SIGNAL][random.randint(0, 1)]
             else:
-                self.__first_lunch_direct = lunch_direct_of_enemy_bullet
-        else:
-            self.__first_lunch_direct = 0  # doesn't needed
+                self.__first_lunch_direct = int(new_direct_hit_wall_flag)
         self.rect = self.__image.get_rect()
         self.rect.x, self.rect.y = shooter.get_loc()
         self.place_bullet()  # place the bullet in position in front of tank's canon
@@ -339,7 +335,7 @@ class Bullet(pygame.sprite.Sprite):
         else:
             self.rect.x -= self.BULLET_MOVES[self.__bullet_direct][0]
             self.rect.y -= self.BULLET_MOVES[self.__bullet_direct][1]
-            self.__bullet_direct += 3 * self.__first_lunch_direct
+            self.__bullet_direct += self.SHIFTING_DIRECT[self.__first_lunch_direct]
             self.absolute_pointer()
             self.rect.x += self.BULLET_MOVES[self.__bullet_direct][0]
             self.rect.y += self.BULLET_MOVES[self.__bullet_direct][1]
@@ -365,9 +361,9 @@ class Bullet(pygame.sprite.Sprite):
         return self.__image
 
 
-class Surprise(pygame.sprite.Sprite):
+class Trap(pygame.sprite.Sprite):
     def __init__(self, x, y, attr=None):
-        super(Surprise, self).__init__()
+        super(Trap, self).__init__()
         self.__image = pygame.image.load(SURPRISE).convert()
         self.__image.set_colorkey(WHITE)
         self.rect = self.__image.get_rect()

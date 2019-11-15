@@ -93,6 +93,8 @@ class Game:
         self._get_account()
 
         # game start and it's functions manage these attributes
+        self.__new_bullet = None
+        self.__new_trap = None
         self.__enemy = None
         self.__player = None
         self.__enemy_socket = None
@@ -232,6 +234,7 @@ class Game:
                         self.__screen.blit(print_username, account_pos)
                 pygame.display.flip()
         if not self._take_care_connection_cases(is_login_now):
+            pygame.event.clear()
             self.__account = self._register_and_login_screen(is_login_now)
             return self.__account
 
@@ -511,11 +514,10 @@ class Game:
                         self._receive_from_server(1)
 
                     self.__player.update_direct(self.__walls, event)
-                    is_shoot, new_bullet = self.__player.shoot_bullet(event, self.__bullets, 0)
+                    is_shoot, self.__new_bullet = self.__player.shoot_bullet(event, self.__bullets)
                     if is_shoot:
                         pygame.mixer.music.load(FIRE)
                         pygame.mixer.music.play()
-                        # flags[3] = f"1{new_bullet.get_first_lunch_direct() + 1}"
 
             if flags[0]:
                 break
@@ -524,9 +526,9 @@ class Game:
                 pygame.mixer.music.load(VICTORY)
                 break
 
-            # if main_player and time.time() - last_trap_moment >= random_time_for_trap:
-            #     last_trap_moment, random_time_for_trap = self._create_trap()
-            #     flags[2] = self.__traps[-1]
+            if main_player and time.time() - last_trap_moment >= random_time_for_trap:
+                last_trap_moment, random_time_for_trap = self._create_trap()
+                self.__new_trap = self.__traps[-1]
 
             if len(self.__traps) > 4:
                 self.__traps.remove(self.__traps[0])
@@ -641,7 +643,15 @@ class Game:
         while not flags[0]:
             try:
                 packet_to_send = \
-                    f"D{self.__player.get_pointer()}X{self.__player.get_loc()[0]}Y{self.__player.get_loc()[1]}."
+                    f"D{self.__player.get_pointer()}\n" \
+                    f"L{self.__player.get_loc()[0]},{self.__player.get_loc()[1]}\n"
+                if self.__new_trap is not None:  # new trap
+                    packet_to_send += f"T{self.__new_trap.get_attribute()}" \
+                                      f"{self.__new_trap.get_loc()[0]}.{self.__new_trap.get_loc()[1]}\n"
+                    self.__new_trap = None
+                if self.__new_bullet is not None:
+                    packet_to_send += f"B{self.__new_bullet.get_first_lunch_direct()}"
+                    self.__new_bullet = None
                 self.__enemy_socket.send((chr(len(packet_to_send))).encode())
                 self.__enemy_socket.send(packet_to_send.encode())
             except socket.error:  # enemy player quit
@@ -661,23 +671,20 @@ class Game:
     def _take_care_enemy_packet(self, counter):
         try:
             msg_len = ord(self.__enemy_socket.recv(1).decode())
-            info = str(self.__enemy_socket.recv(msg_len).decode())
-            if "D" in info:
-                self.__enemy.set_enemy_pointer(int(info[info.index("D") + 1]))
-            if "X" in info and "Y" in info:
-                x_pos, y_pos = info[info.index("X") + 1:info.index(".")].split("Y")
-                self.__enemy.update_enemy_loc(int(x_pos), int(y_pos))
-            # if "S" in info and info[info.index("S") + 1] == "1":
-            #     lunch_direct_of_bullet = int(info[info.index("S") + 2]) - 1
-            #     if lunch_direct_of_bullet == 0:
-            #         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, 2)
-            #     else:
-            #         self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, lunch_direct_of_bullet)
-            # if "T" in info:
-            #     attr = int(info[info.index("T") + 1])
-            #     poses = info[info.index("T") + 2:].split(",")
-            #     x_loc_of_trap, y_loc_of_trap = [int(x) for x in poses]
-            #     self.__traps.append(game_obj.Surprise(x_loc_of_trap, y_loc_of_trap, attr))
+            info = str(self.__enemy_socket.recv(msg_len).decode()).split()
+            for header in info:
+                if "D" in header:
+                    self.__enemy.set_enemy_pointer(int(header[1]))
+                if "L" in header:
+                    x_pos, y_pos = header[1:].split(",")
+                    self.__enemy.update_enemy_loc(int(x_pos), int(y_pos))
+                if "T" in header:
+                    trap_attribute = header[1]
+                    trap_pos_x, trap_pox_y = header[2:].split(".")
+                    self.__traps.append(game_obj.Trap(int(trap_pos_x), int(trap_pox_y), int(trap_attribute)))
+                if "B" in header:
+                    first_direct_after_collapse_wall = header[1]
+                    self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, first_direct_after_collapse_wall)
             return False, 0
         except socket.error:
             return counter == 6, counter + 1
@@ -791,12 +798,12 @@ class Game:
         """
         x_surprise_loc = random.randint(0, 759)
         y_surprise_loc = random.randint(0, 559)
-        new_surprise = game_obj.Surprise(x_surprise_loc, y_surprise_loc)
+        new_surprise = game_obj.Trap(x_surprise_loc, y_surprise_loc)
         while pygame.sprite.spritecollide(new_surprise,
                                           self.__walls + self.__traps + [self.__player, self.__enemy], False):
             x_surprise_loc = random.randint(0, 759)
             y_surprise_loc = random.randint(0, 559)
-            new_surprise = game_obj.Surprise(x_surprise_loc, y_surprise_loc)
+            new_surprise = game_obj.Trap(x_surprise_loc, y_surprise_loc)
         self.__traps.append(new_surprise)
         return time.time(), random.randint(3, 5)
 
