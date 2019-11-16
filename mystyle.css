@@ -11,17 +11,35 @@ h1 {
     font-style: initial;
 }
 
-#mylink{
+
+/* .icobutton {
+background-color: DodgerBlue;
+border: none;
+color: white;
+padding: 12px 16px;
+font-size: 16px;
+cursor: pointer;
+}
+
+.icobutton:hover {
+background-color: RoyalBlue;
+} */
+
+#Login {
+    float: right;
+    background-color: lemonchiffon;
+    margin-right: 2%;
+    width: 12%;
+    height: 300px;
+}
+
+#mylink {
+    float: left;
     color: blue;
     background-color: lime;
     border-color: rgb(224, 255, 240);
-    font-size: 32px;
+    width: 10%;
+    font-size: 20px;
     border-width: 5px;
-    border-style: inset;
-}
-
-#echo
-{
-    color: gray;
-    font-size: 27px;
+    border-style: groove;
 }
