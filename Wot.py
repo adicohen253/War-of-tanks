@@ -65,7 +65,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.43.252"
+IP = "192.168.1.35"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -446,6 +446,7 @@ class Game:
             size_screen_before: type - tuple, when battle start the screen size back to normal (SIZE)
             (right now it's temporary)
         """
+        self.__flags = [False, False]
         self._get_my_color()
         battlefield = pygame.image.load(FIELD)
         self._send_to_server(b"game" + str(mode_code).encode())

@@ -481,7 +481,7 @@ class Server:
                 client_socket.send(b"T")
                 self.__time_battle_ip = address[0]
                 self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
-                account.set_arena_number(self.__death_battle_arena)
+                account.set_arena_number(self.__time_battle_arena)
                 self.__time_battle_creator = client_socket
                 try:
                     client_socket.recv(2)
