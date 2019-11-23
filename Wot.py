@@ -22,7 +22,8 @@ BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 POINT_POS = ([180, 165], [180, 360])
 ASKED_IP_LEN_PACKET = 15
-TICK = 80
+FPS_RATE = 80
+PACKET_SENDING_RATE = 60
 SECS_TO_PLAY = 150  # 2:30 minutes
 BATTLE_TO_DEATH = 0
 BATTLE_ON_TIME = 1
@@ -64,7 +65,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.33"
+IP = "192.168.43.252"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -93,6 +94,8 @@ class Game:
         self._get_account()
 
         # game start and it's functions manage these attributes
+        self.__flags = [False, False]
+        self.__is_collide_happened = False
         self.__new_bullet = None
         self.__new_trap = None
         self.__enemy = None
@@ -448,7 +451,6 @@ class Game:
         self._send_to_server(b"game" + str(mode_code).encode())
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
-        flags = [False, False]
         clock = pygame.time.Clock()
         main_player = self._receive_from_server(1)
         main_player = (main_player == "T")
@@ -490,14 +492,13 @@ class Game:
         last_trap_moment = time.time()
         random_time_for_trap = random.randint(3, 5)
 
-        threading.Thread(target=self._channeling_with_the_enemy,
-                         args=([flags])).start()
-        while not flags[0]:
-            clock.tick(TICK)
+        threading.Thread(target=self._channeling_with_the_enemy).start()
+        while not self.__flags[0]:
+            clock.tick(FPS_RATE)
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
-                    flags[0] = True
+                    self.__flags[0] = True
                     pygame.mixer.music.load(DEFEAT)
                     pygame.mixer.music.play()
                     self._send_to_server(b"Situ")
@@ -508,7 +509,7 @@ class Game:
 
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        flags[0] = True
+                        self.__flags[0] = True
                         pygame.mixer.music.load(DEFEAT)
                         self._send_to_server(b"situL")
                         self._receive_from_server(1)
@@ -519,11 +520,18 @@ class Game:
                         pygame.mixer.music.load(FIRE)
                         pygame.mixer.music.play()
 
-            if flags[0]:
+            if self.__flags[0]:
                 break
 
-            if flags[1]:
+            if self.__flags[1]:
                 pygame.mixer.music.load(VICTORY)
+                break
+
+            if pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
+                self.__is_collide_happened = True
+                self._send_to_server(b"situE")
+                self._receive_from_server(1)
+                pygame.mixer.music.load(DRAW)
                 break
 
             if main_player and time.time() - last_trap_moment >= random_time_for_trap:
@@ -559,14 +567,14 @@ class Game:
                     self.__traps.remove(t)
 
             if self.__player.get_health() <= 0:
-                flags[0] = True
+                self.__flags[0] = True
                 self._send_to_server(b"situL")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
                 break
 
             elif self.__enemy.get_health() <= 0:
-                flags[0] = True
+                self.__flags[0] = True
                 self._send_to_server(b"situW")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
@@ -583,7 +591,7 @@ class Game:
             if self.__player.is_need_pointing():
                 self.__screen.blit(player_point, [self.__player.get_loc()[0], self.__player.get_loc()[1] - 50])
             if mode_code == BATTLE_ON_TIME:
-                self._take_care_time_mode(flags, start_battle_from)
+                self._take_care_time_mode(start_battle_from)
             for wall in self.__walls:
                 wall.draw_line()
             pygame.display.flip()
@@ -594,12 +602,14 @@ class Game:
         time.sleep(TIME_TO_WAIT)
         self.__enemy = None
         self.__player = None
+        self.__times_of_collapse = 0
         self.__enemy_socket.close()
         self.__enemy_socket = None
         self.__enemy_ip = ""
         self.__traps = []
         self.__bullets = []
         self.__walls = []
+        self.is_collide_happened = False
 
     def _flip_screen(self, zone):
         """shows all the data of the surface (pixels) plus the data of the players
@@ -638,9 +648,11 @@ class Game:
                 continue
             self.__screen.blit(self.__font.render(element[0], True, WHITE), element[1])
 
-    def _channeling_with_the_enemy(self, flags):
+    def _channeling_with_the_enemy(self):
+        clock = pygame.time.Clock()
         counter = 0
-        while not flags[0]:
+        while not self.__flags[0]:
+            clock.tick(PACKET_SENDING_RATE)
             try:
                 packet_to_send = \
                     f"D{self.__player.get_pointer()}\n" \
@@ -650,18 +662,22 @@ class Game:
                                       f"{self.__new_trap.get_loc()[0]}.{self.__new_trap.get_loc()[1]}\n"
                     self.__new_trap = None
                 if self.__new_bullet is not None:
-                    packet_to_send += f"B{self.__new_bullet.get_first_lunch_direct()}"
+                    packet_to_send += f"B{self.__new_bullet.get_first_lunch_direct()}\n"
                     self.__new_bullet = None
+                if self.__is_collide_happened:
+                    packet_to_send += "C\n"
+                    self.__flags[0] = True
+
                 self.__enemy_socket.send((chr(len(packet_to_send))).encode())
                 self.__enemy_socket.send(packet_to_send.encode())
             except socket.error:  # enemy player quit
-                flags[1] = True
+                self.__flags[1] = True
                 self._send_to_server(b"situW")
                 self._receive_from_server(1)
                 break
 
-            flags[1], counter = self._take_care_enemy_packet(counter)
-            if flags[1]:  # enemy player doesn't responding
+            self.__flags[1], counter = self._take_care_enemy_packet(counter)
+            if self.__flags[1]:  # enemy player doesn't responding
                 self._send_to_server(b"situW")
                 self._receive_from_server(1)
                 break
@@ -685,6 +701,11 @@ class Game:
                 if "B" in header:
                     first_direct_after_collapse_wall = header[1]
                     self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, first_direct_after_collapse_wall)
+                if ("C" in header) and not self.__is_collide_happened:
+                    self._send_to_server(b"situE")
+                    self._receive_from_server(1)
+                    pygame.mixer.music.load(DRAW)
+                    self.__flags[0] = True
             return False, 0
         except socket.error:
             return counter == 6, counter + 1
@@ -748,24 +769,24 @@ class Game:
             s_pos, e_pos = [int(x) for x in s_pos.split(",")], [int(y) for y in e_pos.split(",")]
             self.__walls.append(game_obj.Wall(self.__screen, s_pos, e_pos))
 
-    def _take_care_time_mode(self, flags, start_time):
+    def _take_care_time_mode(self, start_time):
         time_to_play = SECS_TO_PLAY - (time.time() - start_time)
         if time_to_play <= 0:
             if self.__player.get_health() > self.__enemy.get_health():
                 self._send_to_server(b"situW")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
-                flags[0] = True
+                self.__flags[0] = True
             elif self.__player.get_health() < self.__enemy.get_health():
                 self._send_to_server(b"situL")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
-                flags[1] = True
+                self.__flags[1] = True
             else:
                 self._send_to_server(b"situE")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(DRAW)
-                flags[0] = True
+                self.__flags[0] = True
         else:
             time_to_play = time.strftime("%M:%S", time.gmtime(time_to_play))
             self.__screen.blit(self.__font.render(time_to_play, True, WHITE), [900, 420])
