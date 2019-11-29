@@ -11,14 +11,15 @@ WHITE = (255, 255, 255)
 IMG_PLY = 'tank_player.png'
 BULLET = 'bullet.png'
 SURPRISE = 'surprise.png'
-MOVES = [(2, 0, 0), (1, 1, -45), (0, 2, -90), (-1, 1, -135),
-         (-2, 0, 180), (-1, -1, 135), (0, -2, 90), (1, -1, 45)]
-
-NUM_BULLETS = 10
-START_HEALTH = 30
 
 
 class Tank(pygame.sprite.Sprite):
+    MOVES = [(3, 0, 0), (2, 2, -45), (0, 3, -90), (-2, 2, -135),
+             (-3, 0, 180), (-2, -2, 135), (0, -3, 90), (2, -2, 45)]
+
+    NUM_BULLETS = 10
+    START_HEALTH = 30
+
     def __init__(self, x, y, direct=0, demo_tank=None):
         super(Tank, self).__init__()
         self.__image = pygame.image.load(IMG_PLY).convert()
@@ -26,7 +27,7 @@ class Tank(pygame.sprite.Sprite):
         self.__original_image = self.__image  # original image (uses to rotate the tank with every direct)
         self.rect = self.__image.get_rect()  # the location of the player
         self.__tank_direct = direct  # uses as direct of the tank
-        self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
+        self.__image = pygame.transform.rotate(self.__original_image, self.MOVES[self.__tank_direct][2])
         self.rect.x = x
         self.rect.y = y
         if type(demo_tank) == Tank:
@@ -34,8 +35,8 @@ class Tank(pygame.sprite.Sprite):
         else:
             self.__color = [255, 0, 0]  # the default color of the player
 
-        self.__num_bullet = NUM_BULLETS  # the current number of bullets
-        self.__health = START_HEALTH  # health of the player
+        self.__num_bullet = self.NUM_BULLETS  # the current number of bullets
+        self.__health = self.START_HEALTH  # health of the player
         self.__need_pointing = True
 
         self.__last_time_of_shot = time.time()
@@ -84,7 +85,7 @@ class Tank(pygame.sprite.Sprite):
         """Checks if it's time to turn off eternal mode"""
         if self.__eternal_ammo_time is not None:
             if time.time() - self.__eternal_ammo_time >= 6:
-                self.__num_bullet = NUM_BULLETS
+                self.__num_bullet = self.NUM_BULLETS
                 self.__eternal_ammo_time = None
                 self.__eternal_ammo_mode = False
 
@@ -93,7 +94,7 @@ class Tank(pygame.sprite.Sprite):
         if time.time() - self.reload_time >= 10:
             flag = False
             if self.__num_bullet == 0:
-                self.__num_bullet = NUM_BULLETS
+                self.__num_bullet = self.NUM_BULLETS
                 if self.__eternal_ammo_mode is False:
                     flag = True
             self.reload_time = time.time()
@@ -114,15 +115,15 @@ class Tank(pygame.sprite.Sprite):
             point: type - int, the new enemy direct
         """
         self.__tank_direct = point
-        self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
+        self.__image = pygame.transform.rotate(self.__original_image, self.MOVES[self.__tank_direct][2])
 
     def absolute_pointer(self):
         """consider the pointer for always point to legal index on MOVES"""
         while not (0 <= self.__tank_direct < 8):
             if self.__tank_direct >= 8:
-                self.__tank_direct -= len(MOVES)
+                self.__tank_direct -= len(self.MOVES)
             elif self.__tank_direct <= -1:
-                self.__tank_direct += len(MOVES)
+                self.__tank_direct += len(self.MOVES)
 
     def update_enemy_loc(self, x, y):
         self.rect.x = x
@@ -142,7 +143,7 @@ class Tank(pygame.sprite.Sprite):
                 self.__need_pointing = False
                 self.__tank_direct -= 1
         self.absolute_pointer()
-        self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
+        self.__image = pygame.transform.rotate(self.__original_image, self.MOVES[self.__tank_direct][2])
         if pygame.sprite.spritecollide(self, walls, None):
             self.get_out_wall(walls)
 
@@ -153,8 +154,8 @@ class Tank(pygame.sprite.Sprite):
         """
         x, y = self.get_loc()
         for i in range(0, 8, 1):
-            self.rect.x -= MOVES[i][0]
-            self.rect.y -= MOVES[i][1]
+            self.rect.x -= self.MOVES[i][0]
+            self.rect.y -= self.MOVES[i][1]
             if not pygame.sprite.spritecollide(self, walls, False):
                 break
             else:
@@ -184,11 +185,11 @@ class Tank(pygame.sprite.Sprite):
 
     def hit_object(self):
         """Reflects the tank when in the wall"""
-        self.rect.x -= MOVES[self.__tank_direct][0]
-        self.rect.y -= MOVES[self.__tank_direct][1]
+        self.rect.x -= self.MOVES[self.__tank_direct][0]
+        self.rect.y -= self.MOVES[self.__tank_direct][1]
         self.__tank_direct += 4
         self.absolute_pointer()
-        self.__image = pygame.transform.rotate(self.__original_image, MOVES[self.__tank_direct][2])
+        self.__image = pygame.transform.rotate(self.__original_image, self.MOVES[self.__tank_direct][2])
 
     def shoot_bullet(self, event, bullets, enemy_bullet_direct=0):
         """add new bullets to the bullets in the battlefield, if there option to shoot
@@ -248,8 +249,8 @@ class Tank(pygame.sprite.Sprite):
 
     def update_loc(self):
         """move the tank in the current direct"""
-        self.rect.x += MOVES[self.__tank_direct][0]
-        self.rect.y += MOVES[self.__tank_direct][1]
+        self.rect.x += self.MOVES[self.__tank_direct][0]
+        self.rect.y += self.MOVES[self.__tank_direct][1]
 
     def get_image(self):
         return self.__image
@@ -346,10 +347,10 @@ class Bullet(pygame.sprite.Sprite):
 
     def absolute_pointer(self):
         """consider the pointer for always point to legal index on BULLET MOVE"""
-        if self.__bullet_direct >= len(MOVES):
-            self.__bullet_direct -= len(MOVES)
-        elif self.__bullet_direct <= len(MOVES) * -1:
-            self.__bullet_direct += len(MOVES)
+        if self.__bullet_direct >= len(self.BULLET_MOVES):
+            self.__bullet_direct -= len(self.BULLET_MOVES)
+        elif self.__bullet_direct <= len(self.BULLET_MOVES) * -1:
+            self.__bullet_direct += len(self.BULLET_MOVES)
 
     def get_first_lunch_direct(self):
         return self.__first_lunch_direct
