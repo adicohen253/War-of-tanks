@@ -136,7 +136,7 @@ class Server:
     def __init__(self):
         self.__ip = my_ip()
         self.__server_socket = socket.socket()
-        self.__server_socket.bind((my_ip(), 2020))
+        self.__server_socket.bind((self.__ip, 2020))
         self.__server_socket.listen(1)
         self.__server_socket.settimeout(0.2)
         self.__accounts_list = build_my_accounts()
@@ -166,7 +166,7 @@ class Server:
         window.title("My server")
         window.resizable(OFF, OFF)
         window.configure(background='azure')
-        Label(window, text="My IP is: " + my_ip(), fg='blue',
+        Label(window, text="My IP is: " + self.__ip, fg='blue',
               bg='white', borderwidth=5, relief=SUNKEN).place(x=800, y=30)
 
         # Admin options's widgets
@@ -287,7 +287,7 @@ class Server:
     def uploader(self):
         print("uploader start...")
         server = socket.socket()
-        server.bind((my_ip(), 50000))
+        server.bind((self.__ip, 50000))
         server.listen(1)
         server.settimeout(3)
         with open(INSTALLER_FILE, 'rb') as my_file:
@@ -627,13 +627,8 @@ def find_asked_map(map_code):
 
 
 def my_ip():
-    """return my current ip in string"""
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        s.connect(('192.0.0.8', 1027))
-    except socket.error:
-        return None
-    return s.getsockname()[0]
+    """return my local current ip in string"""
+    return socket.gethostbyname(socket.gethostname())
 
 
 def build_my_accounts():

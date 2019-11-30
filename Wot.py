@@ -84,9 +84,8 @@ WIDTH = 2
 class Game:
     def __init__(self, screen):
         self.__screen = screen
-        self.__ip = ""
+        self.__ip = my_ip()
         self.__font = pygame.font.SysFont('arial', 35)
-        self._my_ip()
         self.__demo_player = game_obj.Tank(500, 400)
         self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
         self.__client = socket.socket()
@@ -105,15 +104,6 @@ class Game:
         self.__traps = []
         self.__bullets = []
         self.__walls = []
-
-    def _my_ip(self):
-        """return my current ip in string"""
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            s.connect(('192.0.0.8', 1027))
-        except socket.error:
-            return None
-        self.__ip = s.getsockname()[0]
 
     def _try_connect_to_server(self):
         """return if client success to connect the game server
@@ -839,6 +829,11 @@ def legal_chars_for_username_and_password(data):
 def limit_color_value(data):
     """filter of max value for element in rgb - player's color"""
     return int(data) > 255
+
+
+def my_ip():
+    """return my local current ip in string"""
+    return socket.gethostbyname(socket.gethostname())
 
 
 def main():
