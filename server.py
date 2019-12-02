@@ -1,16 +1,16 @@
 import threading
 import socket
 import time
+from firebase import firebase
 from os import listdir
 from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
-from tkinter.ttk import Combobox
+from tkinter.ttk import Combobox, Treeview
+from requests.exceptions import ConnectionError
 
-LABELS_TEXT = [["Username", 0], ["Password", 120], ["Wins", 230], ["Loses", 300],
-               ["Draws", 370], ["Color", 450], ["Server status", 530], ["Ban until", 680], ["Arena", 820]]
-FONT = ("Arial", 12, NORMAL)
-API_SIZE = '950x600'
+FONT = ("Arial", 10, NORMAL)
+API_SIZE = '1050x600'
 
 INSTALLER_FILE = "game installer.exe"
 HTTP_RESPONSE_OK = b"""HTTP/1.1 200 OK
@@ -26,19 +26,22 @@ HTTP_RESPONSE_FORBIDDEN = b"""HTTP/1.1 403 FORBIDDEN
 MAX_NUM_DAY_IN_MONTHS = {"01": 31, "02": 28, "03": 31, "04": 30, "05": 31, "06": 30,
                          "07": 31, "08": 31, "09": 30, "10": 31, "11": 30, "12": 31}
 
+FIREBASE_URL = "https://my-project-b9bb8.firebaseio.com/"
+
 
 class Account:
-    def __init__(self, username, password, wins=0, loses=0, draws=0, favorite_color="ff0000",
-                 ban_until="00/00/0000 00:00"):
+    def __init__(self, username, password, wins, loses, draws, color,
+                 bandate, firebase_token):
         self.__username = username
         self.__password = password
         self.__wins = wins
         self.__loses = loses
         self.__draws = draws
-        self.__favorite_color = favorite_color
+        self.__favorite_color = color
         self.__arena_number = 0
-        self.__ban_string = ban_until
+        self.__ban_string = bandate
         self.__ban_struct = None
+        self.__firebase_token = firebase_token
         self.set_ban_until_struct()
         if self.__ban_string != "00/00/0000 00:00":
             self.__client_status = "Ban"
@@ -87,6 +90,9 @@ class Account:
     def get_ban_struct(self):
         return self.__ban_struct
 
+    def get_firebase_token(self):
+        return self.__firebase_token
+
     def set_arena_number(self, new_arena_number):
         self.__arena_number = new_arena_number
 
@@ -123,10 +129,10 @@ class Account:
         self.__favorite_color = newcolor
 
     def __str__(self):
-        return f"{self.__username}{' ' * round(20.5 - len(self.__username))}{self.__password}" \
-               f"{' ' * (21 - len(self.__password))} {self.__wins} {' ' * 15}{self.__loses} {' ' * 15}{self.__draws}" \
-               f"{' ' * 12}{self.__favorite_color}{' ' * 13}{self.__client_status}{' ' * 23}" \
-               f"{self.__ban_string}{' '* 14}{self.__arena_number}"
+        return f"{self.__username} {self.__password} " \
+               f"{self.__wins} {self.__loses} {self.__draws} " \
+               f"{self.__favorite_color} {self.__client_status} " \
+               f"{self.__ban_string} {self.__arena_number}"
 
 
 class Server:
@@ -139,7 +145,10 @@ class Server:
         self.__server_socket.bind((self.__ip, 2020))
         self.__server_socket.listen(1)
         self.__server_socket.settimeout(0.2)
-        self.__accounts_list = build_my_accounts()
+        self.__fire = firebase.FirebaseApplication(FIREBASE_URL, None)
+        self.__is_online_database = False
+        self.__accounts_list = []
+        self.build_my_accounts()
         self.__accounts_updates_to_table = []
         self.__stop_running = False
 
@@ -150,6 +159,33 @@ class Server:
         self.__time_battle_ip = ""
         self.__time_battle_arena = 0
         self.__time_battle_creator = None
+
+    def build_my_accounts(self):
+        try:
+            data = [x for x in self.__fire.get('/Accounts', '').items()]
+            for element in data:
+                firebase_token = element[0]
+                username, password = element[1]['Username'], element[1]['Password']
+                wins, loses, draws = element[1]['Wins'], element[1]['Loses'], element[1]['Draws']
+                color, bandate = element[1]['Color'], element[1]['Bandate']
+                self.__accounts_list.append(Account(username, password, wins, loses,
+                                                    draws, color, bandate, firebase_token))
+            self.__is_online_database = True
+            return
+        except ConnectionError:
+            pass
+        conn = connect("my database.db")
+        curs = conn.cursor()
+        curs.execute("UPDATE Flags set 'Offline update' = 1")
+        conn.commit()
+        curs.execute("SELECT * FROM Accounts")
+        data = [list(x) for x in curs.fetchall()]
+        accounts_list = []
+        for acc in data:
+            accounts_list.append(Account(acc[0], acc[1], acc[2],
+                                         acc[3], acc[4], acc[5], acc[6], acc[7]))
+        accounts_list.sort(key=lambda x: x.get_username())
+        return accounts_list
 
     def active(self):
         for index in range(10):
@@ -167,55 +203,58 @@ class Server:
         window.resizable(OFF, OFF)
         window.configure(background='azure')
         Label(window, text="My IP is: " + self.__ip, fg='blue',
-              bg='white', borderwidth=5, relief=SUNKEN).place(x=800, y=30)
+              bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
 
         # Admin options's widgets
         lf = LabelFrame(window, font=FONT, text="Admin interface:")
-        lf.place(x=0, y=0, width=600, height=200)
+        lf.place(x=0, y=0, width=750, height=200)
 
         user, password = StringVar(), StringVar()
         day, month = StringVar(value="day"), StringVar(value="month")
         year, hour = StringVar(value="year"), StringVar(value="hour")
         Label(lf, text="Username:", font=FONT).place(x=20, y=10)
-        Entry(lf, textvariable=user).place(x=110, y=15)
+        Entry(lf, textvariable=user).place(x=125, y=15)
 
         Label(lf, text="Password:", font=FONT).place(x=20, y=50)
-        Entry(lf, textvariable=password).place(x=110, y=55)
+        Entry(lf, textvariable=password).place(x=125, y=55)
 
-        Label(lf, text="Date:", font=FONT).place(x=280, y=10)
-        Label(lf, text='Hour:', font=FONT).place(x=280, y=45)
-        Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=day,
-                 values=["day"] + [f"0{x}" if x < 10 else x for x in range(1, 32)]).place(x=330, y=10)
+        Label(lf, text="Date:", font=FONT).place(x=300, y=10)
+        Label(lf, text='Hour:', font=FONT).place(x=300, y=45)
+        Combobox(lf, state='readonly', takefocus=OFF, width=4, textvariable=day,
+                 values=["day"] + [f"0{x}" if x < 10 else x for x in range(1, 32)]).place(x=360, y=10)
         Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=month,
-                 values=["month"] + [f"0{x}" if x < 10 else x for x in range(1, 13)]).place(x=400, y=10)
-        Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=year,
-                 values=["year"] + [str(x) for x in range(2019, 3000)]).place(x=470, y=10)
+                 values=["month"] + [f"0{x}" if x < 10 else x for x in range(1, 13)]).place(x=430, y=10)
+        Combobox(lf, state='readonly', takefocus=OFF, width=4, textvariable=year,
+                 values=["year"] + [str(x) for x in range(2019, 3000)]).place(x=515, y=10)
         Combobox(lf, state='readonly', width=6, textvariable=hour,
-                 values=["hour"] + [f"0{x}:00" if x < 10 else f"{x}:00" for x in range(0, 24)]).place(x=330, y=45)
+                 values=["hour"] + [f"0{x}:00" if x < 10 else f"{x}:00" for x in range(0, 24)]).place(x=360, y=45)
 
-        Button(lf, command=lambda: self.admin_register(user, password, view_accounts),
+        Button(lf, command=lambda: self.admin_register(user, password, tree),
                text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
-        Button(lf, command=lambda: self.admin_ban(user, password, [day, month, year, hour], view_accounts),
-               text='Ban', borderwidth=3, width=10, bg='yellow').place(x=110, y=140)
-        Button(lf, command=lambda: self.admin_free_ban(user, password, view_accounts),
-               text="Free", borderwidth=3, width=10, bg='azure').place(x=200, y=140)
-        Button(lf, command=lambda: self.admin_delete(user, password, view_accounts),
-               text='Delete', borderwidth=3, width=10, bg='red').place(x=290, y=140)
+        Button(lf, command=lambda: self.admin_ban(user, password, [day, month, year, hour], tree),
+               text='Ban', borderwidth=3, width=10, bg='yellow').place(x=120, y=140)
+        Button(lf, command=lambda: self.admin_free_ban(user, password, tree),
+               text="Free", borderwidth=3, width=10, bg='azure').place(x=220, y=140)
+        Button(lf, command=lambda: self.admin_delete(user, password, tree),
+               text='Delete', borderwidth=3, width=10, bg='red').place(x=320, y=140)
 
         # Clients data's widgets
+        headers = ('Username', 'Password', 'Wins',
+                   'Loses', 'Draws', 'Color', 'Status', 'Ban date', 'Arena')
         scroll = Scrollbar(window, orient=VERTICAL)
-        view_accounts = Listbox(window, width=100, height=10, fg='blue', yscrollcommand=scroll.set, font=FONT)
-        view_accounts.place(y=410)
-        scroll.config(command=view_accounts.yview)
-        scroll.place(x=905, y=410, height=190)
-        Button(window, text='Clean accounts data', height=3, width=20,
-               command=lambda: self.clean_accounts_data(view_accounts)).place(x=750, y=180)
-        Button(window, text='exit', width=20, height=3, command=lambda: window.destroy()).place(x=750, y=250)
-        for label in LABELS_TEXT:
-            Label(window, text=label[0], font=FONT, fg='red', bg='yellow').place(x=label[1], y=370)
-
-        window.bind("<FocusIn>", lambda event: self.show_account_data(view_accounts))
-        window.bind("<Enter>", lambda event: self.show_account_data(view_accounts))
+        tree = Treeview(window, columns=headers, show='headings', yscrollcommand=scroll.set)
+        for elem in headers:
+            tree.heading(elem, text=elem)
+            tree.column(elem, width=114, anchor='center')
+        tree.place(y=375)
+        scroll.config(command=tree.yview)
+        scroll.place(x=1029, y=375, height=225)
+        Button(window, text='Clean data', bg='dodger blue', height=3, width=15,
+               command=lambda: self.clean_accounts_data(tree)).place(x=20, y=250)
+        Button(window, text='exit', bg='dodger blue', width=15, height=3,
+               command=lambda: window.destroy()).place(x=160, y=250)
+        window.bind("<FocusIn>", lambda event: self.show_account_data(tree))
+        window.bind("<Enter>", lambda event: self.show_account_data(tree))
         window.mainloop()
 
     def admin_register(self, new_username, new_password, window):
@@ -279,10 +318,11 @@ class Server:
         window.focus_set()
         window.master.focus_set()
 
-    def show_account_data(self, account_box):
-        account_box.delete(0, END)
+    def show_account_data(self, tree):
+        for i in tree.get_children():
+            tree.delete(i)
         for account in self.__accounts_list:
-            account_box.insert(END, str(account))
+            tree.insert("", END, values=str(account).split(' '))
 
     def uploader(self):
         print("uploader start...")
@@ -335,6 +375,7 @@ class Server:
                                  (new_color, account.get_username()))
                 self.__accounts_updates_to_table.remove(update)
             conn.commit()
+            time.sleep(5)
         print("Accounts updater shut down...")
 
     def is_ban_date_passed(self):
@@ -526,14 +567,21 @@ class Server:
             username = type: string
             password = type: string
         """
+        firebase_token = ""
+        if self.__is_online_database:
+            data = {"Username": new_account_data[0], "Password": new_account_data[1],
+                    "Wins": 0, "Loses": 0, "Draws": 0, "Color": "ff0000", "Bandate": "00/00/0000 00:00"}
+            firebase_token = self.__fire.post("Accounts", data)['name']
+
         conn = connect("my database.db")
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?, ?)",
-                       (new_account_data[0], new_account_data[1], 0, 0, 0, "ff0000", "00/00/0000 00:00"))
+        cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+                       (new_account_data[0], new_account_data[1], 0, 0, 0,
+                        "ff0000", "00/00/0000 00:00", firebase_token))
         conn.commit()
         conn.close()
-        new_account = Account(username=new_account_data[0], password=new_account_data[1],
-                              wins=0, loses=0, draws=0, favorite_color="ff0000")
+        new_account = Account(new_account_data[0], new_account_data[1],
+                              0, 0, 0, "ff0000", "00/00/0000 00:00", firebase_token)
         if is_online:
             new_account.player_online()
         self.__accounts_list.append(new_account)
@@ -629,19 +677,6 @@ def find_asked_map(map_code):
 def my_ip():
     """return my local current ip in string"""
     return socket.gethostbyname(socket.gethostname())
-
-
-def build_my_accounts():
-    conn = connect("my database.db")
-    curs = conn.cursor()
-    curs.execute("SELECT * FROM Accounts")
-    data = [list(x) for x in curs.fetchall()]
-    accounts_list = []
-    for acc in data:
-        accounts_list.append(Account(username=acc[0], password=acc[1], wins=acc[2],
-                                     loses=acc[3], draws=acc[4], favorite_color=acc[5], ban_until=acc[6]))
-    accounts_list.sort(key=lambda x: x.get_username())
-    return accounts_list
 
 
 def main():
