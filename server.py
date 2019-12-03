@@ -162,7 +162,11 @@ class Server:
 
     def build_my_accounts(self):
         try:
-            data = [x for x in self.__fire.get('/Accounts', '').items()]
+            data = self.__fire.get('/Accounts', '')
+            if data is None:
+                self.__is_online_database = True
+                return
+            data = [x for x in data.items()]
             for element in data:
                 firebase_token = element[0]
                 username, password = element[1]['Username'], element[1]['Password']
@@ -173,7 +177,7 @@ class Server:
             self.__is_online_database = True
             return
         except ConnectionError:
-            pass
+            print("cant get access to online firebase")
         conn = connect("my database.db")
         curs = conn.cursor()
         curs.execute("UPDATE Flags set 'Offline update' = 1")
@@ -310,7 +314,7 @@ class Server:
     def clean_accounts_data(self, window):
         conn = connect('my database.db')
         curs = conn.cursor()
-        curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000', Ban = (?)",
+        curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000', Bandate = (?)",
                      ("00/00/0000 00:00",))
         conn.commit()
         for acc in self.__accounts_list:
@@ -361,18 +365,29 @@ class Server:
             for update in self.__accounts_updates_to_table:
                 account, act = update[0], update[1]
                 if act == "W":
+                    if self.__is_online_database:
+                        self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
+                                        'Wins', account.get_win())
                     curs.execute("UPDATE Accounts SET Wins = (?) WHERE Username = (?)",
                                  (account.get_win(), account.get_username()))
                 elif act == "L":
+                    if self.__is_online_database:
+                        self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
+                                        'Loses', account.get_loses())
                     curs.execute("UPDATE Accounts SET Loses = (?) WHERE Username = (?)",
                                  (account.get_loses(), account.get_username()))
                 elif act == "E":
+                    if self.__is_online_database:
+                        self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
+                                        'Draws', account.get_draws())
                     curs.execute("UPDATE Accounts SET Draws = (?) WHERE Username = (?)",
                                  (account.get_loses(), account.get_username()))
                 elif act == "C":
-                    new_color = update[2]
+                    if self.__is_online_database:
+                        self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
+                                        'Color', account.get_color())
                     curs.execute("UPDATE Accounts SET Color = (?) WHERE Username = (?)",
-                                 (new_color, account.get_username()))
+                                 (account.get_color(), account.get_username()))
                 self.__accounts_updates_to_table.remove(update)
             conn.commit()
             time.sleep(5)
@@ -421,7 +436,7 @@ class Server:
                         break
 
                     #  only cases when account doesn't known yet
-                    elif request == "info ":
+                    elif request == "regis":
                         account = self.is_can_register(player)
                     elif request == "login":
                         account = self.player_login(player)
@@ -438,7 +453,7 @@ class Server:
                             player.send(b"@")  # account deleted
                             break
                         account.change_color(new_color)
-                        self.__accounts_updates_to_table.append([account, "C", new_color])
+                        self.__accounts_updates_to_table.append([account, "C"])
                         player.send(b"!")
 
                     elif request[:4] == "game":
@@ -662,7 +677,7 @@ def delete_from_account_table(username):
 def set_ban_in_table(username, ban_player_until):
     conn = connect("my database.db")
     curs = conn.cursor()
-    curs.execute("UPDATE Accounts SET Ban = (?) WHERE Username = (?)", (ban_player_until, username))
+    curs.execute("UPDATE Accounts SET Bandate = (?) WHERE Username = (?)", (ban_player_until, username))
     conn.commit()
 
 

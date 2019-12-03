@@ -65,7 +65,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.45"
+IP = "192.168.11.108"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -260,7 +260,7 @@ class Game:
             else:  # Failed
                 output = self.__font.render(LOGIN_FAILED, True, BLUE)
         else:
-            self._send_to_server(("info " + self.__account[0] + "," + self.__account[1]).encode())
+            self._send_to_server(("regis" + self.__account[0] + "," + self.__account[1]).encode())
             answer = self._receive_from_server(1)
             if answer == "Y":
                 output = self.__font.render(REGISTER_WORKED, True, BLUE)
