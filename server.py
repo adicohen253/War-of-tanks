@@ -39,20 +39,14 @@ class Account:
         self.__draws = draws
         self.__favorite_color = color
         self.__arena_number = 0
-        self.__ban_string = bandate
-        self.__ban_struct = None
+        self.__bandate_string = bandate
         self.__firebase_token = firebase_token
-        self.set_ban_until_struct()
-        if self.__ban_string != "00/00/0000 00:00":
+        day, month, year = [int(element) for element in self.__bandate_string.split("/")]
+        self.__bandate_struct = time.struct_time((year, month, day, 0, 0, 0, 0, 0, 0))
+        if self.__bandate_string != "00/00/0000":
             self.__client_status = "Ban"
         else:
             self.__client_status = "Off"
-
-    def set_ban_until_struct(self):
-        date, hour = self.__ban_string.split(" ")
-        day, month, year = [int(element) for element in date.split("/")]
-        hour = int(hour[:2])
-        self.__ban_struct = time.struct_time((year, month, day, hour, 0, 0, 0, 0, 0))
 
     def player_online(self):
         self.__client_status = "On"
@@ -84,11 +78,11 @@ class Account:
     def get_arena_number(self):
         return self.__arena_number
 
-    def get_ban_string(self):
-        return self.__ban_string
+    def get_bandate_string(self):
+        return self.__bandate_string
 
-    def get_ban_struct(self):
-        return self.__ban_struct
+    def get_bandate_struct(self):
+        return self.__bandate_struct
 
     def get_firebase_token(self):
         return self.__firebase_token
@@ -101,19 +95,20 @@ class Account:
         self.__loses = 0
         self.__draws = 0
         self.__favorite_color = "ff0000"
-        self.__ban_string = "00/00/0000 00:00"
-        self.__ban_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
+        self.__bandate_string = "00/00/0000"
+        self.__bandate_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
         if self.__client_status == "Ban":
             self.__client_status = "Off"
 
     def set_ban_until(self, new_date):
-        self.__ban_string = new_date
-        self.set_ban_until_struct()
+        self.__bandate_string = new_date
+        day, month, year = [int(element) for element in self.__bandate_string.split("/")]
+        self.__bandate_struct = time.struct_time((year, month, day, 0, 0, 0, 0, 0, 0))
         self.__client_status = "Ban"
 
     def erase_ban(self):
-        self.__ban_string = "00/00/0000 00:00"
-        self.__ban_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
+        self.__bandate_string = "00/00/0000"
+        self.__bandate_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
         self.__client_status = "Off"
 
     def add_win(self):
@@ -132,7 +127,7 @@ class Account:
         return f"{self.__username} {self.__password} " \
                f"{self.__wins} {self.__loses} {self.__draws} " \
                f"{self.__favorite_color} {self.__client_status} " \
-               f"{self.__ban_string} {self.__arena_number}"
+               f"{self.__bandate_string} {self.__arena_number}"
 
 
 class Server:
@@ -215,7 +210,7 @@ class Server:
 
         user, password = StringVar(), StringVar()
         day, month = StringVar(value="day"), StringVar(value="month")
-        year, hour = StringVar(value="year"), StringVar(value="hour")
+        year = StringVar(value="year")
         Label(lf, text="Username:", font=FONT).place(x=20, y=10)
         Entry(lf, textvariable=user).place(x=125, y=15)
 
@@ -223,19 +218,16 @@ class Server:
         Entry(lf, textvariable=password).place(x=125, y=55)
 
         Label(lf, text="Date:", font=FONT).place(x=300, y=10)
-        Label(lf, text='Hour:', font=FONT).place(x=300, y=45)
         Combobox(lf, state='readonly', takefocus=OFF, width=4, textvariable=day,
                  values=["day"] + [f"0{x}" if x < 10 else x for x in range(1, 32)]).place(x=360, y=10)
         Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=month,
                  values=["month"] + [f"0{x}" if x < 10 else x for x in range(1, 13)]).place(x=430, y=10)
         Combobox(lf, state='readonly', takefocus=OFF, width=4, textvariable=year,
                  values=["year"] + [str(x) for x in range(2019, 3000)]).place(x=515, y=10)
-        Combobox(lf, state='readonly', width=6, textvariable=hour,
-                 values=["hour"] + [f"0{x}:00" if x < 10 else f"{x}:00" for x in range(0, 24)]).place(x=360, y=45)
 
         Button(lf, command=lambda: self.admin_register(user, password, tree),
                text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
-        Button(lf, command=lambda: self.admin_ban(user, password, [day, month, year, hour], tree),
+        Button(lf, command=lambda: self.admin_ban(user, password, [day, month, year], tree),
                text='Ban', borderwidth=3, width=10, bg='yellow').place(x=120, y=140)
         Button(lf, command=lambda: self.admin_free_ban(user, password, tree),
                text="Free", borderwidth=3, width=10, bg='azure').place(x=220, y=140)
@@ -274,9 +266,9 @@ class Server:
         if is_valid_admin_buffers(username_to_ban.get(), user_password.get()) and is_valid_ban_date(ban_until):
             for account in self.__accounts_list:
                 if account.get_username() == username_to_ban.get() and account.get_password() == user_password.get():
-                    ban_player_until = "/".join(element.get() for element in ban_until[0:3]) + " " + ban_until[3].get()
-                    set_ban_in_table(username_to_ban.get(), ban_player_until)
+                    ban_player_until = "/".join(element.get() for element in ban_until)
                     account.set_ban_until(ban_player_until)
+                    self.__accounts_updates_to_table.append([account, "B"])
                     break
         window.focus_set()
         window.master.focus_set()
@@ -285,26 +277,33 @@ class Server:
         ban_until[0].set("day")
         ban_until[1].set("month")
         ban_until[2].set("year")
-        ban_until[3].set("hour")
 
     def admin_delete(self, username_to_delete, user_password, window):
         if is_valid_admin_buffers(username_to_delete.get(), user_password.get()):
             for acc in self.__accounts_list:
                 if acc.get_username() == username_to_delete.get() and acc.get_password() == user_password.get():
                     self.__accounts_list.remove(acc)
-                    delete_from_account_table(username_to_delete.get())
+                    self.delete_from_accounts(acc)
                     window.focus_set()
                     window.master.focus_set()
                     break
         username_to_delete.set("")
         user_password.set("")
 
+    def delete_from_accounts(self, account):
+        if self.__is_online_database:
+            self.__fire.delete("Accounts/", account.get_firebase_token())
+        conn = connect("my database.db")
+        curs = conn.cursor()
+        curs.execute("DELETE FROM Accounts WHERE Username = ?", (account.get_username(), ))
+        conn.commit()
+
     def admin_free_ban(self, username_to_free, user_password, window):
         if is_valid_admin_buffers(username_to_free.get(), user_password.get()):
             for acc in self.__accounts_list:
                 if acc.get_username() == username_to_free.get() and acc.get_password() == user_password.get():
                     acc.erase_ban()
-                    set_ban_in_table(username_to_free.get(), "00/00/0000 00:00")
+                    self.__accounts_updates_to_table.append([acc, "B"])
                     window.focus_set()
                     window.master.focus_set()
                     break
@@ -314,8 +313,7 @@ class Server:
     def clean_accounts_data(self, window):
         conn = connect('my database.db')
         curs = conn.cursor()
-        curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000', Bandate = (?)",
-                     ("00/00/0000 00:00",))
+        curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000', Bandate = '00/00/0000'")
         conn.commit()
         for acc in self.__accounts_list:
             acc.clean_data()
@@ -388,25 +386,26 @@ class Server:
                                         'Color', account.get_color())
                     curs.execute("UPDATE Accounts SET Color = (?) WHERE Username = (?)",
                                  (account.get_color(), account.get_username()))
+                elif act == "B":
+                    if self.__is_online_database:
+                        self.__fire.put(f"Accounts/{account.get_firebase_token()}/",
+                                        "Bandate", account.get_bandate_string())
+                    curs.execute("UPDATE Accounts SET Bandate = (?) WHERE Username = (?)",
+                                 (account.get_bandate_string(), account.get_username()))
                 self.__accounts_updates_to_table.remove(update)
             conn.commit()
-            time.sleep(5)
+            time.sleep(2)
         print("Accounts updater shut down...")
 
     def is_ban_date_passed(self):
         print("Bans check start...")
-        conn = connect("my database.db")
-        curs = conn.cursor()
         while self.__stop_running is False:
             banned_list = list(filter(lambda x: x.get_client_status() == "Ban", self.__accounts_list))
             current_time = time.mktime(time.localtime())
             for acc in banned_list:
-                if time.mktime(acc.get_ban_struct()) < current_time:
-                    acc.player_offline()
+                if time.mktime(acc.get_bandate_struct()) < current_time:
                     acc.erase_ban()
-                    curs.execute("UPDATE Accounts SET Ban = '00/00/0000 00:00'"
-                                 " WHERE Username = (?)", (acc.get_username(),))
-            conn.commit()
+                    self.__accounts_updates_to_table.append([acc, "B"])
             time.sleep(3)
         print("Bans Check shut down...")
 
@@ -585,18 +584,18 @@ class Server:
         firebase_token = ""
         if self.__is_online_database:
             data = {"Username": new_account_data[0], "Password": new_account_data[1],
-                    "Wins": 0, "Loses": 0, "Draws": 0, "Color": "ff0000", "Bandate": "00/00/0000 00:00"}
+                    "Wins": 0, "Loses": 0, "Draws": 0, "Color": "ff0000", "Bandate": "00/00/0000"}
             firebase_token = self.__fire.post("Accounts", data)['name']
 
         conn = connect("my database.db")
         cursor = conn.cursor()
         cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
                        (new_account_data[0], new_account_data[1], 0, 0, 0,
-                        "ff0000", "00/00/0000 00:00", firebase_token))
+                        "ff0000", "00/00/0000", firebase_token))
         conn.commit()
         conn.close()
         new_account = Account(new_account_data[0], new_account_data[1],
-                              0, 0, 0, "ff0000", "00/00/0000 00:00", firebase_token)
+                              0, 0, 0, "ff0000", "00/00/0000", firebase_token)
         if is_online:
             new_account.player_online()
         self.__accounts_list.append(new_account)
@@ -614,7 +613,7 @@ class Server:
                     client.send(b"T")
                 elif account.get_client_status() == "Ban":
                     client.send(b"B")
-                    client.send(account.get_ban_string().encode())
+                    client.send(account.get_bandate_string().encode())
                 else:
                     client.send(b"O")  # can use this account
                     account.player_online()
@@ -662,23 +661,8 @@ def is_valid_admin_buffers(username, password):
 
 
 def is_valid_ban_date(date_values_list):
-    return all(True if element.get().isdigit() else False for element in date_values_list[:2]) \
-           and date_values_list[3].get()[2] == ":" and\
-           MAX_NUM_DAY_IN_MONTHS[date_values_list[1].get()] >= int(date_values_list[0].get())
-
-
-def delete_from_account_table(username):
-    conn = connect("my database.db")
-    curs = conn.cursor()
-    curs.execute("DELETE FROM Accounts WHERE Username = ?", (username, ))
-    conn.commit()
-
-
-def set_ban_in_table(username, ban_player_until):
-    conn = connect("my database.db")
-    curs = conn.cursor()
-    curs.execute("UPDATE Accounts SET Bandate = (?) WHERE Username = (?)", (ban_player_until, username))
-    conn.commit()
+    return all(True if element.get().isdigit() else False for element in date_values_list) \
+           and MAX_NUM_DAY_IN_MONTHS[date_values_list[1].get()] >= int(date_values_list[0].get())
 
 
 def find_asked_map(map_code):
