@@ -143,7 +143,6 @@ class Server:
         self.__fire = firebase.FirebaseApplication(FIREBASE_URL, None)
         self.__is_online_database = False
         self.__accounts_list = []
-        self.build_my_accounts()
         self.__accounts_updates_to_table = []
         self.__stop_running = False
 
@@ -155,11 +154,28 @@ class Server:
         self.__time_battle_arena = 0
         self.__time_battle_creator = None
 
-    def build_my_accounts(self):
+    def is_sync_activated(self):
         try:
-            data = self.__fire.get('/Accounts', '')
+            self.__fire.get('', '')
+            self.__is_online_database = True
+        except ConnectionError:
+            print("cant get access to online firebase")
+            return
+        conn = connect("my database.db")
+        curs = conn.cursor()
+        curs.execute("SELECT IsOfflineUpdated FROM Flags")
+        is_offline_updated = bool(curs.fetchall()[0][0])
+        if is_offline_updated:
+            curs.execute("UPDATE Flags set IsOfflineUpdated = 0")
+            conn.commit()
+            # need to move data from local to global db
+        conn.close()
+
+    def build_my_accounts(self):
+        if self.__is_online_database:
+            data = self.__fire.get('Accounts', '')
             if data is None:
-                self.__is_online_database = True
+                self.__is_online_database = True  # there is no accounts
                 return
             data = [x for x in data.items()]
             for element in data:
@@ -171,11 +187,9 @@ class Server:
                                                     draws, color, bandate, firebase_token))
             self.__is_online_database = True
             return
-        except ConnectionError:
-            print("cant get access to online firebase")
         conn = connect("my database.db")
         curs = conn.cursor()
-        curs.execute("UPDATE Flags set 'Offline update' = 1")
+        curs.execute("UPDATE Flags set IsOfflineUpdated = 1")
         conn.commit()
         curs.execute("SELECT * FROM Accounts")
         data = [list(x) for x in curs.fetchall()]
@@ -187,6 +201,8 @@ class Server:
         return accounts_list
 
     def active(self):
+        self.is_sync_activated()
+        self.build_my_accounts()
         for index in range(10):
             threading.Thread(target=self.help_player, args=([index])).start()
         threading.Thread(target=self.update_users_data).start()
@@ -295,8 +311,9 @@ class Server:
             self.__fire.delete("Accounts/", account.get_firebase_token())
         conn = connect("my database.db")
         curs = conn.cursor()
-        curs.execute("DELETE FROM Accounts WHERE Username = ?", (account.get_username(), ))
+        curs.execute("DELETE FROM Accounts WHERE Username = ?", (account.get_username(),))
         conn.commit()
+        conn.close()
 
     def admin_free_ban(self, username_to_free, user_password, window):
         if is_valid_admin_buffers(username_to_free.get(), user_password.get()):
@@ -315,8 +332,12 @@ class Server:
         curs = conn.cursor()
         curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000', Bandate = '00/00/0000'")
         conn.commit()
-        for acc in self.__accounts_list:
-            acc.clean_data()
+        conn.close()
+        for account in self.__accounts_list:
+            if self.__is_online_database:
+                self.__fire.patch(f"Accounts/{account.get_firebase_token()}/",
+                                  {"Wins": 0, "Loses": 0, "Draws": 0, "Color": "ff0000", "Bandate": "00/00/0000"})
+            account.clean_data()
         window.focus_set()
         window.master.focus_set()
 
@@ -653,7 +674,7 @@ def is_installer_req(request):
 
 def is_valid_admin_buffers(username, password):
     return (0 < len(username) <= 10) and (0 < len(password) <= 10) \
-           and ((0x61 <= ord(username[0]) <= 0x7a) or (0x41 <= ord(username[0]) <= 0x5a))\
+           and ((0x61 <= ord(username[0]) <= 0x7a) or (0x41 <= ord(username[0]) <= 0x5a)) \
            and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a) or letter.isdigit())
                     for letter in username[1:]]) \
            and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a)  # a-z or A-Z or digit
@@ -668,8 +689,9 @@ def is_valid_ban_date(date_values_list):
 def find_asked_map(map_code):
     conn = connect("my database.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT Walls FROM Maps WHERE MapCode = (?)", (map_code, ))
+    cursor.execute("SELECT Walls FROM Maps WHERE MapCode = (?)", (map_code,))
     walls_of_asked_map = cursor.fetchall()[0][0]
+    conn.close()
     return walls_of_asked_map
 
 
