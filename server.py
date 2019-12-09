@@ -32,6 +32,19 @@ FIREBASE_URL = "https://my-project-b9bb8.firebaseio.com/"
 class Account:
     def __init__(self, username, password, wins, loses, draws, color,
                  bandate, firebase_token):
+        """
+        The class used to organize the static accounts data so as the dynamic, also used
+        to make kind of defending layer for preventing SQL injection
+        argument:
+            username - string, the username of the user
+            password - string, the password of the user
+            wins - int, the number of wining of the user
+            loses - int, the number of losing of the user
+            draws - int, the number of drawing of the user
+            color - string. the color of the user
+            bandate - string, the date of ban
+            firebase_token - string, the token of the account in the online database
+        """
         self.__username = username
         self.__password = password
         self.__wins = wins
@@ -91,6 +104,9 @@ class Account:
         self.__arena_number = new_arena_number
 
     def clean_data(self):
+        """
+        Clean the data of the account to default settings
+        """
         self.__wins = 0
         self.__loses = 0
         self.__draws = 0
@@ -101,12 +117,20 @@ class Account:
             self.__client_status = "Off"
 
     def set_ban_until(self, new_date):
+        """
+        set a new ban date
+        argument:
+            new_date - string, the new date to set
+        """
         self.__bandate_string = new_date
         day, month, year = [int(element) for element in self.__bandate_string.split("/")]
         self.__bandate_struct = time.struct_time((year, month, day, 0, 0, 0, 0, 0, 0))
         self.__client_status = "Ban"
 
     def erase_ban(self):
+        """
+        delete to current ban date and set it to default
+        """
         self.__bandate_string = "00/00/0000"
         self.__bandate_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
         self.__client_status = "Off"
@@ -121,9 +145,15 @@ class Account:
         self.__draws += 1
 
     def change_color(self, newcolor):
+        """
+        change the current color
+        argument:
+            newcolor - string, the new color to set
+        """
         self.__favorite_color = newcolor
 
     def __str__(self):
+        """make a string to describe all the account headers"""
         return f"{self.__username} {self.__password} " \
                f"{self.__wins} {self.__loses} {self.__draws} " \
                f"{self.__favorite_color} {self.__client_status} " \
@@ -154,9 +184,13 @@ class Server:
         self.__time_battle_arena = 0
         self.__time_battle_creator = None
 
-    def is_sync_activated(self):
+    def sync_data(self):
+        """
+        make sure the databases are sync
+        if firebase inevitable the default become the local database
+        """
         try:
-            self.__fire.get('', '')
+            online_tokens = set(self.__fire.get('Accounts/', '').keys())
             self.__is_online_database = True
         except ConnectionError:
             print("cant get access to online firebase")
@@ -166,16 +200,27 @@ class Server:
         curs.execute("SELECT IsOfflineUpdated FROM Flags")
         is_offline_updated = bool(curs.fetchall()[0][0])
         if is_offline_updated:
+            curs.execute("SELECT * FROM Accounts")
+            data = curs.fetchall()
+            local_tokens = set([x[7] for x in data])
+            deleted_tokens = list(online_tokens - local_tokens)
+            for element in deleted_tokens:
+                self.__fire.delete("Accounts/", element)
+            for element in data:
+                self.__fire.patch(f"Accounts/{element[7]}",
+                                  {"Wins": element[2], "Loses": element[3], "Draws": element[4],
+                                   "Color": element[5], "Bandate": element[6]})
             curs.execute("UPDATE Flags set IsOfflineUpdated = 0")
             conn.commit()
-            # need to move data from local to global db
         conn.close()
 
     def build_my_accounts(self):
+        """
+        get the accounts data from the default and storage them in account instance
+        """
         if self.__is_online_database:
             data = self.__fire.get('Accounts', '')
             if data is None:
-                self.__is_online_database = True  # there is no accounts
                 return
             data = [x for x in data.items()]
             for element in data:
@@ -185,7 +230,6 @@ class Server:
                 color, bandate = element[1]['Color'], element[1]['Bandate']
                 self.__accounts_list.append(Account(username, password, wins, loses,
                                                     draws, color, bandate, firebase_token))
-            self.__is_online_database = True
             return
         conn = connect("my database.db")
         curs = conn.cursor()
@@ -193,15 +237,16 @@ class Server:
         conn.commit()
         curs.execute("SELECT * FROM Accounts")
         data = [list(x) for x in curs.fetchall()]
-        accounts_list = []
         for acc in data:
-            accounts_list.append(Account(acc[0], acc[1], acc[2],
-                                         acc[3], acc[4], acc[5], acc[6], acc[7]))
-        accounts_list.sort(key=lambda x: x.get_username())
-        return accounts_list
+            self.__accounts_list.append(Account(acc[0], acc[1], acc[2],
+                                                acc[3], acc[4], acc[5], acc[6], acc[7]))
+        self.__accounts_list.sort(key=lambda x: x.get_username())
 
     def active(self):
-        self.is_sync_activated()
+        """
+        active all the functions of the server
+        """
+        self.sync_data()
         self.build_my_accounts()
         for index in range(10):
             threading.Thread(target=self.help_player, args=([index])).start()
@@ -212,6 +257,9 @@ class Server:
         self.__server_socket.close()
 
     def create_server_screen(self):
+        """
+        create the API of the admin
+        """
         window = Tk()
         window.geometry(API_SIZE)
         window.title("My server")
@@ -270,6 +318,13 @@ class Server:
         window.mainloop()
 
     def admin_register(self, new_username, new_password, window):
+        """
+        the admin register a new player, if already exist ignore
+        argument:
+            new_username - string, username to register
+            new_password - string, password to register
+            window - Treeview, the widget of the accounts data
+        """
         if is_valid_admin_buffers(new_username.get(), new_password.get()):
             if new_username.get() not in [element.get_username() for element in self.__accounts_list]:
                 self.register_new_player([new_username.get(), new_password.get()], is_online=False)
