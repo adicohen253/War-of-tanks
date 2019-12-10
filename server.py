@@ -319,49 +319,70 @@ class Server:
 
     def admin_register(self, new_username, new_password, window):
         """
-        the admin register a new player, if already exist ignore
+        the admin registers a new player, if already exist ignore
         argument:
-            new_username - string, username to register
-            new_password - string, password to register
+            new_username - Entry widget, username to register
+            new_password - Entry widget, password to register
             window - Treeview, the widget of the accounts data
         """
         if is_valid_admin_buffers(new_username.get(), new_password.get()):
             if new_username.get() not in [element.get_username() for element in self.__accounts_list]:
                 self.register_new_player([new_username.get(), new_password.get()], is_online=False)
-                window.focus_set()
-                window.master.focus_set()
+        window.focus_set()
+        window.master.focus_set()
         new_password.set("")
         new_username.set("")
 
-    def admin_ban(self, username_to_ban, user_password, ban_until, window):
-        if is_valid_admin_buffers(username_to_ban.get(), user_password.get()) and is_valid_ban_date(ban_until):
+    def admin_ban(self, username, password, ban_until, window):
+        """
+        the admin ban a player, if username/password incorrect ignore
+        same if the ban date is wrong
+        arguments:
+            username - Entry widget, username to ban
+            password - Entry widget, password to ban
+            ban_until - Entry widget, the date of ban
+            window - Treeview, the widget of the accounts data
+        """
+        if is_valid_admin_buffers(username.get(), password.get()) and is_valid_ban_date(ban_until):
             for account in self.__accounts_list:
-                if account.get_username() == username_to_ban.get() and account.get_password() == user_password.get():
+                if account.get_username() == username.get() and account.get_password() == password.get():
                     ban_player_until = "/".join(element.get() for element in ban_until)
                     account.set_ban_until(ban_player_until)
                     self.__accounts_updates_to_table.append([account, "B"])
                     break
         window.focus_set()
         window.master.focus_set()
-        username_to_ban.set("")
-        user_password.set("")
+        username.set("")
+        password.set("")
         ban_until[0].set("day")
         ban_until[1].set("month")
         ban_until[2].set("year")
 
-    def admin_delete(self, username_to_delete, user_password, window):
-        if is_valid_admin_buffers(username_to_delete.get(), user_password.get()):
+    def admin_delete(self, username, password, window):
+        """
+        the admin deletes a player, if username/password incorrect ignore
+        arguments:
+            username - Entry widget, username to ban
+            password - Entry widget, password to ban
+            window - Treeview, the widget of the accounts data
+        """
+        if is_valid_admin_buffers(username.get(), password.get()):
             for acc in self.__accounts_list:
-                if acc.get_username() == username_to_delete.get() and acc.get_password() == user_password.get():
+                if acc.get_username() == username.get() and acc.get_password() == username.get():
                     self.__accounts_list.remove(acc)
                     self.delete_from_accounts(acc)
-                    window.focus_set()
-                    window.master.focus_set()
                     break
-        username_to_delete.set("")
-        user_password.set("")
+        window.focus_set()
+        window.master.focus_set()
+        username.set("")
+        password.set("")
 
     def delete_from_accounts(self, account):
+        """
+        delete the account from the databases (if firebase is inevitable skip it)
+        argument:
+            account - Account, the account to delete
+        """
         if self.__is_online_database:
             self.__fire.delete("Accounts/", account.get_firebase_token())
         conn = connect("my database.db")
@@ -371,18 +392,30 @@ class Server:
         conn.close()
 
     def admin_free_ban(self, username_to_free, user_password, window):
+        """
+        the admin deletes a player, if username/password incorrect ignore
+        arguments:
+            username - Entry widget, username to free
+            password - Entry widget, password to free
+            window - Treeview, the widget of the accounts data
+        """
         if is_valid_admin_buffers(username_to_free.get(), user_password.get()):
             for acc in self.__accounts_list:
                 if acc.get_username() == username_to_free.get() and acc.get_password() == user_password.get():
                     acc.erase_ban()
                     self.__accounts_updates_to_table.append([acc, "B"])
-                    window.focus_set()
-                    window.master.focus_set()
                     break
+        window.focus_set()
+        window.master.focus_set()
         username_to_free.set("")
         user_password.set("")
 
     def clean_accounts_data(self, window):
+        """
+        clean the data of all the accounts and set it to default
+        argument:
+            window - Treeview, the widget of the accounts data
+        """
         conn = connect('my database.db')
         curs = conn.cursor()
         curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000', Bandate = '00/00/0000'")
@@ -397,12 +430,20 @@ class Server:
         window.master.focus_set()
 
     def show_account_data(self, tree):
+        """
+        print the data of all the accounts
+        tree - Treeview, the widget of the accounts data
+        """
         for i in tree.get_children():
             tree.delete(i)
         for account in self.__accounts_list:
             tree.insert("", END, values=str(account).split(' '))
 
     def uploader(self):
+        """
+        open a channel for browsers to download the game
+        (for the future - the backend server of the game)
+        """
         print("uploader start...")
         server = socket.socket()
         server.bind((self.__ip, 50000))
@@ -432,6 +473,9 @@ class Server:
         server.close()
 
     def update_users_data(self):
+        """
+        update the changes of all the accounts such as wins, loses, color etc' in the databases
+        """
         print("Accounts updater start...")
         conn = connect('my database.db')
         curs = conn.cursor()
@@ -474,6 +518,7 @@ class Server:
         print("Accounts updater shut down...")
 
     def is_ban_date_passed(self):
+        """check if any account should be release from ban"""
         print("Bans check start...")
         while self.__stop_running is False:
             banned_list = list(filter(lambda x: x.get_client_status() == "Ban", self.__accounts_list))
@@ -486,10 +531,12 @@ class Server:
         print("Bans Check shut down...")
 
     def help_player(self, index):
-        """all the account need to be in accounts_list, if the one that needed isn't there admin erased it:
-            the char '@' sign to client that his user has been deleted while he was connected
-            the chr '!' sign to client that the update succeeded
-            """
+        """
+        all the services to the clients of the game
+        after it gets action code reply accordingly and asked data
+        ! - a signal to the client that the update accepted successfully
+        @ - a signal to the client that his account has been deleted
+        """
         print(f"client thread number {index + 1} start")
         while self.__stop_running is False:
             account = None
@@ -581,6 +628,12 @@ class Server:
             player.close()
 
     def handle_battle_request(self, mode_code, address, client_socket, account):
+        """
+        handle the request of the client for making a new arena (battle)
+        wait until they are 2 players to start
+        if the first player disconnect modifies the
+        details of the first login to the second player
+        """
         if mode_code == self.DEATH_MODE:
             if self.__death_battle_ip == "":  # player create connection
                 client_socket.send(b"T")
@@ -634,9 +687,12 @@ class Server:
                 account.set_arena_number(self.__time_battle_arena)
 
     def is_can_register(self, client):
-        """return to the player if username is already exist in the accounts list
+        """
+        check if the asked username and password doesn't exist in the accounts list
+        if they don't, send Y to client and register the new player
+        if they are, send N to the client
         argument:
-            client: type - socket
+            client - socket, the socket which used for communicate with the client
         """
         new_player_data = client.recv(21).decode().split(",")
         exist = False
@@ -652,10 +708,11 @@ class Server:
             return new_account
 
     def register_new_player(self, new_account_data, is_online=True):
-        """add the new account the the list
+        """add the new account to the list and insert it to the databases
+        if the request is from the client, automatically set his status to online
         argument:
-            username = type: string
-            password = type: string
+            new_account_data - list, the username and the password
+            is_online - bool, tells if the player connected now
         """
         firebase_token = ""
         if self.__is_online_database:
@@ -679,6 +736,13 @@ class Server:
         return new_account
 
     def player_login(self, client):
+        """"
+        handle to signing in of the client and send:
+        T - if taken    B - if Banned
+        O - if ok       F - if doesn't exist
+        arguments:
+            client - socket, the socket which used to communicate with client
+        """
         account_to_check = client.recv(21).decode().split(",")
         exist = False
         for account in self.__accounts_list:
@@ -698,6 +762,11 @@ class Server:
             client.send(b"F")  # desired account does not exist
 
     def find_next_arena(self, mode_code):
+        """
+        finds the next first available arena and return it's number
+        arguments:
+            mode_code - int, for determine for which mode need to find
+        """
         if mode_code == self.DEATH_MODE:
             my_arenas = [x.get_arena_number() for x in self.__accounts_list if x.get_arena_number() >= 1
                          and x.get_arena_number() % 2]
