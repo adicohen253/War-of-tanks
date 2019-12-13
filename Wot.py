@@ -715,7 +715,8 @@ class Game:
             return
         p = pyaudio.PyAudio()
         try:
-            stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+            stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True,
+                            output=True, frames_per_buffer=CHUNK)
             while not (self.__flags[0] or self.__flags[1]):
                 try:
                     data = stream.read(CHUNK)
@@ -741,7 +742,7 @@ class Game:
         p = pyaudio.PyAudio()
         try:
             stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
-                            rate=RATE, output=True, frames_per_buffer=CHUNK)
+                            rate=RATE, output=True, input=True, frames_per_buffer=CHUNK)
             while not (self.__flags[0] or self.__flags[1]):
                 try:
                     data = stream.read(CHUNK)
