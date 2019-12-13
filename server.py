@@ -1,6 +1,7 @@
 import threading
 import socket
 import time
+import string
 from firebase import firebase
 from os import listdir
 from tkinter import *
@@ -190,7 +191,11 @@ class Server:
         if firebase inevitable the default become the local database
         """
         try:
-            online_tokens = set(self.__fire.get('Accounts/', '').keys())
+            global_accounts = self.__fire.get('Accounts/', '')
+            if global_accounts is None:
+                online_tokens = set()
+            else:
+                online_tokens = set(global_accounts.keys())
             self.__is_online_database = True
         except ConnectionError:
             print("cant get access to online firebase")
@@ -207,9 +212,17 @@ class Server:
             for element in deleted_tokens:
                 self.__fire.delete("Accounts/", element)
             for element in data:
-                self.__fire.patch(f"Accounts/{element[7]}",
-                                  {"Wins": element[2], "Loses": element[3], "Draws": element[4],
-                                   "Color": element[5], "Bandate": element[6]})
+                if element[7] == "":
+                    token = self.__fire.post(f"Accounts/", {"Username": element[0], "Password": element[1],
+                                                            "Wins": element[2], "Loses": element[3],
+                                                            "Draws": element[4], "Color": element[5],
+                                                            "Bandate": element[6]})['name']
+                    curs.execute("UPDATE Accounts SET Netoken = (?) WHERE Username = (?)", (token, element[0]))
+                else:
+                    self.__fire.patch(f"Accounts/{element[7]}",
+                                      {"Wins": element[2], "Loses": element[3], "Draws": element[4],
+                                       "Color": element[5], "Bandate": element[6]})
+
             curs.execute("UPDATE Flags set IsOfflineUpdated = 0")
             conn.commit()
         conn.close()
@@ -358,6 +371,25 @@ class Server:
         ban_until[1].set("month")
         ban_until[2].set("year")
 
+    def admin_free_ban(self, username_to_free, user_password, window):
+        """
+        the admin deletes a player, if username/password incorrect ignore
+        arguments:
+            username - Entry widget, username to free
+            password - Entry widget, password to free
+            window - Treeview, the widget of the accounts data
+        """
+        if is_valid_admin_buffers(username_to_free.get(), user_password.get()):
+            for acc in self.__accounts_list:
+                if acc.get_username() == username_to_free.get() and acc.get_password() == user_password.get():
+                    acc.erase_ban()
+                    self.__accounts_updates_to_table.append([acc, "B"])
+                    break
+        window.focus_set()
+        window.master.focus_set()
+        username_to_free.set("")
+        user_password.set("")
+
     def admin_delete(self, username, password, window):
         """
         the admin deletes a player, if username/password incorrect ignore
@@ -390,25 +422,6 @@ class Server:
         curs.execute("DELETE FROM Accounts WHERE Username = ?", (account.get_username(),))
         conn.commit()
         conn.close()
-
-    def admin_free_ban(self, username_to_free, user_password, window):
-        """
-        the admin deletes a player, if username/password incorrect ignore
-        arguments:
-            username - Entry widget, username to free
-            password - Entry widget, password to free
-            window - Treeview, the widget of the accounts data
-        """
-        if is_valid_admin_buffers(username_to_free.get(), user_password.get()):
-            for acc in self.__accounts_list:
-                if acc.get_username() == username_to_free.get() and acc.get_password() == user_password.get():
-                    acc.erase_ban()
-                    self.__accounts_updates_to_table.append([acc, "B"])
-                    break
-        window.focus_set()
-        window.master.focus_set()
-        username_to_free.set("")
-        user_password.set("")
 
     def clean_accounts_data(self, window):
         """
@@ -793,24 +806,42 @@ class Server:
 
 # filters and sub-functions for Server class
 def is_installer_req(request):
+    """
+    filter for http requests
+    """
     return request.startswith("GET") and "/Game.exe" in request and "HTTP/1.1" in request
 
 
 def is_valid_admin_buffers(username, password):
+    """
+    filter to username and password buffers
+    true if both between 0 to 10 chars, the username starts with
+    a letter and all the chars need to be letters or digits
+    arguments:
+        username - string, the username to check
+        password - string, the password to check
+    """
     return (0 < len(username) <= 10) and (0 < len(password) <= 10) \
-           and ((0x61 <= ord(username[0]) <= 0x7a) or (0x41 <= ord(username[0]) <= 0x5a)) \
-           and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a) or letter.isdigit())
-                    for letter in username[1:]]) \
-           and all([((0x61 <= ord(letter) <= 0x7a) or (0x41 <= ord(letter) <= 0x5a)  # a-z or A-Z or digit
-                     or letter.isdigit()) for letter in password])
+           and (username[0] in string.ascii_letters) and all(letter in string.ascii_letters or letter.isdigit()
+                                                             for letter in (password + username[1:]))
 
 
 def is_valid_ban_date(date_values_list):
+    """
+    filter for legal date for ban action
+    argument:
+        date_values_list - list, the widgets of the ban date (day month and year)
+    """
     return all(True if element.get().isdigit() else False for element in date_values_list) \
            and MAX_NUM_DAY_IN_MONTHS[date_values_list[1].get()] >= int(date_values_list[0].get())
 
 
 def find_asked_map(map_code):
+    """
+    finds the data of the walls of the asked map
+    argument:
+        map_code - string, the name of the asked map in the databases
+    """
     conn = connect("my database.db")
     cursor = conn.cursor()
     cursor.execute("SELECT Walls FROM Maps WHERE MapCode = (?)", (map_code,))

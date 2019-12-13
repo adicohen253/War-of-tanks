@@ -6,6 +6,7 @@ import game_obj
 import random
 import threading
 import pyaudio
+import string
 from re import findall
 
 # --------------------------------
@@ -446,8 +447,6 @@ class Game:
         main_player = self._receive_from_server(1)
         main_player = (main_player == "T")
         if main_player:
-            self.__player = game_obj.Tank(20, 200, direct=6, demo_tank=self.__demo_player)
-            self.__enemy = game_obj.Tank(420, 50, direct=2)
             waiting = pygame.image.load(CONNECT)
             self.__screen.blit(waiting, [0, 0])
             pygame.display.flip()
@@ -459,18 +458,21 @@ class Game:
             self.__enemy_socket, address = main_socket.accept()
             self.__enemy_ip = address[0]  # only ip address
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
+            enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
+            self.__player = game_obj.Tank(20, 200, direct=6, new_color=self.__demo_player.get_color())
+            self.__enemy = game_obj.Tank(420, 50, direct=2, new_color=enemy_color)
             main_socket.close()
         # main player create the server
         # (waiting for another one for starting the game)
         else:  # player makes connection with main player
             self.__enemy_ip = self._receive_from_server(ASKED_IP_LEN_PACKET)
-            self.__player = game_obj.Tank(420, 50, direct=2, demo_tank=self.__demo_player)
-            self.__enemy = game_obj.Tank(20, 200, direct=6)
             self.__enemy_socket = socket.socket()
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
+            enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
+            self.__player = game_obj.Tank(420, 50, direct=2, new_color=self.__demo_player.get_color())
+            self.__enemy = game_obj.Tank(20, 200, direct=6, new_color=enemy_color)
         self.__enemy_socket.settimeout(0.5)
-        enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
         self.__enemy.change_player_color(enemy_color)
         self.__screen.blit(battlefield, [0, 0])
         self.__screen.blit(self.__player.get_image(), self.__player.get_loc())
@@ -644,21 +646,20 @@ class Game:
         counter = 0
         while not self.__flags[0]:
             clock.tick(PACKET_SENDING_RATE)
+            packet_to_send = \
+                f"D{self.__player.get_pointer()}\n" \
+                f"L{self.__player.get_loc()[0]},{self.__player.get_loc()[1]}\n"
+            if self.__new_trap is not None:  # new trap
+                packet_to_send += f"T{self.__new_trap.get_attribute()}" \
+                                  f"{self.__new_trap.get_loc()[0]}.{self.__new_trap.get_loc()[1]}\n"
+                self.__new_trap = None
+            if self.__new_bullet is not None:
+                packet_to_send += f"B{self.__new_bullet.get_first_lunch_direct()}\n"
+                self.__new_bullet = None
+            if self.__is_collide_happened:
+                packet_to_send += "C\n"
+                self.__flags[0] = True
             try:
-                packet_to_send = \
-                    f"D{self.__player.get_pointer()}\n" \
-                    f"L{self.__player.get_loc()[0]},{self.__player.get_loc()[1]}\n"
-                if self.__new_trap is not None:  # new trap
-                    packet_to_send += f"T{self.__new_trap.get_attribute()}" \
-                                      f"{self.__new_trap.get_loc()[0]}.{self.__new_trap.get_loc()[1]}\n"
-                    self.__new_trap = None
-                if self.__new_bullet is not None:
-                    packet_to_send += f"B{self.__new_bullet.get_first_lunch_direct()}\n"
-                    self.__new_bullet = None
-                if self.__is_collide_happened:
-                    packet_to_send += "C\n"
-                    self.__flags[0] = True
-
                 self.__enemy_socket.send((chr(len(packet_to_send))).encode())
                 self.__enemy_socket.send(packet_to_send.encode())
             except socket.error:  # enemy player quit
@@ -701,7 +702,7 @@ class Game:
         except socket.error:
             return counter == 6, counter + 1
 
-    def voice_stream_connector(self, finish_game):
+    def voice_stream_connector(self):
         stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             stream_socket.connect((self.__enemy_ip, STREAM_OUTPUT_PORT))
@@ -710,7 +711,7 @@ class Game:
         p = pyaudio.PyAudio()
         try:
             stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
-            while not (finish_game[0] or finish_game[1]):
+            while not (self.__flags[0] or self.__flags[1]):
                 try:
                     data = stream.read(CHUNK)
                     stream_socket.send(data)
@@ -724,7 +725,7 @@ class Game:
             pass
         stream_socket.close()
 
-    def voice_stream_creator(self, finish_game):
+    def voice_stream_creator(self):
         stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             stream_socket.bind((self.__ip, STREAM_OUTPUT_PORT))
@@ -736,7 +737,7 @@ class Game:
         try:
             stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
                             rate=RATE, output=True, frames_per_buffer=CHUNK)
-            while not (finish_game[0] or finish_game[1]):
+            while not (self.__flags[0] or self.__flags[1]):
                 try:
                     data = stream.read(CHUNK)
                     client.send(data)
@@ -823,7 +824,7 @@ class Game:
 # filter for getting input from user in color and connect screens
 def legal_chars_for_username_and_password(data):
     """filter for username data in account"""
-    return data.isdigit() or (data.isalpha() and ((0x61 <= ord(data) <= 0x7a) or (0x41 <= ord(data) <= 0x5a)))
+    return data.isdigit() or (data in string.ascii_letters)
 
 
 def limit_color_value(data):

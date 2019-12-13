@@ -6,6 +6,7 @@ import time
 # general constants
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+RED = (255, 0, 0)
 
 # war of tanks
 IMG_PLY = 'tank_player.png'
@@ -20,20 +21,18 @@ class Tank(pygame.sprite.Sprite):
     NUM_BULLETS = 10
     START_HEALTH = 30
 
-    def __init__(self, x, y, direct=0, demo_tank=None):
+    def __init__(self, x, y, direct=0, new_color=RED):
         super(Tank, self).__init__()
         self.__image = pygame.image.load(IMG_PLY).convert()
         self.__image.set_colorkey(WHITE)
-        self.__original_image = self.__image  # original image (uses to rotate the tank with every direct)
         self.rect = self.__image.get_rect()  # the location of the player
         self.__tank_direct = direct  # uses as direct of the tank
-        self.__image = pygame.transform.rotate(self.__original_image, self.MOVES[self.__tank_direct][2])
         self.rect.x = x
         self.rect.y = y
-        if type(demo_tank) == Tank:
-            self.change_player_color(demo_tank.get_color())
-        else:
-            self.__color = [255, 0, 0]  # the default color of the player
+        self.__color = list(RED)
+        self.change_player_color(list(new_color))  # set color header
+        self.__original_image = self.__image  # original image uses to rotate the tank in every direct
+        self.__image = pygame.transform.rotate(self.__original_image, self.MOVES[self.__tank_direct][2])
 
         self.__num_bullet = self.NUM_BULLETS  # the current number of bullets
         self.__health = self.START_HEALTH  # health of the player
@@ -52,8 +51,7 @@ class Tank(pygame.sprite.Sprite):
     def change_player_color(self, new_color):
         """change the image of the player to the new color
         argument:
-                player - type: tank, the player that changing his color
-                new_color = type: list, the new color for the player (rgb format)
+            new_color = type: list, the new color for the player (rgb format)
         """
         for element in range(len(new_color)):
             new_color[element] = int(new_color[element])
@@ -66,10 +64,6 @@ class Tank(pygame.sprite.Sprite):
             for y in range(self.__image.get_size()[1]):
                 if self.__image.get_at((x, y)) != BLACK and self.__image.get_at((x, y)) != WHITE:
                     self.__image.set_at((x, y), new_color)
-        for x in range(self.__original_image.get_size()[0]):
-            for y in range(self.__original_image.get_size()[1]):
-                if self.__original_image.get_at((x, y)) != BLACK and self.__original_image.get_at((x, y)) != WHITE:
-                    self.__original_image.set_at((x, y), new_color)
         self.__color = new_color
 
     def is_done_ghost(self):
@@ -126,6 +120,12 @@ class Tank(pygame.sprite.Sprite):
                 self.__tank_direct += len(self.MOVES)
 
     def update_enemy_loc(self, x, y):
+        """
+        set a new location of the enemy
+        argument:
+            x - int, the horizontal axis
+            y - int, the vertical axis
+        """
         self.rect.x = x
         self.rect.y = y
 
