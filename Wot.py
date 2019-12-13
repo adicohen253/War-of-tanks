@@ -23,7 +23,7 @@ BLUE = (0, 0, 255)
 RED = (255, 0, 0)
 POINT_POS = ([180, 165], [180, 360])
 ASKED_IP_LEN_PACKET = 15
-FPS_RATE = 80
+FPS_RATE = 50
 PACKET_SENDING_RATE = 60
 SECS_TO_PLAY = 150  # 2:30 minutes
 BATTLE_TO_DEATH = 0
@@ -66,7 +66,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.8.63"
+IP = "192.168.1.20"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_OUTPUT_PORT = 32000
@@ -487,7 +487,6 @@ class Game:
 
         threading.Thread(target=self._channeling_with_the_enemy).start()
         while not self.__flags[0]:
-            clock.tick(FPS_RATE)
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
@@ -591,6 +590,9 @@ class Game:
             if self.__player.reload_ammo():  # only makes sound of reload when the player reloads
                 pygame.mixer.music.load(RELOAD)
                 pygame.mixer.music.play(2)
+
+            clock.tick(FPS_RATE)
+
         pygame.mixer.music.play()
         time.sleep(TIME_TO_WAIT)
         self.__enemy = None
@@ -678,7 +680,10 @@ class Game:
 
     def _take_care_enemy_packet(self, counter):
         try:
-            msg_len = ord(self.__enemy_socket.recv(1).decode())
+            msg_len = self.__enemy_socket.recv(1).decode()
+            if msg_len == "":
+                raise socket.error  # other player quit
+            msg_len = ord(msg_len)
             info = str(self.__enemy_socket.recv(msg_len).decode()).split()
             for header in info:
                 if "D" in header:
