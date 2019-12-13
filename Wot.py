@@ -69,7 +69,7 @@ LOGIN_FAILED = "Login failed"
 IP = "192.168.1.20"
 SERVER_PORT = 2020
 GAME_PORT = 5120
-STREAM_OUTPUT_PORT = 32000
+STREAM_PORT = 32000
 
 # voice stream
 CHUNK = 1024
@@ -100,6 +100,7 @@ class Game:
         self.__new_trap = None
         self.__enemy = None
         self.__player = None
+        self.__stream_socket = None
         self.__enemy_socket = None
         self.__enemy_ip = ""
         self.__traps = []
@@ -450,9 +451,15 @@ class Game:
             waiting = pygame.image.load(CONNECT)
             self.__screen.blit(waiting, [0, 0])
             pygame.display.flip()
+
+            stream_socket = socket.socket()
+            stream_socket.bind((self.__ip, STREAM_PORT))  # for voice stream
+            stream_socket.listen(1)
+
             main_socket = socket.socket()
-            main_socket.bind((self.__ip, GAME_PORT))
+            main_socket.bind((self.__ip, GAME_PORT))  # for game communicate
             main_socket.listen(1)
+
             self._receive_from_server(15)  # server found an enemy
             self._send_to_server(b"Ok")
             self.__enemy_socket, address = main_socket.accept()
@@ -461,9 +468,13 @@ class Game:
             enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
             self.__player = game_obj.Tank(20, 200, direct=6, new_color=self.__demo_player.get_color())
             self.__enemy = game_obj.Tank(420, 50, direct=2, new_color=enemy_color)
+
+            self.__stream_socket = stream_socket.accept()[0]
             main_socket.close()
+            stream_socket.close()
         # main player create the server
         # (waiting for another one for starting the game)
+
         else:  # player makes connection with main player
             self.__enemy_ip = self._receive_from_server(ASKED_IP_LEN_PACKET)
             self.__enemy_socket = socket.socket()
@@ -472,6 +483,10 @@ class Game:
             enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
             self.__player = game_obj.Tank(420, 50, direct=2, new_color=self.__demo_player.get_color())
             self.__enemy = game_obj.Tank(20, 200, direct=6, new_color=enemy_color)
+
+            self.__stream_socket = socket.socket()
+            self.__stream_socket.connect((self.__enemy_ip, STREAM_PORT))
+
         self.__enemy_socket.settimeout(0.5)
         self.__enemy.change_player_color(enemy_color)
         self.__screen.blit(battlefield, [0, 0])
@@ -486,6 +501,9 @@ class Game:
         random_time_for_trap = random.randint(3, 5)
 
         threading.Thread(target=self._channeling_with_the_enemy).start()
+        threading.Thread(target=self.stream_in()).start()
+        threading.Thread(target=self.stream_out()).start()
+        
         while not self.__flags[0]:
             events = pygame.event.get()
             for event in events:
@@ -595,11 +613,14 @@ class Game:
 
         pygame.mixer.music.play()
         time.sleep(TIME_TO_WAIT)
+
         self.__enemy = None
         self.__player = None
         self.__times_of_collapse = 0
         self.__enemy_socket.close()
         self.__enemy_socket = None
+        self.__stream_socket.close()
+        self.__stream_socket = None
         self.__enemy_ip = ""
         self.__traps = []
         self.__bullets = []
@@ -707,57 +728,37 @@ class Game:
         except socket.error:
             return counter == 6, counter + 1
 
-    def voice_stream_connector(self):
-        stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            stream_socket.connect((self.__enemy_ip, STREAM_OUTPUT_PORT))
-        except socket.error:
-            return
+    def stream_in(self):
         p = pyaudio.PyAudio()
         try:
-            stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True,
-                            output=True, frames_per_buffer=CHUNK)
+            microphone = p.open(format=FORMAT, channels=CHANNELS,
+                                rate=RATE, input=True, frames_per_buffer=CHUNK)
             while not (self.__flags[0] or self.__flags[1]):
                 try:
-                    data = stream.read(CHUNK)
-                    stream_socket.send(data)
-                    stream.write(stream_socket.recv(CHUNK))
+                    self.__stream_socket.send(microphone.read(CHUNK))
                 except (IOError, socket.error):
                     break
-            stream.stop_stream()
-            stream.close()
+            microphone.stop_stream()
+            microphone.close()
             p.terminate()
         except OSError:
             pass
-        stream_socket.close()
 
-    def voice_stream_creator(self):
-        stream_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            stream_socket.bind((self.__ip, STREAM_OUTPUT_PORT))
-            stream_socket.listen(1)
-            client, address = stream_socket.accept()
-        except socket.error:
-            return
+    def stream_out(self):
         p = pyaudio.PyAudio()
         try:
-            stream = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
-                            rate=RATE, output=True, input=True, frames_per_buffer=CHUNK)
+            speaker = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
+                             rate=RATE, output=True, frames_per_buffer=CHUNK)
             while not (self.__flags[0] or self.__flags[1]):
                 try:
-                    data = stream.read(CHUNK)
-                    client.send(data)
-                    stream.write(client.recv(CHUNK))
+                    speaker.write(self.__stream_socket.recv(CHUNK))
                 except (IOError, socket.error):
                     break
-
-            stream.stop_stream()
-            stream.close()
+            speaker.stop_stream()
+            speaker.close()
             p.terminate()
-            client.close()
         except OSError:
             pass
-        stream_socket.close()
 
     def _my_walls(self, map_code="<>-default"):
         self._send_to_server(map_code.encode())
