@@ -501,9 +501,9 @@ class Game:
         random_time_for_trap = random.randint(3, 5)
 
         threading.Thread(target=self._channeling_with_the_enemy).start()
-        threading.Thread(target=self.stream_in()).start()
-        threading.Thread(target=self.stream_out()).start()
-        
+        # threading.Thread(target=self.stream_in).start()
+        threading.Thread(target=self.stream_out).start()
+
         while not self.__flags[0]:
             events = pygame.event.get()
             for event in events:
