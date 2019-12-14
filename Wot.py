@@ -95,6 +95,7 @@ class Game:
 
         # game start and it's functions manage these attributes
         self.__flags = [False, False]
+        self.__p = pyaudio.PyAudio()
         self.__is_collide_happened = False
         self.__new_bullet = None
         self.__new_trap = None
@@ -501,7 +502,7 @@ class Game:
         random_time_for_trap = random.randint(3, 5)
 
         threading.Thread(target=self._channeling_with_the_enemy).start()
-        # threading.Thread(target=self.stream_in).start()
+        threading.Thread(target=self.stream_in).start()
         threading.Thread(target=self.stream_out).start()
 
         while not self.__flags[0]:
@@ -729,10 +730,9 @@ class Game:
             return counter == 6, counter + 1
 
     def stream_in(self):
-        p = pyaudio.PyAudio()
         try:
-            microphone = p.open(format=FORMAT, channels=CHANNELS,
-                                rate=RATE, input=True, frames_per_buffer=CHUNK)
+            microphone = self.__p.open(format=FORMAT, channels=CHANNELS,
+                                       rate=RATE, input=True, frames_per_buffer=CHUNK)
             while not (self.__flags[0] or self.__flags[1]):
                 try:
                     self.__stream_socket.send(microphone.read(CHUNK))
@@ -740,15 +740,13 @@ class Game:
                     break
             microphone.stop_stream()
             microphone.close()
-            p.terminate()
         except OSError:
             pass
 
     def stream_out(self):
-        p = pyaudio.PyAudio()
         try:
-            speaker = p.open(format=p.get_format_from_width(WIDTH), channels=CHANNELS,
-                             rate=RATE, output=True, frames_per_buffer=CHUNK)
+            speaker = self.__p.open(format=self.__p.get_format_from_width(WIDTH), channels=CHANNELS,
+                                    rate=RATE, output=True, frames_per_buffer=CHUNK)
             while not (self.__flags[0] or self.__flags[1]):
                 try:
                     speaker.write(self.__stream_socket.recv(CHUNK))
@@ -756,7 +754,6 @@ class Game:
                     break
             speaker.stop_stream()
             speaker.close()
-            p.terminate()
         except OSError:
             pass
 
