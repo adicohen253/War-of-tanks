@@ -10,12 +10,15 @@ header{
     background-position: center;
 }
 
-h1{
-    font-size: 60px;
-    color: rgb(184, 165, 62);
-    padding-left: 35%;
-    font-family: 'Courier New', Courier, monospace;
-    
+.title { 
+    font-family: "Black Ops One";
+    font-size: 100px;
+    font-style: italic;
+    font-variant: small-caps;
+    font-weight: lighter;
+    line-height: 40.7px; 
+    margin-left: 25%;
+    padding-top: 30px;
 }
 
 ul{
@@ -41,6 +44,65 @@ ul li a:hover{
     background-color: white;
     color: black;
 }
+
+.loginbox{
+    width: 300px;
+    height: 350px;
+    background-color: black;
+    color: white;
+    top: 33%;
+    left: 11%;
+    position: absolute;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
+    font-family: sans-serif;
+    padding: 50px 30px;
+
+}
+
+.loginbox p{
+    font-weight: bold;
+    font-style: oblique;
+    margin-top: 20px;
+}
+
+.loginbox input{
+    width: 100%;
+}
+
+.loginbox input[type="text"], input[type="password"]
+{
+    border: none;
+    border-bottom: 1px solid blue;
+    background: transparent;
+    outline: none;
+    height: 30px;
+    color: white;
+    font-size: 16px;
+}
+
+.Sign-in{
+    margin-top: 30px;
+    width: 100%;
+    font-size: 20px;
+    border: none;
+    background-color: #3cff00;
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: 400;
+    color: white;
+    text-shadow: 2px 2px black;
+    
+}
+
+.avatar{
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    position: absolute;
+    top: -50px;
+    left: 33%;
+}
+
 
 .main{
     max-width: 1450px;

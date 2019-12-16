@@ -66,7 +66,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.20"
+IP = "192.168.8.51"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -745,7 +745,7 @@ class Game:
 
     def stream_out(self):
         try:
-            speaker = self.__p.open(format=self.__p.get_format_from_width(WIDTH), channels=CHANNELS,
+            speaker = self.__p.open(format=FORMAT, channels=CHANNELS,
                                     rate=RATE, output=True, frames_per_buffer=CHUNK)
             while not (self.__flags[0] or self.__flags[1]):
                 try:
