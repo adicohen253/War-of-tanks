@@ -36,7 +36,7 @@ LOGIN_SCREEN = "login.png"
 COLOR_SCREEN = "colors.jpg"
 SETTINGS_SCREEN = "settings.jpg"
 SETTINGS_SCREEN_PART_2 = "settings1.jpg"
-MAIN_SCREEN = "Main.png"
+MAIN_SCREEN = "Main.jpg"
 MENU_SCREEN = "menu.jpg"
 CHOOSE_MODE_SCREEN = "modes.png"
 CONNECT = "connect.jpg"
@@ -66,7 +66,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.8.51"
+IP = "192.168.1.20"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000

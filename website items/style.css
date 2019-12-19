@@ -3,7 +3,15 @@
     padding: 0;
 }
 
-header{
+.header_main{
+    background-image: url(images/home.jpg);
+    height: 100vmax;
+    background-size: cover;
+    background-position: center;
+}
+
+
+.header_sign_in{
     background-image: url(images/home.jpg);
     height: 100vh;
     background-size: cover;
@@ -19,6 +27,7 @@ header{
     line-height: 40.7px; 
     margin-left: 25%;
     padding-top: 30px;
+    text-shadow: 2px 2px green;
 }
 
 ul{
@@ -46,24 +55,25 @@ ul li a:hover{
 }
 
 .loginbox{
-    width: 300px;
-    height: 350px;
+    width: 400px;
+    height: 450px;
     background-color: black;
     color: white;
-    top: 33%;
-    left: 11%;
+    top: 50%;
+    left: 50%;
     position: absolute;
     transform: translate(-50%, -50%);
     box-sizing: border-box;
     font-family: sans-serif;
     padding: 50px 30px;
+    opacity: 1;
 
 }
 
 .loginbox p{
     font-weight: bold;
     font-style: oblique;
-    margin-top: 20px;
+    margin-top: 30px;
 }
 
 .loginbox input{
@@ -82,7 +92,7 @@ ul li a:hover{
 }
 
 .Sign-in{
-    margin-top: 30px;
+    margin-top: 60px;
     width: 100%;
     font-size: 20px;
     border: none;
@@ -100,7 +110,19 @@ ul li a:hover{
     border-radius: 50%;
     position: absolute;
     top: -50px;
-    left: 33%;
+    left: 36%; 
+}
+
+.game_images{
+    width: 800px;
+    margin-left: 20%;
+    margin-top: 30px;
+    opacity: 0.5;
+
+}
+
+.game_images:hover{
+    opacity: 1;
 }
 
 
