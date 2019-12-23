@@ -30,30 +30,30 @@ BATTLE_TO_DEATH = 0
 BATTLE_ON_TIME = 1
 
 # screens and widgets
-POINTER = "pointer.png"
-REGISTER_SCREEN = "register.png"
-LOGIN_SCREEN = "login.png"
-COLOR_SCREEN = "colors.jpg"
-SETTINGS_SCREEN = "settings.jpg"
-SETTINGS_SCREEN_PART_2 = "settings1.jpg"
-MAIN_SCREEN = "Main.jpg"
-MENU_SCREEN = "menu.jpg"
-CHOOSE_MODE_SCREEN = "modes.png"
-CONNECT = "connect.jpg"
-FIELD = "zone.png"
-GHOST = "ghost.png"
-ENDLESS_AMMO = "Endless_Ammo.png"
-MY_PLAYER_POINT = "player_point.png"
+POINTER = "project images/pointer.png"
+REGISTER_SCREEN = "project images/register.png"
+LOGIN_SCREEN = "project images/login.png"
+COLOR_SCREEN = "project images/colors.jpg"
+SETTINGS_SCREEN = "project images/settings.jpg"
+SETTINGS_SCREEN_PART_2 = "project images/settings1.jpg"
+MAIN_SCREEN = "project images/Main.jpg"
+MENU_SCREEN = "project images/menu.jpg"
+CHOOSE_MODE_SCREEN = "project images/modes.png"
+CONNECT = "project images/connect.jpg"
+FIELD = "project images/zone.png"
+GHOST = "project images/ghost.png"
+ENDLESS_AMMO = "project images/Endless_Ammo.png"
+MY_PLAYER_POINT = "project images/player_point.png"
 
 # sounds
-DRAW = 'draw.mp3'
-BOOST = "boost.mp3"
-ERROR_INPUT = "error.mp3"
-DEFEAT = "losing.mp3"
-VICTORY = 'wining.mp3'
-FIRE = 'shot.mp3'
-BRAKE = 'brake.mp3'
-RELOAD = 'reload.mp3'
+DRAW = "project sounds/draw.mp3"
+BOOST = "project sounds/boost.mp3"
+ERROR_INPUT = "project sounds/error.mp3"
+DEFEAT = "project sounds/losing.mp3"
+VICTORY = "project sounds/wining.mp3"
+FIRE = "project sounds/shot.mp3"
+BRAKE = "project sounds/brake.mp3"
+RELOAD = "project sounds/reload.mp3"
 
 # messages
 ACCOUNT_BANNED = "This account banned until: "
@@ -85,6 +85,7 @@ WIDTH = 2
 class Game:
     def __init__(self, screen):
         self.__screen = screen
+        pygame.display.set_icon(pygame.image.load("web/website items/images/tanks-logo.ico"))
         self.__ip = my_ip()
         self.__font = pygame.font.SysFont('arial', 35)
         self.__demo_player = game_obj.Tank(500, 400)

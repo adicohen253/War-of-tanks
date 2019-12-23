@@ -9,9 +9,9 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
 # war of tanks
-IMG_PLY = 'tank_player.png'
-BULLET = 'bullet.png'
-SURPRISE = 'surprise.png'
+IMG_PLY = "project images/tank_player.png"
+BULLET = "project images/bullet.png"
+SURPRISE = "project images/surprise.png"
 
 
 class Tank(pygame.sprite.Sprite):
