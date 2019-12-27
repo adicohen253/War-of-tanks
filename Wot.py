@@ -79,13 +79,9 @@ RATE = 44100
 WIDTH = 2
 
 
-# take care of sending collapse, surprise and bullets
-
-
 class Game:
     def __init__(self, screen):
         self.__screen = screen
-        pygame.display.set_icon(pygame.image.load("web/website items/images/tanks-logo.ico"))
         self.__ip = my_ip()
         self.__font = pygame.font.SysFont('arial', 35)
         self.__demo_player = game_obj.Tank(500, 400)
@@ -346,22 +342,23 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return previous_data, None
-                if filter1(event.unicode):
-                    if len(previous_data) < limit_data_len:
-                        previous_data += event.unicode
-                    if filter2(previous_data):
-                        previous_data = previous_data[:-1]
-                elif (event.key == pygame.K_BACKSPACE) and (len(previous_data) > 0):
+                if (event.key == pygame.K_BACKSPACE) and (len(previous_data) > 0):
                     previous_data = previous_data[:-1]
-                elif event.key == pygame.K_RETURN:
+                if event.key == pygame.K_RETURN:
                     if previous_data == "":
                         return "", True
                     else:
                         return previous_data, True
                 else:
-                    pygame.mixer.music.load(ERROR_INPUT)  # not must
-                    pygame.mixer.music.play()
-                    pygame.event.clear()
+                    if filter1(event.unicode):
+                        if len(previous_data) < limit_data_len:
+                            previous_data += event.unicode
+                        if filter2(previous_data):
+                            previous_data = previous_data[:-1]
+                    else:
+                        pygame.mixer.music.load(ERROR_INPUT)  # not must
+                        pygame.mixer.music.play()
+                        pygame.event.clear()
         return previous_data, False
 
     def _settings_screen(self):
@@ -844,6 +841,7 @@ def my_ip():
 
 def main():
     pygame.mixer.init()
+    pygame.mixer.music.set_volume(1)
     screen = pygame.display.set_mode(SIZE)
     pygame.display.set_caption("War Of Tanks")
     game = Game(screen)

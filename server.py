@@ -2,13 +2,16 @@ import threading
 import socket
 import time
 import string
+from subprocess import Popen, PIPE
+from re import findall
 from firebase import firebase
-from os import listdir
+from os import system
 from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
 from tkinter.ttk import Combobox, Treeview
 from requests.exceptions import ConnectionError
+
 
 FONT = ("Arial", 10, NORMAL)
 API_SIZE = '1050x600'
@@ -259,6 +262,7 @@ class Server:
         """
         active all the functions of the server
         """
+        threading.Thread(target=lambda: system("python project_web/manage.py runserver")).start()
         self.sync_data()
         self.build_my_accounts()
         for index in range(10):
@@ -266,6 +270,14 @@ class Server:
         threading.Thread(target=self.update_users_data).start()
         threading.Thread(target=self.is_ban_date_passed).start()
         self.create_server_screen()
+        # kill django server using PID
+        result = Popen("netstat -ano | findstr :8000", stdout=PIPE, shell=True)
+        available_django_processes = result.communicate()[0].decode().split("\r\n")
+        for element in available_django_processes:
+            if "LISTENING" in element:
+                process_id = findall(r'\d+', element)[-1]
+                system(f"taskkill /PID {process_id} /F")
+                break
         self.__stop_running = True
         self.__server_socket.close()
 
@@ -451,39 +463,6 @@ class Server:
             tree.delete(i)
         for account in self.__accounts_list:
             tree.insert("", END, values=str(account).split(' '))
-
-    def uploader(self):
-        """
-        open a channel for browsers to download the game
-        (for the future - the backend server of the game)
-        """
-        print("uploader start...")
-        server = socket.socket()
-        server.bind((self.__ip, 50000))
-        server.listen(1)
-        server.settimeout(3)
-        with open(INSTALLER_FILE, 'rb') as my_file:
-            data = my_file.read()
-        my_files = listdir(".")
-        while self.__stop_running is False:
-            try:
-                client, address = server.accept()
-                client.settimeout(3)
-                request = client.recv(1024).decode().split("\r\n")
-                if request == ['']:
-                    client.close()
-                    raise socket.error
-                if is_installer_req(request[0]):
-                    client.send(HTTP_RESPONSE_OK + data)
-                elif request[0].split("/")[1].split(" ")[0] in my_files:
-                    client.send(HTTP_RESPONSE_FORBIDDEN)
-                else:
-                    client.send(HTTP_RESPONSE_NOT_FOUND)
-                client.close()
-            except socket.error:
-                continue
-        print("uploader shut down...")
-        server.close()
 
     def update_users_data(self):
         """

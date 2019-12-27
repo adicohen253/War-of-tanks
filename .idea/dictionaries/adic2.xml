@@ -2,11 +2,18 @@
   <dictionary name="adic2">
     <words>
       <w>bandate</w>
+      <w>cyber</w>
+      <w>findstr</w>
       <w>firebase</w>
       <w>firebaseio</w>
       <w>netoken</w>
+      <w>netstat</w>
+      <w>piic</w>
       <w>regis</w>
+      <w>rkar</w>
+      <w>taskkill</w>
       <w>treeview</w>
+      <w>ziywdr</w>
     </words>
   </dictionary>
 </component>
