@@ -1,26 +1,9 @@
+{% extends "base.html" %}
 {% load static %}
-<!DOCTYPE html>
-<html>
-<head>
-    <title>War of tanks!</title>
-    <link rel="stylesheet" type="text/css" href="{% static 'style.css'%}">
-    <link href="https://fonts.googleapis.com/css?family=Black+Ops+One&display=swap" rel="stylesheet">
-<!--    <link rel="icon" href="images/tanks-logo.ico">-->
-</head>
-
-<body>
+{%block content %}
     <header class="header_main">
-        <div class="main">
-            <ul>
-
-                <li><a href="http://127.0.0.1:8000/">Home</a></li>
-                <li><a href="http://127.0.0.1:8000/sign-in">Sign in</a></li>
-                <li><a href="https://google.com">Download</a></li>
-            </ul>
-        </div>
         <h1 class="title">War of tanks!</h1>
-<!--        <img class="game_images" src="images/battlefield_img.png" alt="">-->
-<!--        <img class="game_images" src="images/colors.jpg" alt="">-->
+        <img class="game_images" src="{% static 'images/battlefield_img.png' %}" alt="">
+        <img class="game_images" src="{% static 'images/colors.jpg' %}" alt="">
     </header>
-</body>
-</html>
+{% endblock content %}

@@ -342,23 +342,22 @@ class Game:
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
                     return previous_data, None
-                if (event.key == pygame.K_BACKSPACE) and (len(previous_data) > 0):
+                if filter1(event.unicode):
+                    if len(previous_data) < limit_data_len:
+                        previous_data += event.unicode
+                    if filter2(previous_data):
+                        previous_data = previous_data[:-1]
+                elif (event.key == pygame.K_BACKSPACE) and (len(previous_data) > 0):
                     previous_data = previous_data[:-1]
-                if event.key == pygame.K_RETURN:
+                elif event.key == pygame.K_RETURN:
                     if previous_data == "":
                         return "", True
                     else:
                         return previous_data, True
                 else:
-                    if filter1(event.unicode):
-                        if len(previous_data) < limit_data_len:
-                            previous_data += event.unicode
-                        if filter2(previous_data):
-                            previous_data = previous_data[:-1]
-                    else:
-                        pygame.mixer.music.load(ERROR_INPUT)  # not must
-                        pygame.mixer.music.play()
-                        pygame.event.clear()
+                    pygame.mixer.music.load(ERROR_INPUT)  # not must
+                    pygame.mixer.music.play()
+                    pygame.event.clear()
         return previous_data, False
 
     def _settings_screen(self):
