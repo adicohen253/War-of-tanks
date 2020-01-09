@@ -16,16 +16,18 @@
         <!-- My icon -->
         <link rel="icon" href="{% static 'images/icon.ico' %}">
 
+        <!-- My js file -->
+        <script src="{% static 'commands.js' %}"></script>
+
         <title>War of tanks!</title>
     </head>
 
     <body>
         <div class="main">
             <ul>
-
-                <li><a href="http://192.168.1.20:8000/">Home</a></li>
-                <li><a href="http://192.168.1.20:8000/sign-in">Sign in</a></li>
-                <li><a href="http://192.168.1.20:8000/download">Download</a></li>
+                <li><a href="javaScript:ipaddress('')">Home</a></li>
+                <li><a href="javaScript:ipaddress('sign-in')">Sign in</a></li>
+                <li><a href="javaScript:ipaddress('download')">Download</a></li>
             </ul>
         </div>
         {% block content %}

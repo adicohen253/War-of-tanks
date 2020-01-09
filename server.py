@@ -335,7 +335,8 @@ class Server:
         scroll.config(command=tree.yview)
         scroll.place(x=1029, y=375, height=225)
         Button(window, text='Clean data', bg='dodger blue', height=3, width=15,
-               command=lambda: self.clean_accounts_data(tree)).place(x=20, y=250)
+               command=lambda: threading.Thread(target=self.clean_accounts_data,
+                                                args=([tree])).start()).place(x=20, y=250)
         Button(window, text='exit', bg='dodger blue', width=15, height=3,
                command=lambda: window.destroy()).place(x=160, y=250)
         window.bind("<FocusIn>", lambda event: self.show_account_data(tree))
