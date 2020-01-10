@@ -66,7 +66,6 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.20"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -80,9 +79,10 @@ WIDTH = 2
 
 
 class Game:
-    def __init__(self, screen):
+    def __init__(self, screen, ip):
         self.__screen = screen
         self.__ip = my_ip()
+        self.server_ip = ip
         self.__font = pygame.font.SysFont('arial', 35)
         self.__demo_player = game_obj.Tank(500, 400)
         self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
@@ -113,7 +113,7 @@ class Game:
         self.__client.settimeout(2)
         while True:
             try:
-                self.__client.connect((IP, SERVER_PORT))
+                self.__client.connect((self.server_ip, SERVER_PORT))
                 return True
             except socket.error:
                 return False
@@ -841,9 +841,10 @@ def my_ip():
 def main():
     pygame.mixer.init()
     pygame.mixer.music.set_volume(1)
+    ip = input("enter server ip: ")
     screen = pygame.display.set_mode(SIZE)
     pygame.display.set_caption("War Of Tanks")
-    game = Game(screen)
+    game = Game(screen, ip)
     game.game_manager()
 
 
