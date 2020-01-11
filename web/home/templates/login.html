@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 {% load static %}
 {%block content %}
-    <header class="header_sign_in">
+    <div class="header-sign-up">
         <h1 class="title">War of tanks!</h1>
         <div class="loginbox">
             <img src="{% static 'images/avatar.jfif' %}" class="avatar">
             <h1>Login here</h1>
-            <form>
+            <form method="POST">
+                {% csrf_token %}
                 <p> Username:</p>
                 <input type="text" placeholder="Username">
                 <p> Password:</p>
                 <input type="text" placeholder="Password">
-                <button class="Sign-in" >Sign in</button>
+                <button class="Sign-in" type="submit" >Sign in</button>
             </form>
         </div>
     </header>

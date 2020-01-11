@@ -262,7 +262,7 @@ class Server:
         """
         active all the functions of the server
         """
-        threading.Thread(target=lambda: system(f"python project_web/manage.py runserver {self.__ip}:8000")).start()
+        threading.Thread(target=lambda: system(f"python web/manage.py runserver {self.__ip}:8000")).start()
         self.sync_data()
         self.build_my_accounts()
         for index in range(10):

@@ -1,21 +1,25 @@
 *{
     margin: 0;
     padding: 0;
+    
 }
 
-.header_main{
+.header-main{
     background-image: url(images/home.jpg);
     height: 100vmax;
+    width: 100%;
     background-size: cover;
     background-position: center;
-}
+    
+} 
 
 
-.header_sign_in{
+.header-sign-up{
     background-image: url(images/home.jpg);
     height: 100vh;
-    background-size: cover;
-    background-position: center;
+    width: 100%
+    /* background-size: cover;
+    background-position: center; */
 }
 
 .title {
@@ -26,49 +30,70 @@
     font-weight: lighter;
     line-height: 40.7px;
     margin-left: 25%;
-    padding-top: 30px;
+    padding-top: 70px;
     text-shadow: 2px 2px green;
 }
 
-ul{
-    float: right;
-    list-style-type: none;
-    margin-top: 25px;
-}
-
-ul li{
-    display: inline-block;
-}
-
-ul li a{
-    text-decoration: none;
-    color: white;
-    background-color: dimgrey;
-    padding: 5px 20px;
-    border: 1px solid white;
-    transition: 0.6s ease;
-}
-
-ul li a:hover{
-    background-color: white;
-    color: black;
-}
 
 .loginbox{
     width: 400px;
     height: 450px;
     background-color: black;
     color: white;
-    top: 50%;
-    left: 50%;
+    top: 55%;
+    left: 48%;
     position: absolute;
     transform: translate(-50%, -50%);
     box-sizing: border-box;
     font-family: sans-serif;
     padding: 50px 30px;
-    opacity: 0.9;
+    opacity: 0.8;
 
 }
+
+.nav-bar {
+
+	list-style: none;
+    background-color: gray;
+    width: 100%;
+    position: fixed;
+}
+
+.navbar-item 
+{
+    float: right;
+    font-weight: bold;
+    color: white;
+    padding: 10px 40px;
+    right: 20px;
+    margin: 3px;
+    position: relative;
+    cursor: pointer;
+}
+
+
+.navbar-item:after 
+{
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: black;
+    z-index: -1;
+    transform: skew(-45deg);
+    transition: all .2s linear;
+}
+    
+.navbar-item:hover:after {
+    background-color: darkgreen;
+
+}
+
+.navbar-item:hover
+{
+    color: black;
+    text-decoration: none;
+}
+
 
 .loginbox p{
     font-weight: bold;
@@ -125,8 +150,3 @@ ul li a:hover{
     opacity: 1;
 }
 
-
-.main{
-    max-width: 1450px;
-    margin: auto;
-}

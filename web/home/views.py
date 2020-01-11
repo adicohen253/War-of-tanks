@@ -7,10 +7,6 @@ def home(request):
     return render(request, "index.html")
 
 
-def sign_in(request):
-    return render(request, "sign in.html")
-
-
 def download(request):  # doesn't needed here but must except 1 argument
     with open("c:/cyber/project/Game.exe", 'rb') as my_file:
         data = my_file.read()

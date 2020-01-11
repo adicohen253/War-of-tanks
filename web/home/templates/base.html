@@ -23,13 +23,23 @@
     </head>
 
     <body>
-        <div class="main">
-            <ul>
-                <li><a href="javaScript:ipaddress('')">Home</a></li>
-                <li><a href="javaScript:ipaddress('sign-in')">Sign in</a></li>
-                <li><a href="javaScript:ipaddress('download')">Download</a></li>
+        <nav>
+            <ul class="nav-bar">
+                <li><a class="navbar-item" href="javaScript:ipaddress('download')">Download</a></li>
+                <li><a class="navbar-item" href="javaScript:ipaddress('')">Register</a></li>
+                <li><a class="navbar-item" href="javaScript:ipaddress('login')">Login</a></li>
+                <li><a class="navbar-item" href="javaScript:ipaddress('')">Home</a></li>
+
             </ul>
-        </div>
+        </nav>
+        {% if messages %}
+            {% for message in messages%}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+
         {% block content %}
         {% endblock %}
         <!-- Optional JavaScript -->
