@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 {% load static %}
-{%block content %}
+{% block content %}
     <div class="header-main">
         <h1 class="title">War of tanks!</h1>
-        <img class="game_images" src="{% static 'images/battlefield_img.png' %}" alt="">
-        <img class="game_images" src="{% static 'images/colors.jpg' %}" alt="">
+        <div class="game_images">
+        <p>fight the rest and become number 1</p>
+        <img src="{% static 'images/battlefield_img.png' %}" alt="">
+        <p> choose you unique color</p>
+        <img src="{% static 'images/colors.jpg' %}" alt="">
+        </div>
     </div>
 {% endblock content %}

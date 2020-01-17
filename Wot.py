@@ -116,7 +116,11 @@ class Game:
                 self.__client.connect((self.server_ip, SERVER_PORT))
                 return True
             except socket.error:
-                return False
+                failed_output = self.__font.render(SERVER_DENIED, True, RED)
+                self.__screen.blit(failed_output, [100, 500])
+                pygame.display.flip()
+                time.sleep(TIME_TO_WAIT)
+                sys.exit()
             finally:
                 self.__client.settimeout(None)
 
@@ -150,42 +154,26 @@ class Game:
 
     def _get_account(self):
         main_s = pygame.image.load(MAIN_SCREEN)
-        is_connect = False
+        self.__screen.blit(main_s, [0, 0])
+        pygame.display.flip()
+        self._try_connect_to_server()
         while True:
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
-                    if is_connect:
-                        self._send_to_server(b"Exit ")  # already has connection with server
+                    self._send_to_server(b"Exit ")  # already has connection with server
                     self.__client.close()
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        if is_connect:
-                            self._send_to_server(b"Exit ")
+                        self._send_to_server(b"Exit ")
                         self.__client.close()
                         sys.exit()
-                    elif event.key == pygame.K_l or event.key == pygame.K_r:
-                        if not is_connect:
-                            if self._try_connect_to_server():
-                                is_connect = True
-                                if event.key == pygame.K_l:
-                                    self.__account = self._register_and_login_screen(True)
+                    elif event.key == pygame.K_l:
+                        self.__account = self._register_and_login_screen(True)
+                    elif event.key == pygame.K_r:
+                        self.__account = self._register_and_login_screen(False)
 
-                                else:
-                                    self.__account = self._register_and_login_screen(False)
-                            else:
-                                failed_output = self.__font.render(SERVER_DENIED, True, RED)
-                                self.__screen.blit(failed_output, [100, 500])
-                                pygame.display.flip()
-                                time.sleep(TIME_TO_WAIT)
-                                pygame.event.clear()
-                        else:
-                            if event.key == pygame.K_l:
-                                self.__account = self._register_and_login_screen(True)
-
-                            else:
-                                self.__account = self._register_and_login_screen(False)
             if self.__account != ["", ""]:
                 return
             self.__screen.blit(main_s, [0, 0])
@@ -464,8 +452,8 @@ class Game:
             self.__enemy_ip = address[0]  # only ip address
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
             enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-            self.__player = game_obj.Tank(20, 200, direct=6, new_color=self.__demo_player.get_color())
-            self.__enemy = game_obj.Tank(420, 50, direct=2, new_color=enemy_color)
+            self.__player = game_obj.Tank(20, 200, direct=2, new_color=self.__demo_player.get_color())
+            self.__enemy = game_obj.Tank(420, 50, direct=1, new_color=enemy_color)
 
             self.__stream_socket = stream_socket.accept()[0]
             main_socket.close()
@@ -479,8 +467,8 @@ class Game:
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
             enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-            self.__player = game_obj.Tank(420, 50, direct=2, new_color=self.__demo_player.get_color())
-            self.__enemy = game_obj.Tank(20, 200, direct=6, new_color=enemy_color)
+            self.__player = game_obj.Tank(420, 50, direct=1, new_color=self.__demo_player.get_color())
+            self.__enemy = game_obj.Tank(20, 200, direct=2, new_color=enemy_color)
 
             self.__stream_socket = socket.socket()
             self.__stream_socket.connect((self.__enemy_ip, STREAM_PORT))
@@ -522,8 +510,7 @@ class Game:
                         self._send_to_server(b"situL")
                         self._receive_from_server(1)
 
-                    self.__player.update_direct(self.__walls, event)
-                    is_shoot, self.__new_bullet = self.__player.shoot_bullet(event, self.__bullets)
+                    is_shoot, self.__new_bullet = self.__player.shoot_bullet(event, self.__bullets, -1)
                     if is_shoot:
                         pygame.mixer.music.load(FIRE)
                         pygame.mixer.music.play()
@@ -553,7 +540,7 @@ class Game:
                 bullet.update_loc()
 
                 if pygame.sprite.spritecollide(bullet, self.__walls, False):
-                    bullet.hit_wall(self.__walls)
+                    bullet.hit_wall()
                     if bullet.get_ttl() == 0:
                         self.__bullets.remove(bullet)
 
@@ -614,7 +601,6 @@ class Game:
 
         self.__enemy = None
         self.__player = None
-        self.__times_of_collapse = 0
         self.__enemy_socket.close()
         self.__enemy_socket = None
         self.__stream_socket.close()
@@ -623,7 +609,7 @@ class Game:
         self.__traps = []
         self.__bullets = []
         self.__walls = []
-        self.is_collide_happened = False
+        self.__is_collide_happened = False
 
     def _flip_screen(self, zone):
         """shows all the data of the surface (pixels) plus the data of the players
@@ -675,7 +661,7 @@ class Game:
                                   f"{self.__new_trap.get_loc()[0]}.{self.__new_trap.get_loc()[1]}\n"
                 self.__new_trap = None
             if self.__new_bullet is not None:
-                packet_to_send += f"B{self.__new_bullet.get_first_lunch_direct()}\n"
+                packet_to_send += f"B{self.__new_bullet.get_direct()}\n"
                 self.__new_bullet = None
             if self.__is_collide_happened:
                 packet_to_send += "C\n"
@@ -715,8 +701,7 @@ class Game:
                     trap_pos_x, trap_pox_y = header[2:].split(".")
                     self.__traps.append(game_obj.Trap(int(trap_pos_x), int(trap_pox_y), int(trap_attribute)))
                 if "B" in header:
-                    first_direct_after_collapse_wall = header[1]
-                    self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, first_direct_after_collapse_wall)
+                    self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, int(header[1]))
                 if ("C" in header) and not self.__is_collide_happened:
                     self._send_to_server(b"situE")
                     self._receive_from_server(1)
