@@ -24,23 +24,13 @@
     </head>
 
     <body>
-        <div class="main">
         <div class="nav-bar">
             <a class="navbar-item" href="javaScript:ipaddress('download')">Download</a>
+            <a class="navbar-item" href="javaScript:ipaddress('champion-table')"> Top players</a>
             <a class="navbar-item" href="javaScript:ipaddress('')">Home</a>
         </div>
-        {% if messages %}
-            <div id="my-message">
-            {% for message in messages%}
-                <div class="alert alert-{{ message.tags }}">
-                    {{ message }}
-                </div>
-            </div>
-            {% endfor %}
-        {% endif %}
 
         {% block content %}
         {% endblock %}
-        </div>
     </body>
 </html>

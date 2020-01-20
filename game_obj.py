@@ -11,13 +11,14 @@ RED = (255, 0, 0)
 IMG_PLY = "project images/tank_player.png"
 BULLET = "project images/bullet.png"
 SURPRISE = "project images/surprise.png"
+EXPLODE = "1.png"
 
 
 class Tank(pygame.sprite.Sprite):
     MOVES = [(3, 0), (2, -2), (0, -3), (-2, -2), (-3, 0), (-2, 2), (0, 3), (2, 2)]
 
     NUM_BULLETS = 10
-    START_HEALTH = 30
+    START_HEALTH = 5
 
     def __init__(self, x, y, direct=0, new_color=RED):
         super(Tank, self).__init__()

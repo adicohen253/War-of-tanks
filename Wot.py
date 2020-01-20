@@ -8,10 +8,12 @@ import threading
 import pyaudio
 import string
 from re import findall
+import spritesheet
 
 # --------------------------------
 # author: Adi cohen
 # Final project: WOT Online
+# to do -> check  _channeling_with_the_enemy function about recignize server shut down
 # --------------------------------
 
 # constants
@@ -66,6 +68,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
+IP = "192.168.1.23"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -89,7 +92,7 @@ class Game:
         self.__client = socket.socket()
         self.__account = ["", ""]
         self._get_account()
-
+        self.explodes = spritesheet.Spritesheet("1.png", (0, 0, 70, 70), 5, 5, (0, 0, 0))
         # game start and it's functions manage these attributes
         self.__flags = [False, False]
         self.__p = pyaudio.PyAudio()
@@ -104,6 +107,14 @@ class Game:
         self.__traps = []
         self.__bullets = []
         self.__walls = []
+
+    def tank_destroy(self, rect):
+        image = self.explodes.next()
+        while image is not False:
+            self.__screen.blit(image, rect)
+            pygame.display.flip()
+            image = self.explodes.next()
+            time.sleep(0.07)
 
     def _try_connect_to_server(self):
         """return if client success to connect the game server
@@ -453,7 +464,7 @@ class Game:
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
             enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
             self.__player = game_obj.Tank(20, 200, direct=2, new_color=self.__demo_player.get_color())
-            self.__enemy = game_obj.Tank(420, 50, direct=1, new_color=enemy_color)
+            self.__enemy = game_obj.Tank(420, 50, direct=0, new_color=enemy_color)
 
             self.__stream_socket = stream_socket.accept()[0]
             main_socket.close()
@@ -467,7 +478,7 @@ class Game:
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
             enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-            self.__player = game_obj.Tank(420, 50, direct=1, new_color=self.__demo_player.get_color())
+            self.__player = game_obj.Tank(420, 50, direct=0, new_color=self.__demo_player.get_color())
             self.__enemy = game_obj.Tank(20, 200, direct=2, new_color=enemy_color)
 
             self.__stream_socket = socket.socket()
@@ -562,17 +573,23 @@ class Game:
                     self.__traps.remove(t)
 
             if self.__player.get_health() <= 0:
-                self.__flags[0] = True
                 self._send_to_server(b"situL")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
+                pygame.mixer.music.play()
+                self.tank_destroy(self.__player.rect[:2])
+                time.sleep(0.2)
+                self.__flags[0] = True
                 break
 
             elif self.__enemy.get_health() <= 0:
-                self.__flags[0] = True
                 self._send_to_server(b"situW")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
+                pygame.mixer.music.play()
+                self.tank_destroy(self.__enemy.rect[:2])
+                time.sleep(0.2)
+                self.__flags[0] = True
                 break
 
             if self.__player.move_tank(self.__walls):
@@ -596,8 +613,8 @@ class Game:
 
             clock.tick(FPS_RATE)
 
-        pygame.mixer.music.play()
-        time.sleep(TIME_TO_WAIT)
+        # pygame.mixer.music.play()
+        # time.sleep(TIME_TO_WAIT)
 
         self.__enemy = None
         self.__player = None
@@ -652,7 +669,6 @@ class Game:
         clock = pygame.time.Clock()
         counter = 0
         while not self.__flags[0]:
-            clock.tick(PACKET_SENDING_RATE)
             packet_to_send = \
                 f"D{self.__player.get_pointer()}\n" \
                 f"L{self.__player.get_loc()[0]},{self.__player.get_loc()[1]}\n"
@@ -674,14 +690,12 @@ class Game:
                 self._send_to_server(b"situW")
                 self._receive_from_server(1)
                 break
-
             self.__flags[1], counter = self._take_care_enemy_packet(counter)
             if self.__flags[1]:  # enemy player doesn't responding
                 self._send_to_server(b"situW")
                 self._receive_from_server(1)
                 break
-            time.sleep(0.02)
-        self.__enemy_socket.close()
+            clock.tick(PACKET_SENDING_RATE)
 
     def _take_care_enemy_packet(self, counter):
         try:
@@ -826,10 +840,13 @@ def my_ip():
 def main():
     pygame.mixer.init()
     pygame.mixer.music.set_volume(1)
-    ip = input("enter server ip: ")
     screen = pygame.display.set_mode(SIZE)
     pygame.display.set_caption("War Of Tanks")
-    game = Game(screen, ip)
+    if IP == "*":
+        ip = input("enter server ip: ")
+        game = Game(screen, ip)
+    else:
+        game = Game(screen, IP)
     game.game_manager()
 
 

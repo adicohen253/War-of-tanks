@@ -17,16 +17,6 @@ FONT = ("Arial", 10, NORMAL)
 API_SIZE = '1050x600'
 
 INSTALLER_FILE = "game installer.exe"
-HTTP_RESPONSE_OK = b"""HTTP/1.1 200 OK
-Content-Type: zip; charset=utf-8
-Content-Disposition: attachment; filename=War of tanks.exe
-Connection: keep-alive
-
-"""
-HTTP_RESPONSE_NOT_FOUND = b"""HTTP/1.1 404 NOT FOUND
-"""
-HTTP_RESPONSE_FORBIDDEN = b"""HTTP/1.1 403 FORBIDDEN
-"""
 MAX_NUM_DAY_IN_MONTHS = {"01": 31, "02": 28, "03": 31, "04": 30, "05": 31, "06": 30,
                          "07": 31, "08": 31, "09": 30, "10": 31, "11": 30, "12": 31}
 
@@ -314,13 +304,14 @@ class Server:
         Combobox(lf, state='readonly', takefocus=OFF, width=4, textvariable=year,
                  values=["year"] + [str(x) for x in range(2019, 3000)]).place(x=515, y=10)
 
-        Button(lf, command=lambda: self.admin_register(user, password, tree),
+        Button(lf, command=lambda: threading.Thread(target=self.admin_register, args=(user, password, tree)).start(),
                text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
-        Button(lf, command=lambda: self.admin_ban(user, password, [day, month, year], tree),
+        Button(lf, command=lambda: threading.Thread(target=self.admin_ban,
+                                                    args=(user, password, [day, month, year], tree,)).start(),
                text='Ban', borderwidth=3, width=10, bg='yellow').place(x=120, y=140)
-        Button(lf, command=lambda: self.admin_free_ban(user, password, tree),
+        Button(lf, command=lambda: threading.Thread(target=self.admin_free_ban, args=(user, password, tree)).start(),
                text="Free", borderwidth=3, width=10, bg='azure').place(x=220, y=140)
-        Button(lf, command=lambda: self.admin_delete(user, password, tree),
+        Button(lf, command=lambda: threading.Thread(target=self.admin_delete, args=(user, password, tree)).start(),
                text='Delete', borderwidth=3, width=10, bg='red').place(x=320, y=140)
 
         # Clients data's widgets
@@ -413,7 +404,7 @@ class Server:
         """
         if is_valid_admin_buffers(username.get(), password.get()):
             for acc in self.__accounts_list:
-                if acc.get_username() == username.get() and acc.get_password() == username.get():
+                if acc.get_username() == username.get() and acc.get_password() == password.get():
                     self.__accounts_list.remove(acc)
                     self.delete_from_accounts(acc)
                     break

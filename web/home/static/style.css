@@ -2,11 +2,22 @@
     margin: 0;
 }
 
-.header-main{
+.page-main{
     background-image: url(images/home.jpg);
-    height: 100vmax;
-    width: 100%;
-} 
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    -o-background-size: cover;
+    background-size: cover;
+}
+
+.page-champions{
+    background-image: url(images/champions.jpg);
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    -o-background-size: cover;
+    background-size: cover;
+    height: 800px
+}
 
 .nav-bar {
 
@@ -65,6 +76,46 @@
     text-shadow: 2px 2px green;
 }
 
+.content-table {
+    border-collapse: collapse;
+    margin: 70px 170px;
+    font-size: 0.9em;
+    min-height: 300px;
+    min-width: 1200px;
+    border-radius: 5px 5px 0 0;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.content-table thead tr {
+background-color: #98A06D;
+color: white;
+text-align: left;
+font-weight: bold;
+}
+
+.content-table th
+{
+    padding: 12px 15px;
+    border: 0px;    
+    font-size: 10px;
+}
+.content-table td {
+padding: 12px 15px;
+font-size: 30px;
+text-align: center;
+}
+
+.content-table tbody tr {
+color: black;
+font-weight: bolder;
+background-color: rgb(132, 146, 55);
+border: 2px solid #dddddd;
+}
+
+  
+  
+
 .game_images p{
     margin-left: 20%;
     margin-top: 50px;
@@ -80,6 +131,10 @@
     margin-top: 5px;
     opacity: 0.5;
 
+}
+
+#ending {
+    margin-bottom: 50px;
 }
 
 .game_images img:hover{
