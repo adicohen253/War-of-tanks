@@ -8,12 +8,10 @@ import threading
 import pyaudio
 import string
 from re import findall
-import spritesheet
 
 # --------------------------------
 # author: Adi cohen
 # Final project: WOT Online
-# to do -> check  _channeling_with_the_enemy function about recignize server shut down
 # --------------------------------
 
 # constants
@@ -68,7 +66,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.23"
+IP = "192.168.1.31"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -87,12 +85,12 @@ class Game:
         self.__ip = my_ip()
         self.server_ip = ip
         self.__font = pygame.font.SysFont('arial', 35)
-        self.__demo_player = game_obj.Tank(500, 400)
+        self.__demo_player = game_obj.Tank((500, 400))
         self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
         self.__client = socket.socket()
         self.__account = ["", ""]
         self._get_account()
-        self.explodes = spritesheet.Spritesheet("1.png", (0, 0, 70, 70), 5, 5, (0, 0, 0))
+        self.explodes = game_obj.Spritesheet("1.png", (0, 0, 70, 70), 5, 5, (0, 0, 0))
         # game start and it's functions manage these attributes
         self.__flags = [False, False]
         self.__p = pyaudio.PyAudio()
@@ -111,7 +109,7 @@ class Game:
     def tank_destroy(self, rect):
         image = self.explodes.next()
         while image is not False:
-            self.__screen.blit(image, rect)
+            self.__screen.blit(image, (rect[0] - 12, rect[1] - 10))
             pygame.display.flip()
             image = self.explodes.next()
             time.sleep(0.07)
@@ -164,7 +162,7 @@ class Game:
         self.__demo_player.change_player_color([int(x, base=16) for x in saved_color])
 
     def _get_account(self):
-        main_s = pygame.image.load(MAIN_SCREEN)
+        main_s = pygame.image.load(MAIN_SCREEN).convert()
         self.__screen.blit(main_s, [0, 0])
         pygame.display.flip()
         self._try_connect_to_server()
@@ -197,12 +195,12 @@ class Game:
             is_login_now: type - boolean, flag of if player try to login or register
             size_screen: type - tuple, the current size of the screen
         """
-        pointer_to_bar = pygame.image.load(POINTER)
+        pointer_to_bar = pygame.image.load(POINTER).convert()
         pointer_to_bar.set_colorkey(WHITE)
         if is_login_now:
-            enrollment_screen = pygame.image.load(LOGIN_SCREEN)
+            enrollment_screen = pygame.image.load(LOGIN_SCREEN).convert()
         else:
-            enrollment_screen = pygame.image.load(REGISTER_SCREEN)
+            enrollment_screen = pygame.image.load(REGISTER_SCREEN).convert()
         self.__screen.blit(enrollment_screen, [0, 0])
         pygame.display.flip()
         for i in range(len(self.__account)):
@@ -277,7 +275,7 @@ class Game:
             size_screen: type - tuple, the size of the screen
             demo_player: type - tank, for showing the player his tank's color"""
         self._get_my_color()
-        rainbow_screen = pygame.image.load(COLOR_SCREEN)
+        rainbow_screen = pygame.image.load(COLOR_SCREEN).convert()
         self.__screen.blit(rainbow_screen, [0, 0])
         my_color = ["0", "0", "0"]
         for i in range(len(my_color)):
@@ -361,8 +359,8 @@ class Game:
 
     def _settings_screen(self):
         """Explains the game keys, plus a way to changing player's color option"""
-        settings = [pygame.image.load(SETTINGS_SCREEN),
-                    pygame.image.load(SETTINGS_SCREEN_PART_2)]
+        settings = [pygame.image.load(SETTINGS_SCREEN).convert(),
+                    pygame.image.load(SETTINGS_SCREEN_PART_2).convert()]
         time_to_exchange = time.time()
         self.__screen.blit(settings[0], [0, 0])
         settings[0], settings[1] = settings[1], settings[0]
@@ -384,7 +382,7 @@ class Game:
 
     def game_manager(self):
         """after connect to a user, this function manage the game - (color, introductions etc)"""
-        menu_screen = pygame.image.load(MENU_SCREEN)
+        menu_screen = pygame.image.load(MENU_SCREEN).convert()
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -410,7 +408,7 @@ class Game:
             pygame.display.flip()
 
     def _choose_battle_mode(self):
-        modes_screen = pygame.image.load(CHOOSE_MODE_SCREEN)
+        modes_screen = pygame.image.load(CHOOSE_MODE_SCREEN).convert()
         self.__screen.blit(modes_screen, [0, 0])
         pygame.display.flip()
         while True:
@@ -437,7 +435,7 @@ class Game:
         """
         self.__flags = [False, False]
         self._get_my_color()
-        battlefield = pygame.image.load(FIELD)
+        battlefield = pygame.image.load(FIELD).convert()
         self._send_to_server(b"game" + str(mode_code).encode())
         player_point = pygame.image.load(MY_PLAYER_POINT).convert()
         player_point.set_colorkey(WHITE)
@@ -445,7 +443,7 @@ class Game:
         main_player = self._receive_from_server(1)
         main_player = (main_player == "T")
         if main_player:
-            waiting = pygame.image.load(CONNECT)
+            waiting = pygame.image.load(CONNECT).convert()
             self.__screen.blit(waiting, [0, 0])
             pygame.display.flip()
 
@@ -459,12 +457,13 @@ class Game:
 
             self._receive_from_server(15)  # server found an enemy
             self._send_to_server(b"Ok")
+            rect1, rect2 = self._build_map()
             self.__enemy_socket, address = main_socket.accept()
             self.__enemy_ip = address[0]  # only ip address
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
             enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-            self.__player = game_obj.Tank(20, 200, direct=2, new_color=self.__demo_player.get_color())
-            self.__enemy = game_obj.Tank(420, 50, direct=0, new_color=enemy_color)
+            self.__player = game_obj.Tank(rect1, direct=6, new_color=self.__demo_player.get_color())
+            self.__enemy = game_obj.Tank(rect2, direct=0, new_color=enemy_color)
 
             self.__stream_socket = stream_socket.accept()[0]
             main_socket.close()
@@ -474,12 +473,13 @@ class Game:
 
         else:  # player makes connection with main player
             self.__enemy_ip = self._receive_from_server(ASKED_IP_LEN_PACKET)
+            rect1, rect2 = self._build_map()
             self.__enemy_socket = socket.socket()
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
             self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
             enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-            self.__player = game_obj.Tank(420, 50, direct=0, new_color=self.__demo_player.get_color())
-            self.__enemy = game_obj.Tank(20, 200, direct=2, new_color=enemy_color)
+            self.__player = game_obj.Tank(rect2, direct=0, new_color=self.__demo_player.get_color())
+            self.__enemy = game_obj.Tank(rect1, direct=6, new_color=enemy_color)
 
             self.__stream_socket = socket.socket()
             self.__stream_socket.connect((self.__enemy_ip, STREAM_PORT))
@@ -490,7 +490,6 @@ class Game:
         self.__screen.blit(self.__player.get_image(), self.__player.get_loc())
         self.__screen.blit(self.__enemy.get_image(), self.__enemy.get_loc())
         pygame.display.flip()
-        self._my_walls()
 
         start_battle_from = time.time()  # for time battle mode
 
@@ -573,23 +572,23 @@ class Game:
                     self.__traps.remove(t)
 
             if self.__player.get_health() <= 0:
+                self.__flags[0] = True
                 self._send_to_server(b"situL")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
                 pygame.mixer.music.play()
                 self.tank_destroy(self.__player.rect[:2])
                 time.sleep(0.2)
-                self.__flags[0] = True
                 break
 
             elif self.__enemy.get_health() <= 0:
+                self.__flags[0] = True
                 self._send_to_server(b"situW")
                 self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
                 pygame.mixer.music.play()
                 self.tank_destroy(self.__enemy.rect[:2])
                 time.sleep(0.2)
-                self.__flags[0] = True
                 break
 
             if self.__player.move_tank(self.__walls):
@@ -687,8 +686,9 @@ class Game:
                 self.__enemy_socket.send(packet_to_send.encode())
             except socket.error:  # enemy player quit
                 self.__flags[1] = True
-                self._send_to_server(b"situW")
-                self._receive_from_server(1)
+                if self.__flags[0] is False:
+                    self._send_to_server(b"situW")
+                    self._receive_from_server(1)
                 break
             self.__flags[1], counter = self._take_care_enemy_packet(counter)
             if self.__flags[1]:  # enemy player doesn't responding
@@ -753,13 +753,16 @@ class Game:
         except OSError:
             pass
 
-    def _my_walls(self, map_code="<>-default"):
+    def _build_map(self, map_code="<>-default"):
         self._send_to_server(map_code.encode())
-        all_walls = self._receive_from_server(1024).split("\n")
+        all_walls, rects = self._receive_from_server(1024).split("+")
+        all_walls = all_walls.split("\n")
+        rects = [[int(x[:x.index(",")]), int(x[x.index(",") + 1:])] for x in rects.split(" ")]
         for wall in all_walls:
             s_pos, e_pos = wall.split(" ")
             s_pos, e_pos = [int(x) for x in s_pos.split(",")], [int(y) for y in e_pos.split(",")]
             self.__walls.append(game_obj.Wall(self.__screen, s_pos, e_pos))
+        return rects
 
     def _take_care_time_mode(self, start_time):
         time_to_play = SECS_TO_PLAY - (time.time() - start_time)

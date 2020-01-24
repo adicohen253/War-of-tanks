@@ -775,14 +775,6 @@ class Server:
                 return 2
 
 
-# filters and sub-functions for Server class
-def is_installer_req(request):
-    """
-    filter for http requests
-    """
-    return request.startswith("GET") and "/Game.exe" in request and "HTTP/1.1" in request
-
-
 def is_valid_admin_buffers(username, password):
     """
     filter to username and password buffers
@@ -817,8 +809,10 @@ def find_asked_map(map_code):
     cursor = conn.cursor()
     cursor.execute("SELECT Walls FROM Maps WHERE MapCode = (?)", (map_code,))
     walls_of_asked_map = cursor.fetchall()[0][0]
+    cursor.execute("SELECT Playerpos FROM Maps WHERE MapCode = (?)", (map_code, ))
+    rects = cursor.fetchall()[0][0]
     conn.close()
-    return walls_of_asked_map
+    return walls_of_asked_map + '+' + rects
 
 
 def my_ip():
