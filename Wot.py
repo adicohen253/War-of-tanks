@@ -68,7 +68,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.31"
+IP = "192.168.1.23"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -538,7 +538,6 @@ class Game:
                         self.__flags[0] = True
                         pygame.mixer.music.load(DEFEAT)
                         self._send_to_server(b"situL")
-                        self._receive_from_server(1)
 
                     is_shoot, self.__new_bullet = self.__player.shoot_bullet(event, self.__bullets, -1)
                     if is_shoot:
@@ -555,7 +554,6 @@ class Game:
             if pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
                 self.__is_collide_happened = True
                 self._send_to_server(b"situE")
-                self._receive_from_server(1)
                 pygame.mixer.music.load(DRAW)
                 break
 
@@ -594,7 +592,6 @@ class Game:
             if self.__player.get_health() <= 0:
                 self.__flags[0] = True
                 self._send_to_server(b"situL")
-                self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
                 pygame.mixer.music.play()
                 self.tank_destroy(self.__player.rect[:2])
@@ -604,7 +601,6 @@ class Game:
             elif self.__enemy.get_health() <= 0:
                 self.__flags[0] = True
                 self._send_to_server(b"situW")
-                self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
                 pygame.mixer.music.play()
                 self.tank_destroy(self.__enemy.rect[:2])
@@ -708,12 +704,10 @@ class Game:
                 self.__flags[1] = True
                 if self.__flags[0] is False:
                     self._send_to_server(b"situW")
-                    self._receive_from_server(1)
                 break
             self.__flags[1], counter = self._take_care_enemy_packet(counter)
             if self.__flags[1]:  # enemy player doesn't responding
                 self._send_to_server(b"situW")
-                self._receive_from_server(1)
                 break
             clock.tick(PACKET_SENDING_RATE)
 
@@ -738,7 +732,6 @@ class Game:
                     self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, int(header[1]))
                 if ("C" in header) and not self.__is_collide_happened:
                     self._send_to_server(b"situE")
-                    self._receive_from_server(1)
                     pygame.mixer.music.load(DRAW)
                     self.__flags[0] = True
             return False, 0
@@ -789,17 +782,14 @@ class Game:
         if time_to_play <= 0:
             if self.__player.get_health() > self.__enemy.get_health():
                 self._send_to_server(b"situW")
-                self._receive_from_server(1)
                 pygame.mixer.music.load(VICTORY)
                 self.__flags[0] = True
             elif self.__player.get_health() < self.__enemy.get_health():
                 self._send_to_server(b"situL")
-                self._receive_from_server(1)
                 pygame.mixer.music.load(DEFEAT)
                 self.__flags[1] = True
             else:
                 self._send_to_server(b"situE")
-                self._receive_from_server(1)
                 pygame.mixer.music.load(DRAW)
                 self.__flags[0] = True
         else:

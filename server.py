@@ -530,10 +530,18 @@ class Server:
             except socket.error:
                 continue
             while self.__stop_running is False:
-                try:
-                    request = player.recv(5).decode()
-                    if self.__stop_running:
-                        sys.exit()
+                if self.__stop_running:
+                    sys.exit()
+                rlist, _, _ = select([player], [], [], 0)
+                if player in rlist:
+                    try:
+                        request = player.recv(5).decode()
+                    except ConnectionResetError:
+                        if account is not None:
+                            account.player_offline()
+                        player.close()
+                        break
+
                     if request == "exit ":
                         player.close()
                         account.player_offline()
@@ -569,14 +577,6 @@ class Server:
                         if is_disconnect:
                             break
 
-                except socket.error:
-                    player.close()
-                    if account is not None:
-                        account.player_offline()
-                    break
-
-            player.close()
-
     def make_battle(self, account, player, mode_code, address):
         if account not in self.__accounts_list:
             player.send(b"@")  # account deleted
@@ -608,7 +608,6 @@ class Server:
                     elif act == "E":
                         account.add_draws()
                     self.__accounts_updates_to_table.append([account, act])
-                    player.send(b"!")
                     break
                 elif request == "Situ" or request == "":  # client exit the game
                     self.__accounts_updates_to_table.append([account, "L"])
