@@ -2,10 +2,11 @@ import threading
 import socket
 import time
 import string
-from subprocess import Popen, PIPE
-from re import findall
+# from subprocess import Popen, PIPE
+# from re import findall
+# from os import system
 from firebase import firebase
-from os import system
+from select import select
 from tkinter import *
 from sqlite3 import *
 from tkinter.font import *
@@ -252,7 +253,7 @@ class Server:
         """
         active all the functions of the server
         """
-        threading.Thread(target=lambda: system(f"python web/manage.py runserver {self.__ip}:8000")).start()
+        # threading.Thread(target=lambda: system(f"python web/manage.py runserver {self.__ip}:8000")).start()
         self.sync_data()
         self.build_my_accounts()
         for index in range(10):
@@ -261,13 +262,13 @@ class Server:
         threading.Thread(target=self.is_ban_date_passed).start()
         self.create_server_screen()
         # kill django server using PID - check if must to...
-        result = Popen("netstat -ano | findstr :8000", stdout=PIPE, shell=True)
-        available_django_processes = result.communicate()[0].decode().split("\r\n")
-        for element in available_django_processes:
-            if "LISTENING" in element:
-                process_id = findall(r'\d+', element)[-1]
-                system(f"taskkill /PID {process_id} /F")
-                break
+        # result = Popen("netstat -ano | findstr :8000", stdout=PIPE, shell=True)
+        # available_django_processes = result.communicate()[0].decode().split("\r\n")
+        # for element in available_django_processes:
+        #     if "LISTENING" in element:
+        #         process_id = findall(r'\d+', element)[-1]
+        #         system(f"taskkill /PID {process_id} /F")
+        #         break
         self.__stop_running = True
         self.__server_socket.close()
 
@@ -564,43 +565,8 @@ class Server:
 
                     elif request[:4] == "game":
                         mode_code = int(request[4])
-                        if account not in self.__accounts_list:
-                            player.send(b"@")  # account deleted
-                            break
-                        if self.handle_battle_request(mode_code, address, player, account):
-                            break
-                        asked_map = find_asked_map(player.recv(30).decode())
-                        player.send(asked_map.encode())
-                        try:
-                            request = player.recv(4).decode()
-                            account.set_arena_number(0)
-                            if account not in self.__accounts_list:
-                                player.send(b"@")  # account deleted
-                                break
-                            if request == "situ":
-                                act = player.recv(1).decode()
-                                if act == "W":
-                                    account.add_win()
-                                elif act == "L":
-                                    account.add_lose()
-                                elif act == "E":
-                                    account.add_draws()
-                                self.__accounts_updates_to_table.append([account, act])
-                                player.send(b"!")
-                            elif request == "Situ":  # client exit the game
-                                player.close()
-                                self.__accounts_updates_to_table.append([account, "L"])
-                                account.add_lose()
-                                account.player_offline()
-                                break
-
-                        except socket.error:
-                            account.set_arena_number(0)
-                            print(account.get_username() + " illegal exit from battle count as losing")
-                            self.__accounts_updates_to_table.append([account, "L"])
-                            player.close()
-                            account.add_lose()
-                            account.player_offline()
+                        is_disconnect = self.make_battle(account, player, mode_code, address)
+                        if is_disconnect:
                             break
 
                 except socket.error:
@@ -610,6 +576,46 @@ class Server:
                     break
 
             player.close()
+
+    def make_battle(self, account, player, mode_code, address):
+        if account not in self.__accounts_list:
+            player.send(b"@")  # account deleted
+            return True
+        if self.handle_battle_request(mode_code, address, player, account):
+            return True
+        asked_map = find_asked_map(player.recv(30).decode())
+        player.send(asked_map.encode())
+        while True:
+            rlist, wlist, _ = select([player], [player], [], 0)
+            if self.__stop_running:
+                player.close()
+                return True  # server shut down
+            if account not in self.__accounts_list:
+                player.send(b"@")  # account deleted
+                return True
+            if player in rlist:
+                request = player.recv(4).decode()
+                account.set_arena_number(0)
+                if account not in self.__accounts_list:
+                    player.send(b"@")  # account deleted
+                    return True
+                if request == "situ":
+                    act = player.recv(1).decode()
+                    if act == "W":
+                        account.add_win()
+                    elif act == "L":
+                        account.add_lose()
+                    elif act == "E":
+                        account.add_draws()
+                    self.__accounts_updates_to_table.append([account, act])
+                    player.send(b"!")
+                    break
+                elif request == "Situ" or request == "":  # client exit the game
+                    self.__accounts_updates_to_table.append([account, "L"])
+                    player.close()
+                    account.add_lose()
+                    account.player_offline()
+                    return True
 
     def handle_battle_request(self, mode_code, address, client_socket, account):
         """

@@ -7,6 +7,7 @@ import random
 import threading
 import pyaudio
 import string
+from select import select
 from re import findall
 
 # --------------------------------
@@ -44,6 +45,7 @@ FIELD = "project images/zone.png"
 GHOST = "project images/ghost.png"
 ENDLESS_AMMO = "project images/Endless_Ammo.png"
 MY_PLAYER_POINT = "project images/player_point.png"
+EXPLODE_SHEET = "project images/explode.png"
 
 # sounds
 DRAW = "project sounds/draw.mp3"
@@ -88,9 +90,10 @@ class Game:
         self.__demo_player = game_obj.Tank((500, 400))
         self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
         self.__client = socket.socket()
+        self.last_time_check_server = time.time()
         self.__account = ["", ""]
         self._get_account()
-        self.explodes = game_obj.Spritesheet("1.png", (0, 0, 70, 70), 5, 5, (0, 0, 0))
+        self.explodes = game_obj.Spritesheet(EXPLODE_SHEET, (0, 0, 70, 70), 5, 5, (0, 0, 0))
         # game start and it's functions manage these attributes
         self.__flags = [False, False]
         self.__p = pyaudio.PyAudio()
@@ -155,6 +158,21 @@ class Game:
             self.__client.close()
             time.sleep(TIME_TO_WAIT)
             sys.exit()
+
+    def keep_alive(self):
+        if time.time() - self.last_time_check_server >= 3:
+            rlist, _, _ = select([self.__client], [], [], 0)
+            if self.__client in rlist:
+                data = self.__client.recv(100).decode()
+                if data == "":
+                    self.__flags[0] = True
+                    print("server shut down...")
+                    sys.exit()
+                elif "@" in data:
+                    self.__flags[0] = True
+                    print("your account deleted from server...")
+                    sys.exit()
+            self.last_time_check_server = time.time()
 
     def _get_my_color(self):
         self._send_to_server(b"color")
@@ -485,6 +503,7 @@ class Game:
             self.__stream_socket.connect((self.__enemy_ip, STREAM_PORT))
 
         self.__enemy_socket.settimeout(0.5)
+        self.__stream_socket.settimeout(1)
         self.__enemy.change_player_color(enemy_color)
         self.__screen.blit(battlefield, [0, 0])
         self.__screen.blit(self.__player.get_image(), self.__player.get_loc())
@@ -497,10 +516,11 @@ class Game:
         random_time_for_trap = random.randint(3, 5)
 
         threading.Thread(target=self._channeling_with_the_enemy).start()
-        threading.Thread(target=self.stream_in).start()
-        threading.Thread(target=self.stream_out).start()
+        # threading.Thread(target=self.stream_in).start() # not using voice chat now
+        # threading.Thread(target=self.stream_out).start()
 
         while not self.__flags[0]:
+            self.keep_alive()
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
