@@ -41,7 +41,7 @@ MAIN_SCREEN = "project images/Main.jpg"
 MENU_SCREEN = "project images/menu.jpg"
 CHOOSE_MODE_SCREEN = "project images/modes.png"
 CONNECT = "project images/connect.jpg"
-FIELD = "project images/zone.png"
+FIELD = "project images/zone.jpg"
 GHOST = "project images/ghost.png"
 ENDLESS_AMMO = "project images/Endless_Ammo.png"
 MY_PLAYER_POINT = "project images/player_point.png"
@@ -68,7 +68,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.23"
+IP = "192.168.1.31"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -185,6 +185,7 @@ class Game:
         pygame.display.flip()
         self._try_connect_to_server()
         while True:
+            self.keep_alive()
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
@@ -224,6 +225,7 @@ class Game:
         for i in range(len(self.__account)):
             point_pos = POINT_POS[i]
             while True:
+                self.keep_alive()
                 events = pygame.event.get()
                 self.__account[i], end_collecting = \
                     self._get_input_from_user(self.__account[i], events, 10,
@@ -300,6 +302,7 @@ class Game:
             my_color[i] = ""
             finish = False
             while not finish:
+                self.keep_alive()
                 events = pygame.event.get()
                 my_color[i], end_collecting = self._get_input_from_user(my_color[i], events,
                                                                         3, str.isdigit, limit_color_value)
@@ -320,6 +323,7 @@ class Game:
         self.__screen.blit(self.__demo_player.get_image(), self.__demo_player.get_loc())
         pygame.display.flip()
         while True:
+            self.keep_alive()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._send_to_server(b"exit ")
@@ -331,7 +335,6 @@ class Game:
                         self._send_to_server(b"Color")
                         my_new_color = "%02x%02x%02x" % tuple(self.__demo_player.get_color())
                         self._send_to_server(str("".join(my_new_color)).encode())
-                        self._receive_from_server(1)
                         return
 
     def _get_input_from_user(self, previous_data, events, limit_data_len, filter1, filter2=lambda x: False):
@@ -385,6 +388,7 @@ class Game:
         pygame.display.flip()
         finish = False
         while not finish:
+            self.keep_alive()
             if time.time() - time_to_exchange >= 0.8:
                 self.__screen.blit(settings[0], [0, 0])
                 settings[0], settings[1] = settings[1], settings[0]
@@ -402,6 +406,7 @@ class Game:
         """after connect to a user, this function manage the game - (color, introductions etc)"""
         menu_screen = pygame.image.load(MENU_SCREEN).convert()
         while True:
+            self.keep_alive()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._send_to_server(b"exit ")
@@ -430,6 +435,7 @@ class Game:
         self.__screen.blit(modes_screen, [0, 0])
         pygame.display.flip()
         while True:
+            self.keep_alive()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self._send_to_server(b"exit ")

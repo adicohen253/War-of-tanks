@@ -2,9 +2,9 @@ import threading
 import socket
 import time
 import string
-# from subprocess import Popen, PIPE
-# from re import findall
-# from os import system
+from subprocess import Popen, PIPE
+from re import findall
+from os import system
 from firebase import firebase
 from select import select
 from tkinter import *
@@ -253,7 +253,7 @@ class Server:
         """
         active all the functions of the server
         """
-        # threading.Thread(target=lambda: system(f"python web/manage.py runserver {self.__ip}:8000")).start()
+        threading.Thread(target=lambda: system(f"python web/manage.py runserver {self.__ip}:8000")).start()
         self.sync_data()
         self.build_my_accounts()
         for index in range(10):
@@ -262,13 +262,13 @@ class Server:
         threading.Thread(target=self.is_ban_date_passed).start()
         self.create_server_screen()
         # kill django server using PID - check if must to...
-        # result = Popen("netstat -ano | findstr :8000", stdout=PIPE, shell=True)
-        # available_django_processes = result.communicate()[0].decode().split("\r\n")
-        # for element in available_django_processes:
-        #     if "LISTENING" in element:
-        #         process_id = findall(r'\d+', element)[-1]
-        #         system(f"taskkill /PID {process_id} /F")
-        #         break
+        result = Popen("netstat -ano | findstr :8000", stdout=PIPE, shell=True)
+        available_django_processes = result.communicate()[0].decode().split("\r\n")
+        for element in available_django_processes:
+            if "LISTENING" in element:
+                process_id = findall(r'\d+', element)[-1]
+                system(f"taskkill /PID {process_id} /F")
+                break
         self.__stop_running = True
         self.__server_socket.close()
 
@@ -532,6 +532,9 @@ class Server:
             while self.__stop_running is False:
                 if self.__stop_running:
                     sys.exit()
+                if account is not None and account not in self.__accounts_list:
+                    player.send(b"@")
+                    break
                 rlist, _, _ = select([player], [], [], 0)
                 if player in rlist:
                     try:
@@ -557,19 +560,18 @@ class Server:
                         account = self.player_login(player)
 
                     elif request == "color":
-                        if account not in self.__accounts_list:
-                            player.send(b"@")  # account deleted
-                            break
+                        # if account not in self.__accounts_list:
+                        #     player.send(b"@")  # account deleted
+                        #     break
                         player.send(account.get_color().encode())
 
                     elif request == "Color":
                         new_color = player.recv(6).decode()
-                        if account not in self.__accounts_list:
-                            player.send(b"@")  # account deleted
-                            break
+                        # if account not in self.__accounts_list:
+                        #     player.send(b"@")  # account deleted
+                        #     break
                         account.change_color(new_color)
                         self.__accounts_updates_to_table.append([account, "C"])
-                        player.send(b"!")
 
                     elif request[:4] == "game":
                         mode_code = int(request[4])

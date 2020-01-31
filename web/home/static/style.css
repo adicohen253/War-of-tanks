@@ -8,6 +8,7 @@
     -moz-background-size: cover;
     -o-background-size: cover;
     background-size: cover;
+    height: 100vmax;
 }
 
 .page-champions{
@@ -17,6 +18,11 @@
     -o-background-size: cover;
     background-size: cover;
     height: 800px
+}
+
+@font-face {
+    font-family: myfont;
+    src: url(myfont.ttf);
 }
 
 .nav-bar {
@@ -39,7 +45,6 @@
     position: relative;
     cursor: pointer;
 }
-
 
 .navbar-item:after 
 {
@@ -100,6 +105,7 @@ font-weight: bold;
     border: 0px;    
     font-size: 10px;
 }
+
 .content-table td {
 padding: 12px 15px;
 font-size: 30px;
@@ -113,31 +119,44 @@ background-color: rgb(132, 146, 55);
 border: 2px solid #dddddd;
 }
 
-  
-  
+.main-table{
+    margin-left: 12%;
+    margin-top: 5%;
+    width: 1200px;
+    height: 1200px;
+    background-color: black;
+    border-style: groove;
+    border-width: 20px;
+    border-radius: 3px;
+    border-color: silver;
+}
 
-.game_images p{
-    margin-left: 20%;
+
+.main-table p{
+    float: left;
+    font-size: 35px;
+    color: rgb(85, 97, 32);
     margin-top: 50px;
-    font-size: 30px;
-    color: deepskyblue;
-
+    margin-left: 10px;
+    font-family: myfont;
 }
 
-.game_images img{
-    width: 600px;
-    height: 300px;
-    margin-left: 20%;
-    margin-top: 5px;
+#first-p{
+    margin-top: 0px;
+}
+
+.main-table img{
+    width: 1000px;
+    height: 400px;
     opacity: 0.5;
+    margin-left: 20px;
 
 }
 
-#ending {
-    margin-bottom: 50px;
+#first-img {
+    margin-top: 5px;
 }
 
-.game_images img:hover{
+.main-table img:hover{
     opacity: 1;
 }
-
