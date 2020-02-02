@@ -47,18 +47,19 @@ FIELD = "project images/zone.jpg"
 MY_PLAYER_POINT = "project images/player_point.png"
 EXPLODE_SHEET = "project images/explode.png"
 
-BULLET = pygame.image.load("project images/bullet.png")
+screen = pygame.display.set_mode(SIZE)
+BULLET = pygame.image.load("project images/bullet.png").convert()
 BULLET.set_colorkey(WHITE)
 BULLET = pygame.transform.scale(BULLET, (50, 50))
 
-GHOST = pygame.image.load("project images/ghost.png")
+GHOST = pygame.image.load("project images/ghost.png").convert()
 GHOST.set_colorkey(WHITE)
-SOUND_OFF = pygame.image.load("project images/Sound off.png")
+SOUND_OFF = pygame.image.load("project images/Sound off.png").convert()
 SOUND_OFF.set_colorkey(WHITE)
-SOUND_ON = pygame.image.load("project images/Sound on.png")
+SOUND_ON = pygame.image.load("project images/Sound on.png").convert()
 SOUND_ON.set_colorkey(WHITE)
 
-ENDLESS_AMMO = pygame.image.load("project images/Endless_Ammo.png")
+ENDLESS_AMMO = pygame.image.load("project images/Endless_Ammo.png").convert()
 ENDLESS_AMMO.set_colorkey(WHITE)
 
 # sounds
@@ -96,8 +97,8 @@ WIDTH = 2
 
 
 class Game:
-    def __init__(self, screen, ip):
-        self.__screen = screen
+    def __init__(self, game_screen, ip):
+        self.__screen = game_screen
         self.__ip = my_ip()
         self.server_ip = ip
         self.__font = pygame.font.SysFont('arial', 35)
@@ -678,22 +679,22 @@ class Game:
             traps: all the mines in the battlefield
         """
         # constants of UI to battle screen":
-        output_list = [["my health:", (850, 30)], ["my ammo:", (850, 120)],
-                       ["enemy health:", (850, 245)], [str(self.__player.get_health()), (1000, 70)],
-                       [str(self.__enemy.get_health()), (1000, 285)],
-                       [str(self.__player.get_num_bullet()) + " X", (950, 170)],
-                       ["Sound:", (850, 400)]]
+        output_list = [["my health:", (850, 30)], ["my ammo:", (850, 90)],
+                       ["enemy health:", (850, 150)], [str(self.__player.get_health()), (1000, 33)],
+                       [str(self.__enemy.get_health()), (1050, 153)],
+                       [str(self.__player.get_num_bullet()) + " X", (990, 90)],
+                       ["Sound:", (850, 210)]]
         self.__screen.fill(BROWN)
         self.__screen.blit(zone, [0, 0])
-        self.__screen.blit(BULLET, (1030, 160))
+        self.__screen.blit(BULLET, (1060, 82))
 
         if self.__is_sound_active:
-            self.__screen.blit(SOUND_ON, (950, 390))
+            self.__screen.blit(SOUND_ON, (950, 205))
         else:
-            self.__screen.blit(SOUND_OFF, (950, 390))
+            self.__screen.blit(SOUND_OFF, (950, 205))
 
-        if self.__player.get_is_ghost_mode():
-            self.__screen.blit(GHOST, (900, 350))
+        # if self.__player.get_is_ghost_mode():
+        self.__screen.blit(GHOST, (850, 270))
         for player in [self.__player, self.__enemy]:
             self.__screen.blit(player.get_image(), player.get_loc())
         for i in self.__bullets:
@@ -887,7 +888,6 @@ def main():
     #     exit()
     pygame.mixer.init()
     pygame.mixer.music.set_volume(1)
-    screen = pygame.display.set_mode(SIZE)
     pygame.display.set_caption("War Of Tanks")
     if IP == "*":
         ip = input("enter server ip: ")
