@@ -124,11 +124,12 @@ border: 2px solid #dddddd;
     margin-top: 5%;
     width: 1200px;
     height: 1200px;
-    background-color: black;
+    background: linear-gradient(45deg, black, #373737);
     border-style: groove;
     border-width: 20px;
     border-radius: 3px;
-    border-color: silver;
+    border-color: gray;
+    box-shadow: 0 0 30px rgb(95, 30, 30);
 }
 
 

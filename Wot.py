@@ -7,6 +7,7 @@ import random
 import threading
 import pyaudio
 import string
+# from tendo import singleton
 from select import select
 from re import findall
 
@@ -22,6 +23,7 @@ SIZE = (1200, 600)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
+BROWN = (129, 97, 60)
 POINT_POS = ([180, 165], [180, 360])
 ASKED_IP_LEN_PACKET = 15
 FPS_RATE = 50
@@ -42,10 +44,22 @@ MENU_SCREEN = "project images/menu.jpg"
 CHOOSE_MODE_SCREEN = "project images/modes.png"
 CONNECT = "project images/connect.jpg"
 FIELD = "project images/zone.jpg"
-GHOST = "project images/ghost.png"
-ENDLESS_AMMO = "project images/Endless_Ammo.png"
 MY_PLAYER_POINT = "project images/player_point.png"
 EXPLODE_SHEET = "project images/explode.png"
+
+BULLET = pygame.image.load("project images/bullet.png")
+BULLET.set_colorkey(WHITE)
+BULLET = pygame.transform.scale(BULLET, (50, 50))
+
+GHOST = pygame.image.load("project images/ghost.png")
+GHOST.set_colorkey(WHITE)
+SOUND_OFF = pygame.image.load("project images/Sound off.png")
+SOUND_OFF.set_colorkey(WHITE)
+SOUND_ON = pygame.image.load("project images/Sound on.png")
+SOUND_ON.set_colorkey(WHITE)
+
+ENDLESS_AMMO = pygame.image.load("project images/Endless_Ammo.png")
+ENDLESS_AMMO.set_colorkey(WHITE)
 
 # sounds
 DRAW = "project sounds/draw.mp3"
@@ -96,6 +110,7 @@ class Game:
         self.explodes = game_obj.Spritesheet(EXPLODE_SHEET, (0, 0, 70, 70), 5, 5, (0, 0, 0))
         # game start and it's functions manage these attributes
         self.__flags = [False, False]
+        self.__is_sound_active = True  # voice chat during the battle
         self.__p = pyaudio.PyAudio()
         self.__is_collide_happened = False
         self.__new_bullet = None
@@ -458,6 +473,7 @@ class Game:
             (right now it's temporary)
         """
         self.__flags = [False, False]
+        self.__is_sound_active = True
         self._get_my_color()
         battlefield = pygame.image.load(FIELD).convert()
         self._send_to_server(b"game" + str(mode_code).encode())
@@ -522,7 +538,7 @@ class Game:
         random_time_for_trap = random.randint(3, 5)
 
         threading.Thread(target=self._channeling_with_the_enemy).start()
-        # threading.Thread(target=self.stream_in).start() # not using voice chat now
+        # threading.Thread(target=self.stream_in).start()  # not using voice chat now
         # threading.Thread(target=self.stream_out).start()
 
         while not self.__flags[0]:
@@ -542,8 +558,13 @@ class Game:
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         self.__flags[0] = True
-                        pygame.mixer.music.load(DEFEAT)
                         self._send_to_server(b"situL")
+                        pygame.mixer.music.load(DEFEAT)
+                        pygame.mixer.music.play()
+                        time.sleep(TIME_TO_WAIT)
+
+                    elif event.key == pygame.K_BACKSPACE:
+                        self.__is_sound_active = not self.__is_sound_active
 
                     is_shoot, self.__new_bullet = self.__player.shoot_bullet(event, self.__bullets, -1)
                     if is_shoot:
@@ -555,12 +576,16 @@ class Game:
 
             if self.__flags[1]:
                 pygame.mixer.music.load(VICTORY)
+                pygame.mixer.music.play()
+                time.sleep(TIME_TO_WAIT)
                 break
 
             if pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
                 self.__is_collide_happened = True
                 self._send_to_server(b"situE")
                 pygame.mixer.music.load(DRAW)
+                pygame.mixer.music.play()
+                time.sleep(TIME_TO_WAIT)
                 break
 
             if main_player and time.time() - last_trap_moment >= random_time_for_trap:
@@ -625,17 +650,12 @@ class Game:
                 self.__screen.blit(player_point, [self.__player.get_loc()[0], self.__player.get_loc()[1] - 50])
             if mode_code == BATTLE_ON_TIME:
                 self._take_care_time_mode(start_battle_from)
-            for wall in self.__walls:
-                wall.draw_line()
             pygame.display.flip()
             if self.__player.reload_ammo():  # only makes sound of reload when the player reloads
                 pygame.mixer.music.load(RELOAD)
                 pygame.mixer.music.play(2)
 
             clock.tick(FPS_RATE)
-
-        # pygame.mixer.music.play()
-        # time.sleep(TIME_TO_WAIT)
 
         self.__enemy = None
         self.__player = None
@@ -657,32 +677,34 @@ class Game:
             ammo: type - list of bullets, all the bullets in the field
             traps: all the mines in the battlefield
         """
-        bullet = pygame.image.load(game_obj.BULLET).convert()
-        bullet.set_colorkey(WHITE)
-        bullet = pygame.transform.scale(bullet, (50, 50))
         # constants of UI to battle screen":
         output_list = [["my health:", (850, 30)], ["my ammo:", (850, 120)],
                        ["enemy health:", (850, 245)], [str(self.__player.get_health()), (1000, 70)],
                        [str(self.__enemy.get_health()), (1000, 285)],
-                       [str(self.__player.get_num_bullet()) + " X", (950, 170)]]
-        self.__screen.fill(BLUE)
+                       [str(self.__player.get_num_bullet()) + " X", (950, 170)],
+                       ["Sound:", (850, 400)]]
+        self.__screen.fill(BROWN)
         self.__screen.blit(zone, [0, 0])
-        self.__screen.blit(bullet, (1030, 160))
+        self.__screen.blit(BULLET, (1030, 160))
+
+        if self.__is_sound_active:
+            self.__screen.blit(SOUND_ON, (950, 390))
+        else:
+            self.__screen.blit(SOUND_OFF, (950, 390))
+
         if self.__player.get_is_ghost_mode():
-            ghost_icon = pygame.image.load(GHOST).convert()
-            ghost_icon.set_colorkey(WHITE)
-            self.__screen.blit(ghost_icon, (900, 350))
+            self.__screen.blit(GHOST, (900, 350))
         for player in [self.__player, self.__enemy]:
             self.__screen.blit(player.get_image(), player.get_loc())
         for i in self.__bullets:
             self.__screen.blit(i.get_image(), i.get_loc())
         for trap in self.__traps:
             self.__screen.blit(trap.get_image(), trap.get_loc())
+        for wall in self.__walls:
+            wall.draw_line()
         for element in output_list:
             if output_list.index(element) == 5 and self.__player.get_is_eternal_ammo_mode():  # in case of endless ammo
-                endless_ammo = pygame.image.load(ENDLESS_AMMO).convert()
-                endless_ammo.set_colorkey(WHITE)
-                self.__screen.blit(endless_ammo, element[1])
+                self.__screen.blit(ENDLESS_AMMO, element[1])
                 continue
             self.__screen.blit(self.__font.render(element[0], True, WHITE), element[1])
 
@@ -764,7 +786,9 @@ class Game:
                                     rate=RATE, output=True, frames_per_buffer=CHUNK)
             while not (self.__flags[0] or self.__flags[1]):
                 try:
-                    speaker.write(self.__stream_socket.recv(CHUNK))
+                    data = self.__stream_socket.recv(CHUNK)
+                    if self.__is_sound_active:
+                        speaker.write(data)
                 except (IOError, socket.error):
                     break
             speaker.stop_stream()
@@ -857,6 +881,10 @@ def my_ip():
 
 
 def main():
+    # try:
+    #     _ = singleton.SingleInstance()
+    # except singleton.SingleInstanceException:
+    #     exit()
     pygame.mixer.init()
     pygame.mixer.music.set_volume(1)
     screen = pygame.display.set_mode(SIZE)
