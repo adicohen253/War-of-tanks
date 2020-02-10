@@ -205,12 +205,12 @@ class Game:
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
-                    self._send_to_server(b"Exit ")  # already has connection with server
+                    self._send_to_server(b"Exit:")  # already has connection with server
                     self.__client.close()
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        self._send_to_server(b"Exit ")
+                        self._send_to_server(b"Exit:")
                         self.__client.close()
                         sys.exit()
                     elif event.key == pygame.K_l:
@@ -342,7 +342,7 @@ class Game:
             self.keep_alive()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self._send_to_server(b"exit ")
+                    self._send_to_server(b"exit:")
                     sys.exit()
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_t:
@@ -368,9 +368,9 @@ class Game:
             if event.type == pygame.QUIT:
                 if self.__account != ["", ""]:
                     # in color choose screen, there is already account to disconnect from
-                    self._send_to_server(b"exit ")
+                    self._send_to_server(b"exit:")
                 else:
-                    self._send_to_server(b"Exit ")
+                    self._send_to_server(b"Exit:")
                 self.__client.close()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
@@ -412,7 +412,7 @@ class Game:
                 time_to_exchange = time.time()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self._send_to_server(b"exit ")
+                    self._send_to_server(b"exit:")
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_b:
@@ -425,7 +425,7 @@ class Game:
             self.keep_alive()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self._send_to_server(b"exit ")
+                    self._send_to_server(b"exit:")
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_s:  # player look for a match
@@ -434,7 +434,7 @@ class Game:
                             self._battle_start(mode_code)
 
                     elif event.key == pygame.K_ESCAPE:
-                        self._send_to_server(b"exit ")
+                        self._send_to_server(b"exit:")
                         sys.exit()
 
                     elif event.key == pygame.K_i:  # introductions of game's buttons
@@ -454,7 +454,7 @@ class Game:
             self.keep_alive()
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self._send_to_server(b"exit ")
+                    self._send_to_server(b"exit:")
                     sys.exit()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
@@ -514,6 +514,7 @@ class Game:
 
         else:  # player makes connection with main player
             self.__enemy_ip = self._receive_from_server(ASKED_IP_LEN_PACKET)
+            self._send_to_server(b"%")
             rect1, rect2 = self._build_map()
             self.__enemy_socket = socket.socket()
             self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
@@ -693,8 +694,8 @@ class Game:
         else:
             self.__screen.blit(SOUND_OFF, (950, 205))
 
-        # if self.__player.get_is_ghost_mode():
-        self.__screen.blit(GHOST, (850, 270))
+        if self.__player.get_is_ghost_mode():
+            self.__screen.blit(GHOST, (850, 270))
         for player in [self.__player, self.__enemy]:
             self.__screen.blit(player.get_image(), player.get_loc())
         for i in self.__bullets:
@@ -797,8 +798,7 @@ class Game:
         except OSError:
             pass
 
-    def _build_map(self, map_code="<>-default"):
-        self._send_to_server(map_code.encode())
+    def _build_map(self):
         all_walls, rects = self._receive_from_server(1024).split("+")
         all_walls = all_walls.split("\n")
         rects = [[int(x[:x.index(",")]), int(x[x.index(",") + 1:])] for x in rects.split(" ")]

@@ -1,31 +1,21 @@
 <component name="ProjectDictionaryState">
   <dictionary name="adic2">
     <words>
-      <w>adic</w>
-      <w>adicohen</w>
-      <w>anim</w>
       <w>bandate</w>
-      <w>buffersize</w>
-      <w>colorkey</w>
-      <w>cyber</w>
+      <w>ciphertext</w>
+      <w>coprime</w>
+      <w>coprimes</w>
       <w>findstr</w>
       <w>firebase</w>
+      <w>keypair</w>
       <w>netoken</w>
       <w>netstat</w>
       <w>newcolor</w>
-      <w>playerpos</w>
-      <w>popen</w>
-      <w>pygame</w>
-      <w>rects</w>
       <w>regis</w>
       <w>rlist</w>
-      <w>sendfile</w>
       <w>situ</w>
-      <w>spritesheet</w>
       <w>taskkill</w>
       <w>treeview</w>
-      <w>tups</w>
-      <w>wlist</w>
     </words>
   </dictionary>
 </component>

@@ -17,12 +17,13 @@ def top_players(request):
                  for index, value in enumerate(sorted(curs.fetchall(), key=calculate_points, reverse=True)[:5])]
     return render(request, "champions.html", {"champions": champions})
 
+
 def calculate_points(account):
     return account[2] + account[4] / 2 - account[3]
 
 
 def download(request):  # doesn't needed here but must except 1 argument
-    with open("c:/cyber/project/Game.exe", 'rb') as my_file:
+    with open("c:/cyber/project/Game installer.exe", 'rb') as my_file:
         data = my_file.read()
     resp = HttpResponse(data, content_type='application/force-download')
     resp['Content-Disposition'] = 'attachment; filename=Game installer.exe'

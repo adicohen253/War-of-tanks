@@ -5,6 +5,7 @@ import string
 from subprocess import Popen, PIPE
 from re import findall
 from os import system
+from random import randint
 from firebase import firebase
 from select import select
 from tkinter import *
@@ -45,6 +46,7 @@ class Account:
         self.__wins = wins
         self.__loses = loses
         self.__draws = draws
+        self.__points = wins + draws / 2 - loses
         self.__favorite_color = color
         self.__arena_number = 0
         self.__bandate_string = bandate
@@ -105,6 +107,7 @@ class Account:
         self.__wins = 0
         self.__loses = 0
         self.__draws = 0
+        self.__points = 0
         self.__favorite_color = "ff0000"
         self.__bandate_string = "00/00/0000"
         self.__bandate_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
@@ -132,12 +135,15 @@ class Account:
 
     def add_win(self):
         self.__wins += 1
+        self.__points += 1
 
     def add_lose(self):
         self.__loses += 1
+        self.__points -= 1
 
     def add_draws(self):
         self.__draws += 1
+        self.__points += 0.5
 
     def change_color(self, newcolor):
         """
@@ -150,9 +156,25 @@ class Account:
     def __str__(self):
         """make a string to describe all the account headers"""
         return f"{self.__username} {self.__password} " \
-               f"{self.__wins} {self.__loses} {self.__draws} " \
+               f"{self.__wins} {self.__loses} {self.__draws} {self.__points} " \
                f"{self.__favorite_color} {self.__client_status} " \
                f"{self.__bandate_string} {self.__arena_number}"
+
+
+class Map:
+    def __init__(self, creator, map_name, map_id, walls, players_pos):
+        self.__creator = creator
+        self.__map_name = map_name
+        self.__map_id = map_id
+        self.__walls = walls
+        self.__players_pos = players_pos
+
+    def get_map_id(self):
+        return self.__map_id
+
+    def __bytes__(self):
+        s = f"{self.__walls}+{self.__players_pos}"
+        return s.encode()
 
 
 class Server:
@@ -160,7 +182,7 @@ class Server:
     TIME_MODE = 1
 
     def __init__(self):
-        self.__ip = my_ip()
+        self.__ip = self.my_ip()
         self.__server_socket = socket.socket()
         self.__server_socket.bind((self.__ip, 2020))
         self.__server_socket.listen(1)
@@ -168,13 +190,16 @@ class Server:
         self.__fire = firebase.FirebaseApplication(FIREBASE_URL, None)
         self.__is_online_database = False
         self.__accounts_list = []
+        self.__maps_list = []
         self.__accounts_updates_to_table = []
         self.__stop_running = False
 
+        self.__death_map_index = 0
         self.__death_battle_ip = ""
         self.__death_battle_arena = 0
         self.__death_battle_creator = None
 
+        self.__time_map_index = 0
         self.__time_battle_ip = ""
         self.__time_battle_arena = 0
         self.__time_battle_creator = None
@@ -226,10 +251,10 @@ class Server:
         get the accounts data from the default and storage them in account instance
         """
         if self.__is_online_database:
-            data = self.__fire.get('Accounts', '')
-            if data is None:
+            accounts_data = self.__fire.get('Accounts', '')
+            if accounts_data is None:
                 return
-            data = [x for x in data.items()]
+            data = [x for x in accounts_data.items()]
             for element in data:
                 firebase_token = element[0]
                 username, password = element[1]['Username'], element[1]['Password']
@@ -243,23 +268,46 @@ class Server:
         curs.execute("UPDATE Flags set IsOfflineUpdated = 1")
         conn.commit()
         curs.execute("SELECT * FROM Accounts")
+        conn.close()
         data = [list(x) for x in curs.fetchall()]
         for acc in data:
             self.__accounts_list.append(Account(acc[0], acc[1], acc[2],
                                                 acc[3], acc[4], acc[5], acc[6], acc[7]))
         self.__accounts_list.sort(key=lambda x: x.get_username())
 
+    def build_my_maps(self):
+        self.__is_online_database = False
+        if self.__is_online_database:
+            maps_data = self.__fire.get("Maps", '')
+            maps_data = [x for x in maps_data.values()]
+            for map_ in maps_data:
+                self.__maps_list.append(Map(map_['Creator'], map_['Name'], map_['MapId'],
+                                            map_['Walls'], map_['PlayersPos']))
+        else:
+            conn = connect("my database.db")
+            curs = conn.cursor()
+            curs.execute("SELECT * FROM Maps")
+            for map_ in curs.fetchall():
+                self.__maps_list.append(Map(map_[0], map_[1], map_[2], map_[3], map_[4]))
+
+    @staticmethod
+    def my_ip():
+        """return my local current ip in string"""
+        return socket.gethostbyname(socket.gethostname())
+
     def active(self):
         """
         active all the functions of the server
         """
-        threading.Thread(target=lambda: system(f"python web/manage.py runserver {self.__ip}:8000")).start()
         self.sync_data()
         self.build_my_accounts()
+        self.build_my_maps()
         for index in range(10):
             threading.Thread(target=self.help_player, args=([index])).start()
         threading.Thread(target=self.update_users_data).start()
         threading.Thread(target=self.is_ban_date_passed).start()
+        threading.Thread(target=lambda:
+        system(f"python web/manage.py runserver {self.__ip}:8000")).start()
         self.create_server_screen()
         # kill django server using PID - check if must to...
         result = Popen("netstat -ano | findstr :8000", stdout=PIPE, shell=True)
@@ -317,15 +365,15 @@ class Server:
 
         # Clients data's widgets
         headers = ('Username', 'Password', 'Wins',
-                   'Loses', 'Draws', 'Color', 'Status', 'Ban date', 'Arena')
+                   'Loses', 'Draws', 'Points', 'Color', 'Status', 'Ban date', 'Arena')
         scroll = Scrollbar(window, orient=VERTICAL)
         tree = Treeview(window, columns=headers, show='headings', yscrollcommand=scroll.set)
         for elem in headers:
             tree.heading(elem, text=elem)
-            tree.column(elem, width=114, anchor='center')
+            tree.column(elem, width=102, anchor='center')
         tree.place(y=375)
         scroll.config(command=tree.yview)
-        scroll.place(x=1029, y=375, height=225)
+        scroll.place(x=1023, y=375, height=225, width=27)
         Button(window, text='Clean data', bg='dodger blue', height=3, width=15,
                command=lambda: threading.Thread(target=self.clean_accounts_data,
                                                 args=([tree])).start()).place(x=20, y=250)
@@ -335,6 +383,30 @@ class Server:
         window.bind("<Enter>", lambda event: self.show_account_data(tree))
         window.mainloop()
 
+    @staticmethod
+    def is_valid_admin_buffers(username, password):
+        """
+        filter to username and password buffers
+        true if both between 0 to 10 chars, the username starts with
+        a letter and all the chars need to be letters or digits
+        arguments:
+            username - string, the username to check
+            password - string, the password to check
+        """
+        return (0 < len(username) <= 10) and (0 < len(password) <= 10) \
+               and (username[0] in string.ascii_letters) and all(letter in string.ascii_letters or letter.isdigit()
+                                                                 for letter in (password + username[1:]))
+
+    @staticmethod
+    def is_valid_ban_date(date_values_list):
+        """
+        filter for legal date for ban action
+        argument:
+            date_values_list - list, the widgets of the ban date (day month and year)
+        """
+        return all(True if element.get().isdigit() else False for element in date_values_list) \
+               and MAX_NUM_DAY_IN_MONTHS[date_values_list[1].get()] >= int(date_values_list[0].get())
+
     def admin_register(self, new_username, new_password, window):
         """
         the admin registers a new player, if already exist ignore
@@ -343,7 +415,7 @@ class Server:
             new_password - Entry widget, password to register
             window - Treeview, the widget of the accounts data
         """
-        if is_valid_admin_buffers(new_username.get(), new_password.get()):
+        if self.is_valid_admin_buffers(new_username.get(), new_password.get()):
             if new_username.get() not in [element.get_username() for element in self.__accounts_list]:
                 self.register_new_player([new_username.get(), new_password.get()], is_online=False)
         window.focus_set()
@@ -361,7 +433,7 @@ class Server:
             ban_until - Entry widget, the date of ban
             window - Treeview, the widget of the accounts data
         """
-        if is_valid_admin_buffers(username.get(), password.get()) and is_valid_ban_date(ban_until):
+        if self.is_valid_admin_buffers(username.get(), password.get()) and self.is_valid_ban_date(ban_until):
             for account in self.__accounts_list:
                 if account.get_username() == username.get() and account.get_password() == password.get():
                     ban_player_until = "/".join(element.get() for element in ban_until)
@@ -384,7 +456,7 @@ class Server:
             password - Entry widget, password to free
             window - Treeview, the widget of the accounts data
         """
-        if is_valid_admin_buffers(username_to_free.get(), user_password.get()):
+        if self.is_valid_admin_buffers(username_to_free.get(), user_password.get()):
             for acc in self.__accounts_list:
                 if acc.get_username() == username_to_free.get() and acc.get_password() == user_password.get():
                     acc.erase_ban()
@@ -403,7 +475,7 @@ class Server:
             password - Entry widget, password to ban
             window - Treeview, the widget of the accounts data
         """
-        if is_valid_admin_buffers(username.get(), password.get()):
+        if self.is_valid_admin_buffers(username.get(), password.get()):
             for acc in self.__accounts_list:
                 if acc.get_username() == username.get() and acc.get_password() == password.get():
                     self.__accounts_list.remove(acc)
@@ -545,11 +617,11 @@ class Server:
                         player.close()
                         break
 
-                    if request == "exit ":
+                    if request == "exit:":
                         player.close()
                         account.player_offline()
                         break
-                    elif request == "Exit ":
+                    elif request == "Exit:":
                         player.close()
                         break
 
@@ -560,16 +632,10 @@ class Server:
                         account = self.player_login(player)
 
                     elif request == "color":
-                        # if account not in self.__accounts_list:
-                        #     player.send(b"@")  # account deleted
-                        #     break
                         player.send(account.get_color().encode())
 
                     elif request == "Color":
                         new_color = player.recv(6).decode()
-                        # if account not in self.__accounts_list:
-                        #     player.send(b"@")  # account deleted
-                        #     break
                         account.change_color(new_color)
                         self.__accounts_updates_to_table.append([account, "C"])
 
@@ -584,11 +650,9 @@ class Server:
             player.send(b"@")  # account deleted
             return True
         if self.handle_battle_request(mode_code, address, player, account):
-            return True
-        asked_map = find_asked_map(player.recv(30).decode())
-        player.send(asked_map.encode())
+            return True  # player disconnect
         while True:
-            rlist, wlist, _ = select([player], [player], [], 0)
+            rlist, _, _ = select([player], [], [], 0)
             if self.__stop_running:
                 player.close()
                 return True  # server shut down
@@ -628,12 +692,15 @@ class Server:
         if mode_code == self.DEATH_MODE:
             if self.__death_battle_ip == "":  # player create connection
                 client_socket.send(b"T")
+                self.__death_map_index = randint(0, len(self.__maps_list) - 1)
                 self.__death_battle_ip = address[0]
                 self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
                 account.set_arena_number(self.__death_battle_arena)
                 self.__death_battle_creator = client_socket
                 try:
                     client_socket.recv(2)
+                    client_socket.send(bytes(self.__maps_list[self.__death_map_index]))
+
                 except socket.error:
                     account.set_arena_number(0)
                     account.player_offline()
@@ -648,6 +715,8 @@ class Server:
                     return self.handle_battle_request(mode_code, address, client_socket, account)
 
                 client_socket.send(b"F" + self.__death_battle_ip.encode())
+                client_socket.recv(1)
+                client_socket.send(bytes(self.__maps_list[self.__death_map_index]))
                 self.__death_battle_ip = ""
                 account.set_arena_number(self.__death_battle_arena)
 
@@ -780,51 +849,6 @@ class Server:
                     return min_arena - 2
             else:
                 return 2
-
-
-def is_valid_admin_buffers(username, password):
-    """
-    filter to username and password buffers
-    true if both between 0 to 10 chars, the username starts with
-    a letter and all the chars need to be letters or digits
-    arguments:
-        username - string, the username to check
-        password - string, the password to check
-    """
-    return (0 < len(username) <= 10) and (0 < len(password) <= 10) \
-           and (username[0] in string.ascii_letters) and all(letter in string.ascii_letters or letter.isdigit()
-                                                             for letter in (password + username[1:]))
-
-
-def is_valid_ban_date(date_values_list):
-    """
-    filter for legal date for ban action
-    argument:
-        date_values_list - list, the widgets of the ban date (day month and year)
-    """
-    return all(True if element.get().isdigit() else False for element in date_values_list) \
-           and MAX_NUM_DAY_IN_MONTHS[date_values_list[1].get()] >= int(date_values_list[0].get())
-
-
-def find_asked_map(map_code):
-    """
-    finds the data of the walls of the asked map
-    argument:
-        map_code - string, the name of the asked map in the databases
-    """
-    conn = connect("my database.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT Walls FROM Maps WHERE MapCode = (?)", (map_code,))
-    walls_of_asked_map = cursor.fetchall()[0][0]
-    cursor.execute("SELECT Playerpos FROM Maps WHERE MapCode = (?)", (map_code, ))
-    rects = cursor.fetchall()[0][0]
-    conn.close()
-    return walls_of_asked_map + '+' + rects
-
-
-def my_ip():
-    """return my local current ip in string"""
-    return socket.gethostbyname(socket.gethostname())
 
 
 def main():

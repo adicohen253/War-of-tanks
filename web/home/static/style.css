@@ -83,10 +83,10 @@
 
 .content-table {
     border-collapse: collapse;
-    margin: 70px 170px;
+    margin: 70px 270px;
     font-size: 0.9em;
     min-height: 300px;
-    min-width: 1200px;
+    min-width: 1000px;
     border-radius: 5px 5px 0 0;
     overflow: hidden;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
@@ -103,12 +103,12 @@ font-weight: bold;
 {
     padding: 12px 15px;
     border: 0px;    
-    font-size: 10px;
+    font-size: 20px;
 }
 
 .content-table td {
-padding: 12px 15px;
-font-size: 30px;
+padding: 12px 10px;
+font-size: 18px;
 text-align: center;
 }
 
