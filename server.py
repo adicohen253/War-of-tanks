@@ -73,7 +73,7 @@ class Account:
     def get_password(self):
         return self.__password
 
-    def get_win(self):
+    def get_wins(self):
         return self.__wins
 
     def get_loses(self):
@@ -97,6 +97,9 @@ class Account:
     def get_firebase_token(self):
         return self.__firebase_token
 
+    def get_points(self):
+        return self.__points
+
     def set_arena_number(self, new_arena_number):
         self.__arena_number = new_arena_number
 
@@ -108,7 +111,7 @@ class Account:
         self.__loses = 0
         self.__draws = 0
         self.__points = 0
-        self.__favorite_color = "ff0000"
+        self.__favorite_color = "4d784e"
         self.__bandate_string = "00/00/0000"
         self.__bandate_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
         if self.__client_status == "Ban":
@@ -156,7 +159,7 @@ class Account:
     def __str__(self):
         """make a string to describe all the account headers"""
         return f"{self.__username} {self.__password} " \
-               f"{self.__wins} {self.__loses} {self.__draws} {self.__points} " \
+               f"{self.__wins} {self.__loses} {self.__draws} {float(self.__points)} " \
                f"{self.__favorite_color} {self.__client_status} " \
                f"{self.__bandate_string} {self.__arena_number}"
 
@@ -262,6 +265,7 @@ class Server:
                 color, bandate = element[1]['Color'], element[1]['Bandate']
                 self.__accounts_list.append(Account(username, password, wins, loses,
                                                     draws, color, bandate, firebase_token))
+                self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
             return
         conn = connect("my database.db")
         curs = conn.cursor()
@@ -273,10 +277,9 @@ class Server:
         for acc in data:
             self.__accounts_list.append(Account(acc[0], acc[1], acc[2],
                                                 acc[3], acc[4], acc[5], acc[6], acc[7]))
-        self.__accounts_list.sort(key=lambda x: x.get_username())
+        self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
 
     def build_my_maps(self):
-        self.__is_online_database = False
         if self.__is_online_database:
             maps_data = self.__fire.get("Maps", '')
             maps_data = [x for x in maps_data.values()]
@@ -508,13 +511,13 @@ class Server:
         """
         conn = connect('my database.db')
         curs = conn.cursor()
-        curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = 'ff0000', Bandate = '00/00/0000'")
+        curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = '4d784e', Bandate = '00/00/0000'")
         conn.commit()
         conn.close()
         for account in self.__accounts_list:
             if self.__is_online_database:
                 self.__fire.patch(f"Accounts/{account.get_firebase_token()}/",
-                                  {"Wins": 0, "Loses": 0, "Draws": 0, "Color": "ff0000", "Bandate": "00/00/0000"})
+                                  {"Wins": 0, "Loses": 0, "Draws": 0, "Color": "4d784e", "Bandate": "00/00/0000"})
             account.clean_data()
         window.focus_set()
         window.master.focus_set()
@@ -542,9 +545,9 @@ class Server:
                 if act == "W":
                     if self.__is_online_database:
                         self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
-                                        'Wins', account.get_win())
+                                        'Wins', account.get_wins())
                     curs.execute("UPDATE Accounts SET Wins = (?) WHERE Username = (?)",
-                                 (account.get_win(), account.get_username()))
+                                 (account.get_wins(), account.get_username()))
                 elif act == "L":
                     if self.__is_online_database:
                         self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
@@ -572,6 +575,7 @@ class Server:
                 self.__accounts_updates_to_table.remove(update)
             conn.commit()
             time.sleep(2)
+            # self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
         print("Accounts updater shut down...")
 
     def is_ban_date_passed(self):
@@ -621,6 +625,7 @@ class Server:
                         player.close()
                         account.player_offline()
                         break
+                        
                     elif request == "Exit:":
                         player.close()
                         break
@@ -639,11 +644,23 @@ class Server:
                         account.change_color(new_color)
                         self.__accounts_updates_to_table.append([account, "C"])
 
+                    elif request == "ratin":
+                        top_rating = self.get_rating()
+                        top_rating += f"{account.get_wins()} {account.get_loses()} {account.get_draws()}\n".encode()
+                        top_rating += str(self.__accounts_list.index(account) + 1).encode()
+                        player.send(top_rating)
+
                     elif request[:4] == "game":
                         mode_code = int(request[4])
                         is_disconnect = self.make_battle(account, player, mode_code, address)
                         if is_disconnect:
                             break
+
+    def get_rating(self):
+        top_account = self.__accounts_list[0]
+        top_rating = f"{top_account.get_username()} {top_account.get_wins()} " \
+                        f"{top_account.get_loses()} {top_account.get_draws()}\n"
+        return top_rating.encode()
 
     def make_battle(self, account, player, mode_code, address):
         if account not in self.__accounts_list:
@@ -697,54 +714,45 @@ class Server:
                 self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
                 account.set_arena_number(self.__death_battle_arena)
                 self.__death_battle_creator = client_socket
-                try:
-                    client_socket.recv(2)
-                    client_socket.send(bytes(self.__maps_list[self.__death_map_index]))
-
-                except socket.error:
-                    account.set_arena_number(0)
-                    account.player_offline()
-                    client_socket.close()
-                    return True
-            else:
-                try:
-                    self.__death_battle_creator.send(b"found an enemy")
-                    self.__death_battle_creator = None
-                except socket.error:
-                    self.__death_battle_ip = ""
-                    return self.handle_battle_request(mode_code, address, client_socket, account)
-
-                client_socket.send(b"F" + self.__death_battle_ip.encode())
-                client_socket.recv(1)
                 client_socket.send(bytes(self.__maps_list[self.__death_map_index]))
-                self.__death_battle_ip = ""
-                account.set_arena_number(self.__death_battle_arena)
+
+            else:
+                rlist = select([self.__death_battle_creator], [], [], 0)
+                if self.__death_battle_creator in rlist:
+                    if self.__death_battle_creator.recv(1) == "":  # first player quit before finding match
+                        self.__death_battle_ip = ""
+                        return self.handle_battle_request(mode_code, address, client_socket, account)
+
+                else:
+                    client_socket.send(b"F" + self.__death_battle_ip.encode())
+                    client_socket.recv(1)
+                    client_socket.send(bytes(self.__maps_list[self.__death_map_index]))
+                    self.__death_battle_ip = ""
+                    account.set_arena_number(self.__death_battle_arena)
 
         elif mode_code == self.TIME_MODE:
             if self.__time_battle_ip == "":  # player create connection
                 client_socket.send(b"T")
+                self.__time_map_index = randint(0, len(self.__maps_list) - 1)
                 self.__time_battle_ip = address[0]
                 self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
                 account.set_arena_number(self.__time_battle_arena)
                 self.__time_battle_creator = client_socket
-                try:
-                    client_socket.recv(2)
-                except socket.error:
-                    account.set_arena_number(0)
-                    account.player_offline()
-                    client_socket.close()
-                    return True
-            else:
-                try:
-                    self.__time_battle_creator.send(b"found an enemy")
-                    self.__time_battle_creator = None
-                except socket.error:
-                    self.__time_battle_ip = ""
-                    return self.handle_battle_request(mode_code, address, client_socket, account)
+                client_socket.send(bytes(self.__maps_list[self.__time_map_index]))
 
-                client_socket.send(b"F" + self.__time_battle_ip.encode())
-                self.__time_battle_ip = ""
-                account.set_arena_number(self.__time_battle_arena)
+            else:
+                rlist = select([self.__time_battle_creator], [], [], 0)
+                if self.__time_battle_creator in rlist:
+                    if self.__time_battle_creator.recv(1) == "":  # first player quit before finding match
+                        self.__time_battle_ip = ""
+                        return self.handle_battle_request(mode_code, address, client_socket, account)
+
+                else:
+                    client_socket.send(b"F" + self.__time_battle_ip.encode())
+                    client_socket.recv(1)
+                    client_socket.send(bytes(self.__maps_list[self.__time_map_index]))
+                    self.__time_battle_ip = ""
+                    account.set_arena_number(self.__time_battle_arena)
 
     def is_can_register(self, client):
         """
@@ -777,7 +785,7 @@ class Server:
         firebase_token = ""
         if self.__is_online_database:
             data = {"Username": new_account_data[0], "Password": new_account_data[1],
-                    "Wins": 0, "Loses": 0, "Draws": 0, "Color": "ff0000", "Bandate": "00/00/0000"}
+                    "Wins": 0, "Loses": 0, "Draws": 0, "Color": "4d784e", "Bandate": "00/00/0000"}
             firebase_token = self.__fire.post("Accounts", data)['name']
 
         conn = connect("my database.db")
@@ -792,7 +800,7 @@ class Server:
         if is_online:
             new_account.player_online()
         self.__accounts_list.append(new_account)
-        self.__accounts_list.sort(key=lambda x: x.get_username())
+        self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
         return new_account
 
     def player_login(self, client):

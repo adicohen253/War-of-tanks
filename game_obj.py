@@ -8,7 +8,7 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
 # war of tanks
-IMG_PLY = "project images/tank_player.png"
+IMG_PLY = "project images/tank player.png"
 BULLET = "project images/bullet.png"
 SURPRISE = "project images/surprise.png"
 EXPLODE = "1.png"
@@ -364,7 +364,6 @@ class Spritesheet(object):
 		for y in range(cols):
 			for x in range(rows):
 				tups.append((rect[0] + rect[2] * x, rect[1] + rect[3] * y, rect[2], rect[3]))
-		# tups = [(rect[0] + rect[2] * x, rect[1], rect[2], rect[3]) for x in range(count)]
 		return self.images_at(tups, colorkey)
 
 	def next(self):
