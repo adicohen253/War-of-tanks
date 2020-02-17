@@ -14,6 +14,7 @@ class RsaEncryption:
 		self.__public_key = None
 		self.__private_key = None
 		self.generate_keypair()
+	
 
 	def get_p(self):
 		return self.__p

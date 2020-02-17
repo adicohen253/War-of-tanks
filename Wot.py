@@ -84,7 +84,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.31"
+IP = "192.168.11.218"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -205,12 +205,12 @@ class Game:
 			events = pygame.event.get()
 			for event in events:
 				if event.type == pygame.QUIT:
-					self._send_to_server(b"Exit:")  # already has connection with server
+					self._send_to_server(b"exit:")  # already has connection with server
 					self.__client.close()
 					sys.exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
-						self._send_to_server(b"Exit:")
+						self._send_to_server(b"exit:")
 						self.__client.close()
 						sys.exit()
 					elif event.key == pygame.K_l:
@@ -382,7 +382,7 @@ class Game:
 					# in color choose screen, there is already account to disconnect from
 					self._send_to_server(b"exit:")
 				else:
-					self._send_to_server(b"Exit:")
+					self._send_to_server(b"exit:")
 				self.__client.close()
 				sys.exit()
 			if event.type == pygame.KEYDOWN:

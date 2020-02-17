@@ -192,6 +192,8 @@ class Server:
         self.__server_socket.settimeout(0.2)
         self.__fire = firebase.FirebaseApplication(FIREBASE_URL, None)
         self.__is_online_database = False
+        self.__online_players_counter = 0
+        self.players_label = None
         self.__accounts_list = []
         self.__maps_list = []
         self.__accounts_updates_to_table = []
@@ -247,6 +249,7 @@ class Server:
 
             curs.execute("UPDATE Flags set IsOfflineUpdated = 0")
             conn.commit()
+            
         conn.close()
 
     def build_my_accounts(self):
@@ -305,10 +308,8 @@ class Server:
         self.sync_data()
         self.build_my_accounts()
         self.build_my_maps()
-        for index in range(10):
-            threading.Thread(target=self.help_player, args=([index])).start()
         threading.Thread(target=self.update_users_data).start()
-        threading.Thread(target=self.is_ban_date_passed).start()
+        threading.Thread(target=self.players_services).start()
         threading.Thread(target=lambda:
         system(f"python web/manage.py runserver {self.__ip}:8000")).start()
         self.create_server_screen()
@@ -334,7 +335,9 @@ class Server:
         window.configure(background='azure')
         Label(window, text="My IP is: " + self.__ip, fg='blue',
               bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
-
+        self.players_label = Label(window, text=f"{self.__online_players_counter} player are online", fg='blue',
+              bg='white', borderwidth=5, relief=SUNKEN)
+        self.players_label.place(x=850, y=70)
         # Admin options's widgets
         lf = LabelFrame(window, font=FONT, text="Admin interface:")
         lf.place(x=0, y=0, width=750, height=200)
@@ -385,6 +388,7 @@ class Server:
         window.bind("<FocusIn>", lambda event: self.show_account_data(tree))
         window.bind("<Enter>", lambda event: self.show_account_data(tree))
         window.mainloop()
+        self.players_label = None
 
     @staticmethod
     def is_valid_admin_buffers(username, password):
@@ -578,84 +582,91 @@ class Server:
             # self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
         print("Accounts updater shut down...")
 
-    def is_ban_date_passed(self):
+    def players_services(self):
         """check if any account should be release from ban"""
-        print("Bans check start...")
+        print("players services run...")
+        last_time_checked_ban = time.time()
         while self.__stop_running is False:
-            banned_list = list(filter(lambda x: x.get_client_status() == "Ban", self.__accounts_list))
-            current_time = time.mktime(time.localtime())
-            for acc in banned_list:
-                if time.mktime(acc.get_bandate_struct()) < current_time:
-                    acc.erase_ban()
-                    self.__accounts_updates_to_table.append([acc, "B"])
-            time.sleep(3)
-        print("Bans Check shut down...")
+            rlist, _, _ = select([self.__server_socket], [], [], 0)
+            if self.__server_socket in rlist:
+                new_player_socket, player_address = self.__server_socket.accept()
+                threading.Thread(target=self.help_player, args=(new_player_socket, player_address)).start()
+            
+            if time.time() - last_time_checked_ban >= 3:
+                banned_list = list(filter(lambda x: x.get_client_status() == "Ban", self.__accounts_list))
+                current_time = time.mktime(time.localtime())
+                for acc in banned_list:
+                    if time.mktime(acc.get_bandate_struct()) < current_time:
+                        acc.erase_ban()
+                        self.__accounts_updates_to_table.append([acc, "B"])
+                last_time_checked_ban = time.time()
+        print("players services shut down...")
 
-    def help_player(self, index):
+    def help_player(self, player, address):
         """
         all the services to the clients of the game
         after it gets action code reply accordingly and asked data
-        ! - a signal to the client that the update accepted successfully
         @ - a signal to the client that his account has been deleted
         """
-        print(f"client thread number {index + 1} start")
+        
+        account = self.allocate_account(player)
+        if account is None:
+            player.close()
+            return
+        self.__online_players_counter += 1
+        self.players_label['text'] = f"{self.__online_players_counter} player are online"
         while self.__stop_running is False:
-            account = None
-            try:
-                player, address = self.__server_socket.accept()
-            except socket.error:
-                continue
-            while self.__stop_running is False:
-                if self.__stop_running:
-                    sys.exit()
-                if account is not None and account not in self.__accounts_list:
-                    player.send(b"@")
+            if self.__stop_running:  # maybe unnecessary
+                sys.exit()
+            if account not in self.__accounts_list:  # account deleted
+                player.send(b"@")
+                break
+            rlist, _, _ = select([player], [], [], 0)
+            if player in rlist:
+                request = player.recv(5).decode()
+
+                if request == "exit:" or request == "":
+                    player.close()
+                    account.player_offline()
                     break
-                rlist, _, _ = select([player], [], [], 0)
-                if player in rlist:
-                    try:
-                        request = player.recv(5).decode()
-                    except ConnectionResetError:
-                        if account is not None:
-                            account.player_offline()
-                        player.close()
+
+                elif request == "color":
+                    player.send(account.get_color().encode())
+
+                elif request == "Color":
+                    new_color = player.recv(6).decode()
+                    account.change_color(new_color)
+                    self.__accounts_updates_to_table.append([account, "C"])
+
+                elif request == "ratin":
+                    top_rating = self.get_rating()
+                    top_rating += f"{account.get_wins()} {account.get_loses()} {account.get_draws()}\n".encode()
+                    top_rating += str(self.__accounts_list.index(account) + 1).encode()
+                    player.send(top_rating)
+
+                elif request[:4] == "game":
+                    mode_code = int(request[4])
+                    is_disconnect = self.make_battle(account, player, mode_code, address)
+                    if is_disconnect:
                         break
-
-                    if request == "exit:":
-                        player.close()
-                        account.player_offline()
-                        break
-                        
-                    elif request == "Exit:":
-                        player.close()
-                        break
-
-                    #  only cases when account doesn't known yet
-                    elif request == "regis":
-                        account = self.is_can_register(player)
-                    elif request == "login":
-                        account = self.player_login(player)
-
-                    elif request == "color":
-                        player.send(account.get_color().encode())
-
-                    elif request == "Color":
-                        new_color = player.recv(6).decode()
-                        account.change_color(new_color)
-                        self.__accounts_updates_to_table.append([account, "C"])
-
-                    elif request == "ratin":
-                        top_rating = self.get_rating()
-                        top_rating += f"{account.get_wins()} {account.get_loses()} {account.get_draws()}\n".encode()
-                        top_rating += str(self.__accounts_list.index(account) + 1).encode()
-                        player.send(top_rating)
-
-                    elif request[:4] == "game":
-                        mode_code = int(request[4])
-                        is_disconnect = self.make_battle(account, player, mode_code, address)
-                        if is_disconnect:
-                            break
-
+        self.__online_players_counter -= 1
+        self.players_label['text'] = f"{self.__online_players_counter} player are online"
+    
+    def allocate_account(self, player_socket):
+        account = None
+        while True:
+            rlist, _, _ = select([player_socket], [], [], 0)
+            if player_socket in rlist:
+                request = player_socket.recv(5).decode()
+                if request == "" or request == "exit:":  # client quit
+                    return None
+                elif request == "regis":
+                    account = self.confirm_register(player_socket)
+                elif request == "login":
+                    account = self.player_login(player_socket)
+                if account is not None:
+                    return account
+                
     def get_rating(self):
         top_account = self.__accounts_list[0]
         top_rating = f"{top_account.get_username()} {top_account.get_wins()} " \
@@ -754,7 +765,7 @@ class Server:
                     self.__time_battle_ip = ""
                     account.set_arena_number(self.__time_battle_arena)
 
-    def is_can_register(self, client):
+    def confirm_register(self, client):
         """
         check if the asked username and password doesn't exist in the accounts list
         if they don't, send Y to client and register the new player
@@ -792,11 +803,11 @@ class Server:
         cursor = conn.cursor()
         cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
                        (new_account_data[0], new_account_data[1], 0, 0, 0,
-                        "ff0000", "00/00/0000", firebase_token))
+                        "4d784e", "00/00/0000", firebase_token))
         conn.commit()
         conn.close()
         new_account = Account(new_account_data[0], new_account_data[1],
-                              0, 0, 0, "ff0000", "00/00/0000", firebase_token)
+                              0, 0, 0, "4d784e", "00/00/0000", firebase_token)
         if is_online:
             new_account.player_online()
         self.__accounts_list.append(new_account)
