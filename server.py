@@ -13,6 +13,8 @@ from sqlite3 import *
 from tkinter.font import *
 from tkinter.ttk import Combobox, Treeview
 from requests.exceptions import ConnectionError
+from RSA import RsaEncryption
+from codecs import encode, decode
 
 
 FONT = ("Arial", 10, NORMAL)
@@ -193,6 +195,7 @@ class Server:
         self.__fire = firebase.FirebaseApplication(FIREBASE_URL, None)
         self.__is_online_database = False
         self.__online_players_counter = 0
+        self.__n_cryption = []
         self.players_label = None
         self.__accounts_list = []
         self.__maps_list = []
@@ -608,6 +611,17 @@ class Server:
         after it gets action code reply accordingly and asked data
         @ - a signal to the client that his account has been deleted
         """
+        encryption = RsaEncryption()
+        while encryption.get_n() in self.__n_cryption:
+            encryption = RsaEncryption()
+        self.__n_cryption.append(encryption.get_n())
+        pk_to_send = encode(','.join([str(i) for i in encryption.get_public()]).encode(), 'base64')[::-1]
+        pk_to_send = chr(len(pk_to_send)).encode() + pk_to_send
+        player.send(pk_to_send)
+        
+        key_length = ord(player.recv(1).decode())
+        encryption.set_partner_public_key([int(x) for x in decode
+            (player.recv(key_length)[::-1], 'base64').decode().split(',')])
         
         account = self.allocate_account(player)
         if account is None:

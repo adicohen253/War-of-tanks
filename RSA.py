@@ -10,17 +10,26 @@ class RsaEncryption:
 		self.__q = random.randint(2, 409)
 		while (not self.is_prime(self.__q)) and (self.__q != self.__p and self.__q * self.__p < 1000):
 			self.__q = random.randint(2, 409)
+		
+		self.__n = self.__q * self.__p
 
 		self.__public_key = None
 		self.__private_key = None
 		self.generate_keypair()
+		
+		self.__partner_public_key = None
+		
+	def set_partner_public_key(self, new):
+		self.__partner_public_key = new
 	
-
 	def get_p(self):
 		return self.__p
 
 	def get_q(self):
 		return self.__q
+	
+	def get_n(self):
+		return self.__n
 
 	def get_public(self):
 		return self.__public_key
@@ -29,7 +38,6 @@ class RsaEncryption:
 		return self.__private_key
 
 	def generate_keypair(self):
-		n = self.__p * self.__q
 		phi = (self.__p - 1) * (self.__q - 1)
 
 		e = random.randrange(2, phi)
@@ -38,8 +46,8 @@ class RsaEncryption:
 			e = random.randrange(2, phi)
 			g = self.gcd(e, phi)
 		d = self.multiplicative_inverse(e, phi)  # find d
-		self.__public_key = (e, n)
-		self.__private_key = (d, n)
+		self.__public_key = (e, self.__n)
+		self.__private_key = (d, self.__n)
 
 	@staticmethod
 	def is_prime(num):
@@ -81,7 +89,8 @@ class RsaEncryption:
 
 
 def main():
-	pass
+	e = RsaEncryption()
+	print(e.get_private())
 
 
 if __name__ == '__main__':
