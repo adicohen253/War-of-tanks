@@ -132,7 +132,7 @@ class Tank(pygame.sprite.Sprite):
 			if pygame.sprite.spritecollide(self, walls, False):
 				self.rect.x -= self.MOVES[self.__tank_direct][0]
 				self.rect.y -= self.MOVES[self.__tank_direct][1]
-				return False
+				return
 			self.__need_pointing = False
 			if keys[pygame.K_RIGHT] and keys[pygame.K_UP]:
 				self.__tank_direct = 1
@@ -154,12 +154,9 @@ class Tank(pygame.sprite.Sprite):
 			if not pygame.sprite.spritecollide(self, walls, False):
 				self.__is_stuck_in_ghost = False
 				self.update_loc()
-				return False
 			else:
 				if self.__is_stuck_in_ghost:
 					self.update_loc()
-					return False
-		return False
 
 	def shoot_bullet(self, event, bullets, enemy_shoot_flag):
 		"""add new bullets to the bullets in the battlefield, if there option to shoot

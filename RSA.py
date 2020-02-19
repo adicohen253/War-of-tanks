@@ -8,7 +8,7 @@ class RsaEncryption:
 			self.__p = random.randint(2, 409)
 
 		self.__q = random.randint(2, 409)
-		while (not self.is_prime(self.__q)) and (self.__q != self.__p and self.__q * self.__p < 1000):
+		while self.__q == self.__p or self.__q * self.__p < 1000 or not self.is_prime(self.__q):
 			self.__q = random.randint(2, 409)
 		
 		self.__n = self.__q * self.__p
@@ -76,11 +76,12 @@ class RsaEncryption:
 			d += 1
 
 	def encrypt(self, message):
-		key, n = self.__public_key
+		key, n = self.__partner_public_key
 		encrypted_message = []
 		for char in message:
 			encrypted_message.append(str(ord(char) ** key % n))
-		return ' '.join(encrypted_message)
+		encrypted_message = ' '.join(encrypted_message)
+		return bytes([len(encrypted_message)]) + encrypted_message.encode()
 
 	def decrypt(self, ciphertext):
 		key, n = self.__private_key
@@ -90,7 +91,7 @@ class RsaEncryption:
 
 def main():
 	e = RsaEncryption()
-	print(e.get_private())
+	x = 4
 
 
 if __name__ == '__main__':

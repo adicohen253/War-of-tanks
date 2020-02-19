@@ -114,7 +114,7 @@ class Game:
 		self._get_account()
 		self.explodes = game_obj.Spritesheet(EXPLODE_SHEET, (0, 0, 70, 70), 5, 5, (0, 0, 0))
 		# game start and it's functions manage these attributes
-		self.__flags = [False, False]
+		self.__flags = [False, False]  # for ending match
 		self.__is_sound_active = True  # voice chat during the battle
 		self.__p = pyaudio.PyAudio()
 		self.__is_collide_happened = False
@@ -217,12 +217,12 @@ class Game:
 			events = pygame.event.get()
 			for event in events:
 				if event.type == pygame.QUIT:
-					self._send_to_server(b"exit:")  # already has connection with server
+					self._send_to_server(self.__encryption.encrypt("exit"))
 					self.__client.close()
 					sys.exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
-						self._send_to_server(b"exit:")
+						self._send_to_server(self.__encryption.encrypt("exit"))
 						self.__client.close()
 						sys.exit()
 					elif event.key == pygame.K_l:
@@ -284,6 +284,7 @@ class Game:
 			is_login_now: type - boolean, flag of if player tries to login or register
 		"""
 		msg_pos = 100, 500
+		output = ""
 		if not self.__account[0][0].isalpha():  # username must start with alphabetical letter
 			output = self.__font.render(ILLEGAL_USERNAME, True, BLUE)
 			self.__screen.blit(output, msg_pos)
@@ -293,8 +294,10 @@ class Game:
 		
 		legal_case = False
 		if is_login_now:
-			self._send_to_server(("login" + self.__account[0] + "," + self.__account[1]).encode())
-			respond = self._receive_from_server(1)
+			command = self.__encryption.encrypt("login " + self.__account[0] + "," + self.__account[1])
+			self._send_to_server(command)
+			length = ord(self._receive_from_server(1))
+			respond = self.__encryption.decrypt(self.__client.recv(length).decode())
 			if respond == "O":  # Ok
 				output = self.__font.render(LOGIN_WORKED, True, BLUE)
 				legal_case = True
@@ -303,10 +306,11 @@ class Game:
 				output = self.__font.render(ACCOUNT_BANNED + date + "  in " + hour, True, BLUE)
 			elif respond == "T":  # Taken
 				output = self.__font.render(ALREADY_TAKEN, True, BLUE)
-			else:  # Failed
+			elif respond == "F":  # Failed
 				output = self.__font.render(LOGIN_FAILED, True, BLUE)
 		else:
-			self._send_to_server(("regis" + self.__account[0] + "," + self.__account[1]).encode())
+			command = self.__encryption.encrypt("register " + self.__account[0] + "," + self.__account[1])
+			self._send_to_server(command)
 			answer = self._receive_from_server(1)
 			if answer == "Y":
 				output = self.__font.render(REGISTER_WORKED, True, BLUE)
@@ -390,11 +394,7 @@ class Game:
 		"""
 		for event in events:
 			if event.type == pygame.QUIT:
-				if self.__account != ["", ""]:
-					# in color choose screen, there is already account to disconnect from
-					self._send_to_server(b"exit:")
-				else:
-					self._send_to_server(b"exit:")
+				self._send_to_server(self.__encryption.encrypt("exit"))
 				self.__client.close()
 				sys.exit()
 			if event.type == pygame.KEYDOWN:
@@ -607,9 +607,8 @@ class Game:
 						self.__flags[0] = True
 						self._send_to_server(b"situL")
 						pygame.mixer.music.load(DEFEAT)
-						pygame.mixer.music.play()
-						time.sleep(TIME_TO_WAIT)
-					
+						break
+						
 					elif event.key == pygame.K_BACKSPACE:
 						self.__is_sound_active = not self.__is_sound_active
 					
@@ -621,23 +620,17 @@ class Game:
 			if self.__flags[0]:
 				if self.__is_collide_happened:  # enemy player detected collide
 					pygame.mixer.music.load(DRAW)
-					pygame.mixer.music.play()
-					time.sleep(TIME_TO_WAIT)
 				break
 			
 			if self.__flags[1]:
 				self._send_to_server(b"situW")
 				pygame.mixer.music.load(VICTORY)
-				pygame.mixer.music.play()
-				time.sleep(TIME_TO_WAIT)
 				break
 			
 			if pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
 				self.__is_collide_happened = True
 				self._send_to_server(b"situE")
 				pygame.mixer.music.load(DRAW)
-				pygame.mixer.music.play()
-				time.sleep(TIME_TO_WAIT)
 				break
 			
 			if main_player and time.time() - last_trap_moment >= random_time_for_trap:
@@ -675,25 +668,18 @@ class Game:
 			if self.__player.get_health() <= 0:
 				self.__flags[0] = True
 				self._send_to_server(b"situL")
-				pygame.mixer.music.load(DEFEAT)
-				pygame.mixer.music.play()
 				self.tank_destroy(self.__player.rect[:2])
-				time.sleep(0.2)
+				pygame.mixer.music.load(DEFEAT)
 				break
 			
 			elif self.__enemy.get_health() <= 0:
 				self.__flags[0] = True
 				self._send_to_server(b"situW")
-				pygame.mixer.music.load(VICTORY)
-				pygame.mixer.music.play()
 				self.tank_destroy(self.__enemy.rect[:2])
-				time.sleep(0.2)
+				pygame.mixer.music.load(VICTORY)
 				break
 			
-			if self.__player.move_tank(self.__walls):
-				pygame.mixer.music.load(BRAKE)
-				pygame.mixer.music.play()
-			
+			self.__player.move_tank(self.__walls)
 			self.__player.is_done_eternal_ammo()
 			self.__player.is_done_ghost()
 			
@@ -701,13 +687,18 @@ class Game:
 			if self.__player.is_need_pointing():
 				self.__screen.blit(player_point, [self.__player.get_loc()[0], self.__player.get_loc()[1] - 50])
 			if mode_code == BATTLE_ON_TIME:
-				self._take_care_time_mode(start_battle_from)
+				if self._take_care_time_mode(start_battle_from):  # time is up
+					pass
+					# pygame.mixer.music.play()
+					# time.sleep(TIME_TO_WAIT)
 			pygame.display.flip()
 			if self.__player.reload_ammo():  # only makes sound of reload when the player reloads
 				pygame.mixer.music.load(RELOAD)
 				pygame.mixer.music.play(2)
 			
 			clock.tick(FPS_RATE)
+		pygame.mixer.music.play()
+		time.sleep(TIME_TO_WAIT)
 		
 		self.__enemy = None
 		self.__player = None
@@ -777,7 +768,7 @@ class Game:
 				packet_to_send += "C\n"
 				self.__flags[0] = True
 			
-			rlist, _, _ = select([self.__enemy_socket], [self.__enemy_socket], [], 0)
+			rlist, _, _ = select([self.__enemy_socket], [], [], 0)
 			try:
 				self.__enemy_socket.send((chr(len(packet_to_send))).encode()
 					+ packet_to_send.encode())
@@ -867,6 +858,7 @@ class Game:
 				self._send_to_server(b"situE")
 				pygame.mixer.music.load(DRAW)
 				self.__flags[0] = True
+				return True
 		else:
 			time_to_play = time.strftime("%M:%S", time.gmtime(time_to_play))
 			self.__screen.blit(self.__font.render(time_to_play, True, WHITE), [900, 420])

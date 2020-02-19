@@ -623,7 +623,7 @@ class Server:
         encryption.set_partner_public_key([int(x) for x in decode
             (player.recv(key_length)[::-1], 'base64').decode().split(',')])
         
-        account = self.allocate_account(player)
+        account = self.allocate_account(player, encryption)
         if account is None:
             player.close()
             return
@@ -666,18 +666,19 @@ class Server:
         self.__online_players_counter -= 1
         self.players_label['text'] = f"{self.__online_players_counter} player are online"
     
-    def allocate_account(self, player_socket):
+    def allocate_account(self, player_socket, encryption):
         account = None
         while True:
             rlist, _, _ = select([player_socket], [], [], 0)
             if player_socket in rlist:
-                request = player_socket.recv(5).decode()
-                if request == "" or request == "exit:":  # client quit
+                length = ord(player_socket.recv(1))
+                request = encryption.decrypt(player_socket.recv(length).decode()).split(" ")
+                if request[0] == "exit":
                     return None
-                elif request == "regis":
-                    account = self.confirm_register(player_socket)
-                elif request == "login":
-                    account = self.player_login(player_socket)
+                elif request[0] == "register":
+                    account = self.confirm_register(player_socket, request[1], encryption)
+                elif request[0] == "login":
+                    account = self.player_login(player_socket, request[1], encryption)
                 if account is not None:
                     return account
                 
@@ -779,7 +780,7 @@ class Server:
                     self.__time_battle_ip = ""
                     account.set_arena_number(self.__time_battle_arena)
 
-    def confirm_register(self, client):
+    def confirm_register(self, client, account, encryption):
         """
         check if the asked username and password doesn't exist in the accounts list
         if they don't, send Y to client and register the new player
@@ -787,15 +788,15 @@ class Server:
         argument:
             client - socket, the socket which used for communicate with the client
         """
-        new_player_data = client.recv(21).decode().split(",")
+        new_player_data = account.split(",")
         exist = False
         for acc in self.__accounts_list:
             if acc.get_username() == new_player_data[0]:
                 exist = True
         if exist:
-            client.send(b"N")
+            client.send(encryption.encrypt("N"))
         else:
-            client.send(b"Y")
+            client.send(encryption.encrypt("Y"))
             new_account = self.register_new_player(new_player_data)
             print("A new player signed up, is username is: " + new_player_data[0])
             return new_account
@@ -828,7 +829,7 @@ class Server:
         self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
         return new_account
 
-    def player_login(self, client):
+    def player_login(self, client, account, encryption):
         """"
         handle to signing in of the client and send:
         T - if taken    B - if Banned
@@ -836,23 +837,23 @@ class Server:
         arguments:
             client - socket, the socket which used to communicate with client
         """
-        account_to_check = client.recv(21).decode().split(",")
+        account_to_check = account.split(",")
         exist = False
         for account in self.__accounts_list:
             if account.get_username() == account_to_check[0] and account.get_password() == account_to_check[1]:
                 # found match
                 exist = True
                 if account.get_client_status() == "On":  # this account is already taken
-                    client.send(b"T")
+                    client.send(encryption.encrypt("T"))
                 elif account.get_client_status() == "Ban":
-                    client.send(b"B")
+                    client.send(encryption.encrypt("B"))
                     client.send(account.get_bandate_string().encode())
                 else:
-                    client.send(b"O")  # can use this account
+                    client.send(encryption.encrypt("O"))  # can use this account
                     account.player_online()
                     return account
         if not exist:
-            client.send(b"F")  # desired account does not exist
+            client.send(encryption.encrypt("F"))  # desired account does not exist
 
     def find_next_arena(self, mode_code):
         """
