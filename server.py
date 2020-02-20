@@ -17,6 +17,8 @@ from RSA import RsaEncryption
 from codecs import encode, decode
 
 
+# maybe can simplified mediation
+
 FONT = ("Arial", 10, NORMAL)
 API_SIZE = '1050x600'
 
@@ -177,9 +179,9 @@ class Map:
     def get_map_id(self):
         return self.__map_id
 
-    def __bytes__(self):
+    def __str__(self):
         s = f"{self.__walls}+{self.__players_pos}"
-        return s.encode()
+        return s
 
 
 class Server:
@@ -312,7 +314,7 @@ class Server:
         self.build_my_accounts()
         self.build_my_maps()
         threading.Thread(target=self.update_users_data).start()
-        threading.Thread(target=self.players_services).start()
+        threading.Thread(target=self.clients_adder).start()
         threading.Thread(target=lambda:
         system(f"python web/manage.py runserver {self.__ip}:8000")).start()
         self.create_server_screen()
@@ -582,18 +584,18 @@ class Server:
                 self.__accounts_updates_to_table.remove(update)
             conn.commit()
             time.sleep(2)
-            # self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
+            self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
         print("Accounts updater shut down...")
 
-    def players_services(self):
+    def clients_adder(self):
         """check if any account should be release from ban"""
-        print("players services run...")
+        print("clients adder run...")
         last_time_checked_ban = time.time()
         while self.__stop_running is False:
             rlist, _, _ = select([self.__server_socket], [], [], 0)
             if self.__server_socket in rlist:
                 new_player_socket, player_address = self.__server_socket.accept()
-                threading.Thread(target=self.help_player, args=(new_player_socket, player_address)).start()
+                threading.Thread(target=self.player_services, args=(new_player_socket, player_address)).start()
             
             if time.time() - last_time_checked_ban >= 3:
                 banned_list = list(filter(lambda x: x.get_client_status() == "Ban", self.__accounts_list))
@@ -603,9 +605,9 @@ class Server:
                         acc.erase_ban()
                         self.__accounts_updates_to_table.append([acc, "B"])
                 last_time_checked_ban = time.time()
-        print("players services shut down...")
+        print("client adder shut down...")
 
-    def help_player(self, player, address):
+    def player_services(self, player, address):
         """
         all the services to the clients of the game
         after it gets action code reply accordingly and asked data
@@ -619,7 +621,7 @@ class Server:
         pk_to_send = chr(len(pk_to_send)).encode() + pk_to_send
         player.send(pk_to_send)
         
-        key_length = ord(player.recv(1).decode())
+        key_length = ord(player.recv(1))
         encryption.set_partner_public_key([int(x) for x in decode
             (player.recv(key_length)[::-1], 'base64').decode().split(',')])
         
@@ -633,42 +635,45 @@ class Server:
             if self.__stop_running:  # maybe unnecessary
                 sys.exit()
             if account not in self.__accounts_list:  # account deleted
-                player.send(b"@")
+                player.send(encryption.encrypt("@"))
                 break
             rlist, _, _ = select([player], [], [], 0)
             if player in rlist:
-                request = player.recv(5).decode()
-
-                if request == "exit:" or request == "":
+                length = ord(player.recv(1))
+                request = encryption.decrypt(player.recv(length).decode()).split(" ")
+                
+                if request[0] == "exit":
                     player.close()
                     account.player_offline()
                     break
 
-                elif request == "color":
-                    player.send(account.get_color().encode())
+                elif request[0] == "GetColor":
+                    player.send(encryption.encrypt(account.get_color()))
 
-                elif request == "Color":
-                    new_color = player.recv(6).decode()
-                    account.change_color(new_color)
+                elif request[0] == "SetColor":
+                    account.change_color(request[1])
                     self.__accounts_updates_to_table.append([account, "C"])
 
-                elif request == "ratin":
+                elif request[0] == "rating":
                     top_rating = self.get_rating()
-                    top_rating += f"{account.get_wins()} {account.get_loses()} {account.get_draws()}\n".encode()
-                    top_rating += str(self.__accounts_list.index(account) + 1).encode()
-                    player.send(top_rating)
+                    top_rating += f"{account.get_wins()} {account.get_loses()} {account.get_draws()}\n"
+                    top_rating += str(self.__accounts_list.index(account) + 1)
+                    player.send(encryption.encrypt(top_rating))
 
-                elif request[:4] == "game":
-                    mode_code = int(request[4])
-                    is_disconnect = self.make_battle(account, player, mode_code, address)
+                elif request[0] == "game":
+                    mode_code = int(request[1])
+                    is_disconnect = self.make_battle(account, player, mode_code, address, encryption)
                     if is_disconnect:
                         break
+        self.__n_cryption.remove(encryption.get_n())
         self.__online_players_counter -= 1
         self.players_label['text'] = f"{self.__online_players_counter} player are online"
     
     def allocate_account(self, player_socket, encryption):
         account = None
         while True:
+            if self.__stop_running:
+                exit()
             rlist, _, _ = select([player_socket], [], [], 0)
             if player_socket in rlist:
                 length = ord(player_socket.recv(1))
@@ -686,13 +691,13 @@ class Server:
         top_account = self.__accounts_list[0]
         top_rating = f"{top_account.get_username()} {top_account.get_wins()} " \
                         f"{top_account.get_loses()} {top_account.get_draws()}\n"
-        return top_rating.encode()
+        return top_rating
 
-    def make_battle(self, account, player, mode_code, address):
+    def make_battle(self, account, player, mode_code, address, encryption):
         if account not in self.__accounts_list:
-            player.send(b"@")  # account deleted
+            player.send(encryption.encrypt("@"))  # account deleted
             return True
-        if self.handle_battle_request(mode_code, address, player, account):
+        if self.handle_battle_request(mode_code, address, player, account, encryption):
             return True  # player disconnect
         while True:
             rlist, _, _ = select([player], [], [], 0)
@@ -700,32 +705,34 @@ class Server:
                 player.close()
                 return True  # server shut down
             if account not in self.__accounts_list:
-                player.send(b"@")  # account deleted
+                player.send(encryption.encrypt("@"))  # account deleted
                 return True
             if player in rlist:
-                request = player.recv(4).decode()
+                outcome = encryption.decrypt(player.recv(ord(player.recv(1))).decode())
+                act = None
                 account.set_arena_number(0)
                 if account not in self.__accounts_list:
-                    player.send(b"@")  # account deleted
+                    player.send(encryption.encrypt("@"))  # account deleted
                     return True
-                if request == "situ":
-                    act = player.recv(1).decode()
-                    if act == "W":
-                        account.add_win()
-                    elif act == "L":
-                        account.add_lose()
-                    elif act == "E":
-                        account.add_draws()
-                    self.__accounts_updates_to_table.append([account, act])
-                    break
-                elif request == "Situ" or request == "":  # client exit the game
+                if outcome == "exit" or outcome == "":  # client exit the game
                     self.__accounts_updates_to_table.append([account, "L"])
                     player.close()
                     account.add_lose()
                     account.player_offline()
                     return True
+                if outcome == "Victory":
+                    act = "W"
+                    account.add_win()
+                elif outcome == "Defeat":
+                    act = "L"
+                    account.add_lose()
+                elif outcome == "Draw":  # draw in the match
+                    act = "E"
+                    account.add_draws()
+                self.__accounts_updates_to_table.append([account, act])
+                break
 
-    def handle_battle_request(self, mode_code, address, client_socket, account):
+    def handle_battle_request(self, mode_code, address, client_socket, account, encryption):
         """
         handle the request of the client for making a new arena (battle)
         wait until they are 2 players to start
@@ -734,49 +741,53 @@ class Server:
         """
         if mode_code == self.DEATH_MODE:
             if self.__death_battle_ip == "":  # player create connection
-                client_socket.send(b"T")
+                client_socket.send(encryption.encrypt("T"))
                 self.__death_map_index = randint(0, len(self.__maps_list) - 1)
                 self.__death_battle_ip = address[0]
                 self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
                 account.set_arena_number(self.__death_battle_arena)
                 self.__death_battle_creator = client_socket
-                client_socket.send(bytes(self.__maps_list[self.__death_map_index]))
+                client_socket.send(encryption.encrypt_map(
+                    str(self.__maps_list[self.__death_map_index])))
 
             else:
                 rlist = select([self.__death_battle_creator], [], [], 0)
                 if self.__death_battle_creator in rlist:
                     if self.__death_battle_creator.recv(1) == "":  # first player quit before finding match
                         self.__death_battle_ip = ""
-                        return self.handle_battle_request(mode_code, address, client_socket, account)
+                        return self.handle_battle_request(mode_code, address, client_socket, account, encryption)
 
                 else:
-                    client_socket.send(b"F" + self.__death_battle_ip.encode())
-                    client_socket.recv(1)
-                    client_socket.send(bytes(self.__maps_list[self.__death_map_index]))
+                    client_socket.send(encryption.encrypt("F"))
+                    client_socket.send(encryption.encrypt(self.__death_battle_ip))
+                    client_socket.send(encryption.encrypt_map(
+                        str(self.__maps_list[self.__death_map_index])))
                     self.__death_battle_ip = ""
                     account.set_arena_number(self.__death_battle_arena)
 
         elif mode_code == self.TIME_MODE:
             if self.__time_battle_ip == "":  # player create connection
-                client_socket.send(b"T")
+                client_socket.send(encryption.encrypt("T"))
                 self.__time_map_index = randint(0, len(self.__maps_list) - 1)
                 self.__time_battle_ip = address[0]
                 self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
                 account.set_arena_number(self.__time_battle_arena)
                 self.__time_battle_creator = client_socket
-                client_socket.send(bytes(self.__maps_list[self.__time_map_index]))
+                client_socket.send(encryption.encrypt_map(
+                    str(self.__maps_list[self.__time_map_index])))
 
             else:
                 rlist = select([self.__time_battle_creator], [], [], 0)
                 if self.__time_battle_creator in rlist:
                     if self.__time_battle_creator.recv(1) == "":  # first player quit before finding match
                         self.__time_battle_ip = ""
-                        return self.handle_battle_request(mode_code, address, client_socket, account)
+                        return self.handle_battle_request(mode_code, address, client_socket, account, encryption)
 
                 else:
-                    client_socket.send(b"F" + self.__time_battle_ip.encode())
-                    client_socket.recv(1)
-                    client_socket.send(bytes(self.__maps_list[self.__time_map_index]))
+                    client_socket.send(encryption.encrypt("F"))
+                    client_socket.send(encryption.encrypt(self.__time_battle_ip))
+                    client_socket.send(encryption.encrypt_map(
+                        str(self.__maps_list[self.__time_map_index])))
                     self.__time_battle_ip = ""
                     account.set_arena_number(self.__time_battle_arena)
 
@@ -847,7 +858,7 @@ class Server:
                     client.send(encryption.encrypt("T"))
                 elif account.get_client_status() == "Ban":
                     client.send(encryption.encrypt("B"))
-                    client.send(account.get_bandate_string().encode())
+                    client.send(encryption.encrypt(account.get_bandate_string()))
                 else:
                     client.send(encryption.encrypt("O"))  # can use this account
                     account.player_online()
