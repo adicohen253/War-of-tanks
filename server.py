@@ -17,8 +17,6 @@ from RSA import RsaEncryption
 from codecs import encode, decode
 
 
-# maybe can simplified mediation
-
 FONT = ("Arial", 10, NORMAL)
 API_SIZE = '1050x600'
 
@@ -362,7 +360,7 @@ class Server:
         Combobox(lf, state='readonly', takefocus=OFF, width=6, textvariable=month,
                  values=["month"] + [f"0{x}" if x < 10 else x for x in range(1, 13)]).place(x=430, y=10)
         Combobox(lf, state='readonly', takefocus=OFF, width=4, textvariable=year,
-                 values=["year"] + [str(x) for x in range(2019, 3000)]).place(x=515, y=10)
+                 values=["year"] + [str(x) for x in range(2020, 3000)]).place(x=515, y=10)
 
         Button(lf, command=lambda: threading.Thread(target=self.admin_register, args=(user, password, tree)).start(),
                text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
@@ -633,9 +631,14 @@ class Server:
         self.players_label['text'] = f"{self.__online_players_counter} player are online"
         while self.__stop_running is False:
             if self.__stop_running:  # maybe unnecessary
+                player.close()
                 sys.exit()
             if account not in self.__accounts_list:  # account deleted
                 player.send(encryption.encrypt("@"))
+                break
+            elif account.get_client_status() == "Ban":
+                player.send(encryption.encrypt("!"))
+                player.send(encryption.encrypt(account.get_bandate_string()))
                 break
             rlist, _, _ = select([player], [], [], 0)
             if player in rlist:
@@ -665,6 +668,7 @@ class Server:
                     is_disconnect = self.make_battle(account, player, mode_code, address, encryption)
                     if is_disconnect:
                         break
+        player.close()
         self.__n_cryption.remove(encryption.get_n())
         self.__online_players_counter -= 1
         self.players_label['text'] = f"{self.__online_players_counter} player are online"
@@ -673,6 +677,7 @@ class Server:
         account = None
         while True:
             if self.__stop_running:
+                player_socket.close()
                 exit()
             rlist, _, _ = select([player_socket], [], [], 0)
             if player_socket in rlist:
@@ -694,11 +699,14 @@ class Server:
         return top_rating
 
     def make_battle(self, account, player, mode_code, address, encryption):
-        if account not in self.__accounts_list:
-            player.send(encryption.encrypt("@"))  # account deleted
+        if mode_code == self.DEATH_MODE:
+            flag = self.death_mode_request(address, player, account, encryption)
+        else:
+            flag = self.time_mode_request(address, player, account, encryption)
+        if flag is True:  # player disconnect
             return True
-        if self.handle_battle_request(mode_code, address, player, account, encryption):
-            return True  # player disconnect
+        elif flag is False:  # player quit for waiting to match
+            return
         while True:
             rlist, _, _ = select([player], [], [], 0)
             if self.__stop_running:
@@ -707,13 +715,14 @@ class Server:
             if account not in self.__accounts_list:
                 player.send(encryption.encrypt("@"))  # account deleted
                 return True
+            if account.get_client_status() == "Ban":
+                player.send(encryption.encrypt("!"))
+                player.send(encryption.encrypt(account.get_bandate_string()))
+                return True
             if player in rlist:
                 outcome = encryption.decrypt(player.recv(ord(player.recv(1))).decode())
                 act = None
                 account.set_arena_number(0)
-                if account not in self.__accounts_list:
-                    player.send(encryption.encrypt("@"))  # account deleted
-                    return True
                 if outcome == "exit" or outcome == "":  # client exit the game
                     self.__accounts_updates_to_table.append([account, "L"])
                     player.close()
@@ -732,64 +741,92 @@ class Server:
                 self.__accounts_updates_to_table.append([account, act])
                 break
 
-    def handle_battle_request(self, mode_code, address, client_socket, account, encryption):
+    def death_mode_request(self, address, client_socket, account, encryption):
+        """
+        handle the request of the client for making a new death match
+        """
+        if self.__death_battle_ip == "":  # player create connection
+            client_socket.send(encryption.encrypt("T"))
+            self.__death_map_index = randint(0, len(self.__maps_list) - 1)
+            battle_arena = self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
+            self.__death_battle_ip = address[0]
+            self.__death_battle_creator = client_socket
+            while True:
+                rlist, _, _ = select([client_socket], [], [], 0)
+                if client_socket in rlist:
+                    try:
+                        message = encryption.decrypt(client_socket.recv(ord(client_socket.recv(1))).decode())
+                    except socket.error:
+                        return True
+                    if message == "exit":  # player disconnect
+                        client_socket.close()
+                        self.__death_battle_ip = ""
+                        return True
+                    elif message == "%":
+                        self.__death_battle_ip = ""
+                        return False
+                if self.__death_battle_arena == 0:
+                    break
+                if self.__stop_running:
+                    client_socket.close()
+                    exit()
+            account.set_arena_number(battle_arena)
+            client_socket.send(encryption.encrypt_map(
+                str(self.__maps_list[self.__death_map_index])))
+
+        else:  # second player
+            client_socket.send(encryption.encrypt("F"))
+            account.set_arena_number(self.__death_battle_arena)
+            self.__death_battle_arena = 0
+            client_socket.send(encryption.encrypt(self.__death_battle_ip))
+            client_socket.send(encryption.encrypt_map(
+                str(self.__maps_list[self.__death_map_index])))
+            self.__death_battle_ip = ""
+            
+    def time_mode_request(self, address, client_socket, account, encryption):
         """
         handle the request of the client for making a new arena (battle)
         wait until they are 2 players to start
         if the first player disconnect modifies the
         details of the first login to the second player
         """
-        if mode_code == self.DEATH_MODE:
-            if self.__death_battle_ip == "":  # player create connection
-                client_socket.send(encryption.encrypt("T"))
-                self.__death_map_index = randint(0, len(self.__maps_list) - 1)
-                self.__death_battle_ip = address[0]
-                self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
-                account.set_arena_number(self.__death_battle_arena)
-                self.__death_battle_creator = client_socket
-                client_socket.send(encryption.encrypt_map(
-                    str(self.__maps_list[self.__death_map_index])))
-
-            else:
-                rlist = select([self.__death_battle_creator], [], [], 0)
-                if self.__death_battle_creator in rlist:
-                    if self.__death_battle_creator.recv(1) == "":  # first player quit before finding match
-                        self.__death_battle_ip = ""
-                        return self.handle_battle_request(mode_code, address, client_socket, account, encryption)
-
-                else:
-                    client_socket.send(encryption.encrypt("F"))
-                    client_socket.send(encryption.encrypt(self.__death_battle_ip))
-                    client_socket.send(encryption.encrypt_map(
-                        str(self.__maps_list[self.__death_map_index])))
-                    self.__death_battle_ip = ""
-                    account.set_arena_number(self.__death_battle_arena)
-
-        elif mode_code == self.TIME_MODE:
-            if self.__time_battle_ip == "":  # player create connection
-                client_socket.send(encryption.encrypt("T"))
-                self.__time_map_index = randint(0, len(self.__maps_list) - 1)
-                self.__time_battle_ip = address[0]
-                self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
-                account.set_arena_number(self.__time_battle_arena)
-                self.__time_battle_creator = client_socket
-                client_socket.send(encryption.encrypt_map(
-                    str(self.__maps_list[self.__time_map_index])))
-
-            else:
-                rlist = select([self.__time_battle_creator], [], [], 0)
-                if self.__time_battle_creator in rlist:
-                    if self.__time_battle_creator.recv(1) == "":  # first player quit before finding match
+        if self.__time_battle_ip == "":  # player create connection
+            client_socket.send(encryption.encrypt("T"))
+            self.__time_map_index = randint(0, len(self.__maps_list) - 1)
+            battle_arena = self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
+            self.__time_battle_ip = address[0]
+            self.__time_battle_creator = client_socket
+            while True:
+                rlist, _, _ = select([client_socket], [], [], 0)
+                if client_socket in rlist:
+                    try:
+                        message = encryption.decrypt(client_socket.recv(ord(client_socket.recv(1))).decode())
+                    except socket.error:
+                        return True
+                    if message == "exit":  # player disconnect
+                        client_socket.close()
                         self.__time_battle_ip = ""
-                        return self.handle_battle_request(mode_code, address, client_socket, account, encryption)
+                        return True
+                    elif message == "%":
+                        self.__time_battle_ip = ""
+                        return False
+                if self.__time_battle_arena == 0:
+                    break
+                if self.__stop_running:
+                    client_socket.close()
+                    exit()
+            account.set_arena_number(battle_arena)
+            client_socket.send(encryption.encrypt_map(
+                str(self.__maps_list[self.__time_map_index])))
 
-                else:
-                    client_socket.send(encryption.encrypt("F"))
-                    client_socket.send(encryption.encrypt(self.__time_battle_ip))
-                    client_socket.send(encryption.encrypt_map(
-                        str(self.__maps_list[self.__time_map_index])))
-                    self.__time_battle_ip = ""
-                    account.set_arena_number(self.__time_battle_arena)
+        else:
+            client_socket.send(encryption.encrypt("F"))
+            account.set_arena_number(self.__time_battle_arena)
+            self.__time_battle_arena = 0
+            client_socket.send(encryption.encrypt(self.__time_battle_ip))
+            client_socket.send(encryption.encrypt_map(
+                str(self.__maps_list[self.__time_map_index])))
+            self.__time_battle_ip = ""
 
     def confirm_register(self, client, account, encryption):
         """

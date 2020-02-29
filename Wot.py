@@ -2,7 +2,7 @@ import sys
 import pygame
 import time
 import socket
-import game_obj
+import game_objects
 import random
 import threading
 import pyaudio
@@ -18,14 +18,16 @@ from RSA import RsaEncryption
 # author: Adi cohen
 # Final project: WOT Online
 # --------------------------------
+pygame.init()
+SIZE = (1200, 600)
+screen = pygame.display.set_mode(SIZE)
 
 # constants
-pygame.init()
 TIME_TO_WAIT = 1.3
-SIZE = (1200, 600)
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 RED = (255, 0, 0)
+BLACK = (0, 0, 0)
 BROWN = (129, 97, 60)
 POINT_POS = ([180, 165], [180, 360])
 ASKED_IP_LEN_PACKET = 15
@@ -51,7 +53,7 @@ FIELD = "project images/zone.jpg"
 MY_PLAYER_POINT = "project images/player_point.png"
 EXPLODE_SHEET = "project images/explode.png"
 
-screen = pygame.display.set_mode(SIZE)
+
 BULLET = pygame.image.load("project images/bullet.png").convert()
 BULLET.set_colorkey(WHITE)
 BULLET = pygame.transform.scale(BULLET, (50, 50))
@@ -77,7 +79,10 @@ BRAKE = "project sounds/brake.mp3"
 RELOAD = "project sounds/reload.mp3"
 
 # messages
-ACCOUNT_BANNED = "This account banned until: "
+WAITING_TO_ANOTHER = "Waiting for another player"
+SERVER_DOWN = "Server shut down"
+ACCOUNT_DELETED = "Admin deleted your account"
+ACCOUNT_BANNED = "Admin banned your account until until: "
 SERVER_DENIED = "Server access denied, cant create a connection"
 ILLEGAL_USERNAME = "username must start with character"
 INVALID_USERNAME = "invalid account change username please"
@@ -104,18 +109,17 @@ class Game:
 	def __init__(self, game_screen, ip):
 		self.__screen = game_screen
 		self.__ip = socket.gethostbyname(socket.gethostname())
-		self.server_ip = ip
+		self.__server_ip = ip
 		self.__encryption = RsaEncryption()
 		self.__font = pygame.font.SysFont('arial', 35)
-		self.__demo_player = game_obj.Tank((500, 400))
+		self.__demo_player = game_objects.Tank((500, 400))
 		self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
 		self.__client = socket.socket()
 		self.last_time_check_server = time.time()
 		self.__account = ["", ""]
-		self._get_account()
-		self.explodes = game_obj.Spritesheet(EXPLODE_SHEET, (0, 0, 70, 70), 5, 5, (0, 0, 0))
-		# game start and it's functions manage these attributes
 		self.__flags = [False, False]  # for ending match
+		self.explodes = game_objects.Spritesheet(EXPLODE_SHEET, (0, 0, 70, 70), 5, 5, (0, 0, 0))
+		# game start and it's functions manage these attributes
 		self.__is_sound_active = True  # voice chat during the battle
 		self.__p = pyaudio.PyAudio()
 		self.__is_collide_happened = False
@@ -146,7 +150,7 @@ class Game:
 		self.__client.settimeout(2)
 		while True:
 			try:
-				self.__client.connect((self.server_ip, SERVER_PORT))
+				self.__client.connect((self.__server_ip, SERVER_PORT))
 				return True
 			except socket.error:
 				failed_output = self.__font.render(SERVER_DENIED, True, RED)
@@ -156,12 +160,20 @@ class Game:
 				sys.exit()
 			finally:
 				self.__client.settimeout(None)
+				
+	def server_down_protocol(self):
+		output = self.__font.render(SERVER_DOWN, True, RED)
+		self.__screen.blit(output, [400, 100])
+		pygame.display.flip()
+		self.__client.close()
+		time.sleep(2)
+		sys.exit()
 	
 	def _send_to_server(self, message_to_send):
 		try:
 			self.__client.send(message_to_send)
 		except socket.error:
-			sys.exit()
+			self.server_down_protocol()
 	
 	def _receive_from_server(self):
 		try:
@@ -169,36 +181,34 @@ class Game:
 			message = self.__encryption.decrypt(self.__client.recv(length).decode())
 			if message == "":
 				raise socket.error
-			if "@" in message:  # the account deleted from the server
-				self.__client.close()
-				print("your account deleted from server...")
-				time.sleep(TIME_TO_WAIT)
-				sys.exit()
 			return message
 		except socket.error:
-			print("server shut down...")
-			self.__client.close()
-			time.sleep(TIME_TO_WAIT)
-			sys.exit()
+			self.server_down_protocol()
 	
 	def keep_alive(self):
 		if time.time() - self.last_time_check_server >= 3:
 			rlist, _, _ = select([self.__client], [], [], 0)
 			if self.__client in rlist:
-				try:
-					length = self.__client.recv(1)
-				except socket.error:
-					self.__flags[0] = True
-					print("server shut down...")
-					sys.exit()
-				if length == b"":  # server shut down
-					self.__flags[0] = True
-					print("server shut down...")
-					sys.exit()
+				length = self.__client.recv(1).decode()
+				if length == "":  # server shut down
+					self.server_down_protocol()
 				respond = self.__encryption.decrypt(self.__client.recv(ord(length)).decode())
-				if "@" in respond:
+				if "@" in respond:  # client's account deleted
 					self.__flags[0] = True
-					print("your account deleted from server...")
+					output = self.__font.render(ACCOUNT_DELETED, True, BLACK)
+					self.__screen.blit(output, [450, 200])
+					pygame.display.flip()
+					self.__client.close()
+					time.sleep(2)
+					sys.exit()
+				if "!" in respond:  # client's account banned
+					self.__flags[0] = True
+					length = self.__client.recv(1).decode()
+					bandate = self.__encryption.decrypt(self.__client.recv(ord(length)).decode())
+					output = self.__font.render(ACCOUNT_BANNED + bandate, True, BLACK)
+					self.__screen.blit(output, [450, 200])
+					pygame.display.flip()
+					time.sleep(2)
 					sys.exit()
 			self.last_time_check_server = time.time()
 	
@@ -213,18 +223,18 @@ class Game:
 		self.__screen.blit(main_s, [0, 0])
 		pygame.display.flip()
 		self._try_connect_to_server()
-		try:
-			key_length = ord(self.__client.recv(1))
-			self.__encryption.set_partner_public_key(
-				[int(x) for x in decode(
-					self.__client.recv(key_length)[::-1], 'base64').decode().split(',')])
-		except socket.error:
-			exit()
 		
+		# configure key for encryption with server
+		# configure key for encryption with server
+		key_length = ord(self.__client.recv(1))
+		self.__encryption.set_partner_public_key(
+			[int(x) for x in decode(
+				self.__client.recv(key_length)[::-1], 'base64').decode().split(',')])
 		pk_to_send = encode(','.join([str(i)
 			for i in self.__encryption.get_public()]).encode(), 'base64')[::-1]
 		pk_to_send = chr(len(pk_to_send)).encode() + pk_to_send
 		self._send_to_server(pk_to_send)
+		
 		while True:
 			self.keep_alive()
 			events = pygame.event.get()
@@ -258,10 +268,10 @@ class Game:
 		pointer_to_bar = pygame.image.load(POINTER).convert()
 		pointer_to_bar.set_colorkey(WHITE)
 		if is_login_now:
-			enrollment_screen = pygame.image.load(LOGIN_SCREEN).convert()
+			connection_screen = pygame.image.load(LOGIN_SCREEN).convert()
 		else:
-			enrollment_screen = pygame.image.load(REGISTER_SCREEN).convert()
-		self.__screen.blit(enrollment_screen, [0, 0])
+			connection_screen = pygame.image.load(REGISTER_SCREEN).convert()
+		self.__screen.blit(connection_screen, [0, 0])
 		pygame.display.flip()
 		for i in range(len(self.__account)):
 			point_pos = POINT_POS[i]
@@ -276,7 +286,7 @@ class Game:
 					return self.__account
 				if end_collecting:
 					break
-				self.__screen.blit(enrollment_screen, [0, 0])
+				self.__screen.blit(connection_screen, [0, 0])
 				self.__screen.blit(pointer_to_bar, point_pos)
 				for index in range(len(self.__account)):
 					if self.__account[index] != "":
@@ -314,8 +324,8 @@ class Game:
 				output = self.__font.render(LOGIN_WORKED, True, BLUE)
 				legal_case = True
 			elif respond == "B":  # Ban
-				date, hour = self._receive_from_server().split(" ")
-				output = self.__font.render(ACCOUNT_BANNED + date + "  in " + hour, True, BLUE)
+				date = self._receive_from_server()
+				output = self.__font.render(ACCOUNT_BANNED + date, True, BLUE)
 			elif respond == "T":  # Taken
 				output = self.__font.render(ALREADY_TAKEN, True, BLUE)
 			elif respond == "F":  # Failed
@@ -447,6 +457,7 @@ class Game:
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					self._send_to_server(self.__encryption.encrypt("exit"))
+					self.__client.close()
 					sys.exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
@@ -465,22 +476,26 @@ class Game:
 			self.__screen.blit(element, [400, 150 + 100 * i])
 		pygame.display.flip()
 		while True:
+			self.keep_alive()
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					self._send_to_server(self.__encryption.encrypt("exit"))
+					self.__client.close()
 					sys.exit()
 				if event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						return
 	
-	def game_manager(self):
+	def start_game(self):
 		"""after connect to user, this function manage the game - (color, introductions etc)"""
+		self._get_account()
 		menu_screen = pygame.image.load(MENU_SCREEN).convert()
 		while True:
 			self.keep_alive()
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					self._send_to_server(self.__encryption.encrypt("exit"))
+					self.__client.close()
 					sys.exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_s:  # player look for a match
@@ -490,6 +505,7 @@ class Game:
 					
 					elif event.key == pygame.K_ESCAPE:
 						self._send_to_server(self.__encryption.encrypt("exit"))
+						self.__client.close()
 						sys.exit()
 					
 					elif event.key == pygame.K_i:  # introductions of game's buttons
@@ -513,7 +529,8 @@ class Game:
 			self.keep_alive()
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
-					self._send_to_server(b"exit:")
+					self._send_to_server(self.__encryption.encrypt("exit"))
+					self.__client.close()
 					sys.exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
@@ -557,12 +574,14 @@ class Game:
 			main_socket.listen(1)
 			
 			rect1, rect2 = self._build_map()
+			if rect1 is None:
+				return
 			self.__enemy_socket, address = main_socket.accept()
 			self.__enemy_ip = address[0]  # only ip address
 			self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
 			enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-			self.__player = game_obj.Tank(rect1, direct=6, new_color=self.__demo_player.get_color())
-			self.__enemy = game_obj.Tank(rect2, direct=0, new_color=enemy_color)
+			self.__player = game_objects.Tank(rect1, direct=6, new_color=self.__demo_player.get_color())
+			self.__enemy = game_objects.Tank(rect2, direct=0, new_color=enemy_color)
 			
 			self.__stream_socket = stream_socket.accept()[0]
 			main_socket.close()
@@ -573,12 +592,14 @@ class Game:
 		else:  # player makes connection with main player
 			self.__enemy_ip = self._receive_from_server()
 			rect1, rect2 = self._build_map()
+			if rect1 is None:
+				return
 			self.__enemy_socket = socket.socket()
 			self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
 			self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
 			enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-			self.__player = game_obj.Tank(rect2, direct=0, new_color=self.__demo_player.get_color())
-			self.__enemy = game_obj.Tank(rect1, direct=6, new_color=enemy_color)
+			self.__player = game_objects.Tank(rect2, direct=0, new_color=self.__demo_player.get_color())
+			self.__enemy = game_objects.Tank(rect1, direct=6, new_color=enemy_color)
 			
 			self.__stream_socket = socket.socket()
 			self.__stream_socket.connect((self.__enemy_ip, STREAM_PORT))
@@ -612,7 +633,6 @@ class Game:
 					time.sleep(TIME_TO_WAIT)
 					self.__client.close()
 					sys.exit()
-				# exit from the game
 				
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
@@ -807,7 +827,7 @@ class Game:
 			if "T" in header:
 				trap_attribute = header[1]
 				trap_pos_x, trap_pox_y = header[2:].split(".")
-				self.__traps.append(game_obj.Trap(int(trap_pos_x), int(trap_pox_y), int(trap_attribute)))
+				self.__traps.append(game_objects.Trap(int(trap_pos_x), int(trap_pox_y), int(trap_attribute)))
 			if "B" in header:
 				self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, int(header[1]))
 			if ("C" in header) and not self.__is_collide_happened:
@@ -846,20 +866,46 @@ class Game:
 			pass
 	
 	def _build_map(self):
-		try:
-			length = self.__client.recv(2)
-			length = unpack("<H", length)[0]
-			all_walls, rects = self.__encryption.decrypt_map(self.__client.recv(length).decode())
-		except socket.error:
-			sys.exit()
+		connect_img = pygame.image.load(CONNECT)
+		while True:
+			rlist, _, _ = select([self.__client], [], [], 0)
+			if self.__client in rlist:
+				length = self.__client.recv(2)
+				if length == b"":
+					self.server_down_protocol()
+				length = unpack("<H", length)[0]
+				all_walls, rects = self.__encryption.decrypt_map(self.__client.recv(length).decode())
+				break
+				
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					self._send_to_server(self.__encryption.encrypt("exit"))
+					self.__client.close()
+					exit()
+				elif event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_ESCAPE:
+						self._send_to_server(self.__encryption.encrypt("%"))
+						return None, None
+			self.refresh_connection_screen(connect_img)
 		all_walls = all_walls.split("\n")
 		rects = [int(x) for x in findall(r"\d+", rects)]
 		rects = [[rects[0]] + [rects[1]], [rects[2]] + [rects[3]]]
 		for wall in all_walls:
 			s_pos, e_pos = wall.split(" ")
 			s_pos, e_pos = [int(x) for x in s_pos.split(",")], [int(y) for y in e_pos.split(",")]
-			self.__walls.append(game_obj.Wall(self.__screen, s_pos, e_pos))
+			self.__walls.append(game_objects.Wall(self.__screen, s_pos, e_pos))
 		return rects
+	
+	def refresh_connection_screen(self, img):
+		screen.blit(img, (0, 0))
+		output = self.__font.render(WAITING_TO_ANOTHER, True, (0, 0, 255))
+		screen.blit(output, [75, 520])
+		pygame.display.flip()
+		for i in range(4):
+			output = self.__font.render("." * i, True, (0, 0, 255))
+			screen.blit(output, [405, 520])
+			pygame.display.flip()
+			time.sleep(0.3)
 	
 	def _take_care_time_mode(self, start_time):
 		time_to_play = SECS_TO_PLAY - (time.time() - start_time)
@@ -909,12 +955,12 @@ class Game:
 		"""
 		x_surprise_loc = random.randint(0, 759)
 		y_surprise_loc = random.randint(0, 559)
-		new_surprise = game_obj.Trap(x_surprise_loc, y_surprise_loc)
+		new_surprise = game_objects.Trap(x_surprise_loc, y_surprise_loc)
 		while pygame.sprite.spritecollide(new_surprise,
 			self.__walls + self.__traps + [self.__player, self.__enemy], False):
 			x_surprise_loc = random.randint(0, 759)
 			y_surprise_loc = random.randint(0, 559)
-			new_surprise = game_obj.Trap(x_surprise_loc, y_surprise_loc)
+			new_surprise = game_objects.Trap(x_surprise_loc, y_surprise_loc)
 		self.__traps.append(new_surprise)
 		return time.time(), random.randint(3, 5)
 
@@ -932,7 +978,7 @@ def main():
 		game = Game(screen, ip)
 	else:
 		game = Game(screen, IP)
-	game.game_manager()
+	game.start_game()
 
 
 if __name__ == '__main__':
