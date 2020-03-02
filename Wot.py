@@ -92,7 +92,7 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 
 # network
-IP = "192.168.1.31"
+SERVER_IP = "192.168.1.31"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -106,62 +106,63 @@ WIDTH = 2
 
 
 class Game:
-	def __init__(self, game_screen, ip):
+	def __init__(self, game_screen):
 		self.__screen = game_screen
 		self.__ip = socket.gethostbyname(socket.gethostname())
-		self.__server_ip = ip
+		self.__server_ip = SERVER_IP
 		self.__encryption = RsaEncryption()
 		self.__font = pygame.font.SysFont('arial', 35)
 		self.__demo_player = game_objects.Tank((500, 400))
 		self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
 		self.__client = socket.socket()
-		self.last_time_check_server = time.time()
+		self.__last_time_check_server = time.time()
 		self.__account = ["", ""]
 		self.__flags = [False, False]  # for ending match
-		self.explodes = game_objects.Spritesheet(EXPLODE_SHEET, (0, 0, 70, 70), 5, 5, (0, 0, 0))
+		self.__explodes = game_objects.Spritesheet(EXPLODE_SHEET, (0, 0, 70, 70), 5, 5, (0, 0, 0))
+		
 		# game start and it's functions manage these attributes
-		self.__is_sound_active = True  # voice chat during the battle
+		self.__is_sound_active = True  # flag for active voice chat
 		self.__p = pyaudio.PyAudio()
 		self.__is_collide_happened = False
-		self.__new_bullet = None
-		self.__new_trap = None
+		self.__new_bullet = None  # new object of bullet to send to enemy
+		self.__new_trap = None  # new object of trap to send to enemy
 		self.__enemy = None
 		self.__player = None
-		self.__stream_socket = None
-		self.__enemy_socket = None
+		self.__voice_socket = None  # socket for voice chat
+		self.__enemy_socket = None  # socket for communication
 		self.__enemy_ip = ""
-		self.__traps = []
-		self.__bullets = []
-		self.__walls = []
+		self.__traps = []  # list of the traps in map
+		self.__bullets = []  # list of the bullets in map
+		self.__walls = []  # list of the walls in map
 	
 	def tank_destroy(self, rect):
-		image = self.explodes.next()
+		"""active the gif of explosion"""
+		image = self.__explodes.next()
 		while image is not False:
 			self.__screen.blit(image, (rect[0] - 12, rect[1] - 10))
 			pygame.display.flip()
-			image = self.explodes.next()
+			image = self.__explodes.next()
 			time.sleep(0.07)
 	
 	def _try_connect_to_server(self):
-		"""return if client success to connect the game server
-			argument:
-				client - type: socket
-		"""
+		"""return if client success to connect the game server, None otherwise"""
 		self.__client.settimeout(2)
 		while True:
 			try:
 				self.__client.connect((self.__server_ip, SERVER_PORT))
-				return True
-			except socket.error:
+				if self.__client.recv(1).decode() == "R":
+					return True
+			except (socket.error, socket.timeout):
 				failed_output = self.__font.render(SERVER_DENIED, True, RED)
 				self.__screen.blit(failed_output, [100, 500])
 				pygame.display.flip()
 				time.sleep(TIME_TO_WAIT)
 				sys.exit()
 			finally:
-				self.__client.settimeout(None)
+				self.__client.settimeout(5)
 				
 	def server_down_protocol(self):
+		"""protocol of error when try to communicate with server"""
 		output = self.__font.render(SERVER_DOWN, True, RED)
 		self.__screen.blit(output, [400, 100])
 		pygame.display.flip()
@@ -186,7 +187,7 @@ class Game:
 			self.server_down_protocol()
 	
 	def keep_alive(self):
-		if time.time() - self.last_time_check_server >= 3:
+		if time.time() - self.__last_time_check_server >= 3:
 			rlist, _, _ = select([self.__client], [], [], 0)
 			if self.__client in rlist:
 				length = self.__client.recv(1).decode()
@@ -210,7 +211,7 @@ class Game:
 					pygame.display.flip()
 					time.sleep(2)
 					sys.exit()
-			self.last_time_check_server = time.time()
+			self.__last_time_check_server = time.time()
 	
 	def _get_my_color(self):
 		self._send_to_server(self.__encryption.encrypt("GetColor"))
@@ -224,7 +225,6 @@ class Game:
 		pygame.display.flip()
 		self._try_connect_to_server()
 		
-		# configure key for encryption with server
 		# configure key for encryption with server
 		key_length = ord(self.__client.recv(1))
 		self.__encryption.set_partner_public_key(
@@ -250,13 +250,14 @@ class Game:
 						sys.exit()
 					elif event.key == pygame.K_l:
 						self.__account = self._register_and_login_screen(True)
+						self.__screen.blit(main_s, [0, 0])
+						pygame.display.flip()
 					elif event.key == pygame.K_r:
 						self.__account = self._register_and_login_screen(False)
-			
+						self.__screen.blit(main_s, [0, 0])
+						pygame.display.flip()
 			if self.__account != ["", ""]:
 				return
-			self.__screen.blit(main_s, [0, 0])
-			pygame.display.flip()
 	
 	def _register_and_login_screen(self, is_login_now):
 		"""get the data of from the user, (username and password)
@@ -498,28 +499,34 @@ class Game:
 					self.__client.close()
 					sys.exit()
 				elif event.type == pygame.KEYDOWN:
-					if event.key == pygame.K_s:  # player look for a match
-						mode_code = self._choose_battle_mode()
-						if mode_code is not None:
-							self._battle_start(mode_code)
-					
-					elif event.key == pygame.K_ESCAPE:
+					if event.key == pygame.K_ESCAPE:
 						self._send_to_server(self.__encryption.encrypt("exit"))
 						self.__client.close()
 						sys.exit()
+						
+					elif event.key == pygame.K_s:  # player look for a match
+						mode_code = self._choose_battle_mode()
+						if mode_code is not None:
+							self._battle_start(mode_code)
+							self.__screen.blit(menu_screen, (0, 0))
+							pygame.display.flip()
 					
 					elif event.key == pygame.K_i:  # introductions of game's buttons
 						self._instructions_screen()
-					
+						self.__screen.blit(menu_screen, (0, 0))
+						pygame.display.flip()
+						
 					elif event.key == pygame.K_c:  # player want to change his tank's color
 						self._color_choose_screen()
-					
+						self.__screen.blit(menu_screen, (0, 0))
+						pygame.display.flip()
+						
 					elif event.key == pygame.K_r:
 						self._rating_screen()
-				
+						self.__screen.blit(menu_screen, (0, 0))
+						pygame.display.flip()
+						
 				pygame.event.clear()
-			self.__screen.blit(menu_screen, (0, 0))
-			pygame.display.flip()
 	
 	def _choose_battle_mode(self):
 		modes_screen = pygame.image.load(CHOOSE_MODE_SCREEN).convert()
@@ -583,7 +590,7 @@ class Game:
 			self.__player = game_objects.Tank(rect1, direct=6, new_color=self.__demo_player.get_color())
 			self.__enemy = game_objects.Tank(rect2, direct=0, new_color=enemy_color)
 			
-			self.__stream_socket = stream_socket.accept()[0]
+			self.__voice_socket = stream_socket.accept()[0]
 			main_socket.close()
 			stream_socket.close()
 		# main player create the server
@@ -601,11 +608,11 @@ class Game:
 			self.__player = game_objects.Tank(rect2, direct=0, new_color=self.__demo_player.get_color())
 			self.__enemy = game_objects.Tank(rect1, direct=6, new_color=enemy_color)
 			
-			self.__stream_socket = socket.socket()
-			self.__stream_socket.connect((self.__enemy_ip, STREAM_PORT))
+			self.__voice_socket = socket.socket()
+			self.__voice_socket.connect((self.__enemy_ip, STREAM_PORT))
 		
 		self.__enemy_socket.settimeout(0.5)
-		self.__stream_socket.settimeout(1)
+		self.__voice_socket.settimeout(1)
 		self.__enemy.change_player_color(enemy_color)
 		self.__screen.blit(battlefield, [0, 0])
 		self.__screen.blit(self.__player.get_image(), self.__player.get_loc())
@@ -736,8 +743,8 @@ class Game:
 		self.__player = None
 		self.__enemy_socket.close()
 		self.__enemy_socket = None
-		self.__stream_socket.close()
-		self.__stream_socket = None
+		self.__voice_socket.close()
+		self.__voice_socket = None
 		self.__enemy_ip = ""
 		self.__traps = []
 		self.__bullets = []
@@ -841,7 +848,7 @@ class Game:
 					rate=RATE, input=True, frames_per_buffer=CHUNK)
 			while not (self.__flags[0] or self.__flags[1]):
 				try:
-					self.__stream_socket.send(microphone.read(CHUNK))
+					self.__voice_socket.send(microphone.read(CHUNK))
 				except (IOError, socket.error):
 					break
 			microphone.stop_stream()
@@ -855,7 +862,7 @@ class Game:
 				rate=RATE, output=True, frames_per_buffer=CHUNK)
 			while not (self.__flags[0] or self.__flags[1]):
 				try:
-					data = self.__stream_socket.recv(CHUNK)
+					data = self.__voice_socket.recv(CHUNK)
 					if self.__is_sound_active:
 						speaker.write(data)
 				except (IOError, socket.error):
@@ -867,6 +874,8 @@ class Game:
 	
 	def _build_map(self):
 		connect_img = pygame.image.load(CONNECT)
+		self.__screen.blit(connect_img, [0, 0])
+		pygame.display.flip()
 		while True:
 			rlist, _, _ = select([self.__client], [], [], 0)
 			if self.__client in rlist:
@@ -973,11 +982,7 @@ def main():
 	pygame.mixer.init()
 	pygame.mixer.music.set_volume(1)
 	pygame.display.set_caption("War Of Tanks")
-	if IP == "*":
-		ip = input("enter server ip: ")
-		game = Game(screen, ip)
-	else:
-		game = Game(screen, IP)
+	game = Game(screen)
 	game.start_game()
 
 
