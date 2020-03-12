@@ -9,7 +9,8 @@ class RsaEncryption:
 			self.__p = random.randint(2, 409)
 		
 		self.__q = random.randint(2, 409)
-		while self.__q == self.__p or self.__q * self.__p < 1000 or not self.is_prime(self.__q):
+		while self.__q == self.__p or self.__q * self.__p < 1000\
+			 or self.__q * self.__p > 3000 or not self.is_prime(self.__q):
 			self.__q = random.randint(2, 409)
 		
 		self.__n = self.__q * self.__p
