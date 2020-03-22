@@ -5,6 +5,7 @@ import string
 from subprocess import Popen, PIPE
 from re import findall
 from os import system
+import datetime
 from random import randint
 from firebase import firebase
 from select import select
@@ -20,8 +21,6 @@ FONT = ("Arial", 10, NORMAL)
 API_SIZE = '1050x600'
 
 INSTALLER_FILE = "game installer.exe"
-MAX_NUM_DAY_IN_MONTHS = {"01": 31, "02": 28, "03": 31, "04": 30, "05": 31, "06": 30,
-                         "07": 31, "08": 31, "09": 30, "10": 31, "11": 30, "12": 31}
 
 FIREBASE_URL = "https://my-project-b9bb8.firebaseio.com/"
 
@@ -50,11 +49,9 @@ class Account:
 		self.__points = wins + draws / 2 - loses
 		self.__favorite_color = color
 		self.__arena_number = 0
-		self.__bandate_string = bandate
+		self.__ban_date = bandate
 		self.__firebase_token = firebase_token
-		day, month, year = [int(element) for element in self.__bandate_string.split("/")]
-		self.__bandate_struct = time.struct_time((year, month, day, 0, 0, 0, 0, 0, 0))
-		if self.__bandate_string != "00/00/0000":
+		if self.__ban_date != "00/00/0000":
 			self.__client_status = "Ban"
 		else:
 			self.__client_status = "Off"
@@ -89,11 +86,8 @@ class Account:
 	def get_arena_number(self):
 		return self.__arena_number
 	
-	def get_bandate_string(self):
-		return self.__bandate_string
-	
-	def get_bandate_struct(self):
-		return self.__bandate_struct
+	def get_ban_date(self):
+		return self.__ban_date
 	
 	def get_firebase_token(self):
 		return self.__firebase_token
@@ -113,8 +107,7 @@ class Account:
 		self.__draws = 0
 		self.__points = 0
 		self.__favorite_color = "4d784e"
-		self.__bandate_string = "00/00/0000"
-		self.__bandate_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
+		self.__ban_date = "00/00/0000"
 		if self.__client_status == "Ban":
 			self.__client_status = "Off"
 	
@@ -124,17 +117,14 @@ class Account:
 		argument:
 			new_date - string, the new date to set
 		"""
-		self.__bandate_string = new_date
-		day, month, year = [int(element) for element in self.__bandate_string.split("/")]
-		self.__bandate_struct = time.struct_time((year, month, day, 0, 0, 0, 0, 0, 0))
+		self.__ban_date = new_date
 		self.__client_status = "Ban"
 	
-	def erase_ban(self):
+	def free(self):
 		"""
 		delete to current ban date and set it to default
 		"""
-		self.__bandate_string = "00/00/0000"
-		self.__bandate_struct = time.struct_time((0, 0, 0, 0, 0, 0, 0, 0, 0))
+		self.__ban_date = "00/00/0000"
 		self.__client_status = "Off"
 	
 	def add_win(self):
@@ -162,7 +152,7 @@ class Account:
 		return f"{self.__username} {self.__password} " \
 		       f"{self.__wins} {self.__loses} {self.__draws} {float(self.__points)} " \
 		       f"{self.__favorite_color} {self.__client_status} " \
-		       f"{self.__bandate_string} {self.__arena_number}"
+		       f"{self.__ban_date} {self.__arena_number}"
 
 
 class Map:
@@ -190,17 +180,17 @@ class Server:
 		self.__server_socket = socket.socket()
 		self.__server_socket.bind((self.__ip, 2020))
 		self.__server_socket.listen(1)
-		self.__server_socket.settimeout(0.2)
 		self.__fire = firebase.FirebaseApplication(FIREBASE_URL, None)
 		self.__is_online_database = False
 		self.__online_players_counter = 0
 		self.__n_cryption = []
-		self.players_label = None
+		self.__players_label = None
 		self.__accounts_list = []
 		self.__maps_list = []
 		self.__accounts_updates_to_table = []
 		self.__stop_running = False
-		self.__is_clients_adder_on = None
+		self.__open_connections = None  # boolean var for connections switch
+		self.__open_arenas = None  # boolean var for arenas switch
 		
 		self.__death_map_index = 0
 		self.__death_battle_ip = ""
@@ -314,6 +304,7 @@ class Server:
 		self.build_my_maps()
 		threading.Thread(target=self.update_users_data).start()
 		threading.Thread(target=self.clients_adder).start()
+		threading.Thread(target=self.refresh_bans).start()
 		threading.Thread(target=lambda:
 		system(f"python web/manage.py runserver {self.__ip}:8000")).start()
 		self.create_server_screen()
@@ -339,20 +330,21 @@ class Server:
 		window.configure(background='azure')
 		Label(window, text="My IP is: " + self.__ip, fg='blue',
 		      bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
-		self.players_label = Label(window, text=f"{self.__online_players_counter} player are online", fg='blue',
+		self.__players_label = Label(window, text=f"{self.__online_players_counter} player are online", fg='blue',
 		                           bg='white', borderwidth=5, relief=SUNKEN)
-		self.players_label.place(x=850, y=70)
+		self.__players_label.place(x=850, y=70)
 		# Admin options's widgets
 		lf = LabelFrame(window, font=FONT, text="Accounts manage interface")
 		lf.place(x=0, y=0, width=750, height=200)
 		
 		Button(lf, text='Reset accounts', bg='dodger blue', height=2, width=15,
 		       command=lambda: threading.Thread(target=self.clean_accounts_data,
-				args=([tree])).start()).place(x=585, y=10)
+		                                        args=([tree])).start()).place(x=585, y=10)
 		Button(window, text='exit', bg='dodger blue', height=2, width=15,
 		       command=lambda: window.destroy()).place(x=585, y=80)
 		
-		self.__is_clients_adder_on = BooleanVar(value=True)
+		self.__open_connections = BooleanVar(value=True)
+		self.__open_arenas = BooleanVar(value=True)
 		user, password = StringVar(), StringVar()
 		day, month = StringVar(value="day"), StringVar(value="month")
 		year = StringVar(value="year")
@@ -374,29 +366,36 @@ class Server:
 		         values=["year"] + [str(x) for x in range(2020, 2024)]).place(x=515, y=10)
 		
 		Button(lf, command=lambda: threading.Thread(target=self.admin_register,
-		                                            args=(user, password, tree)).start(),
-		       text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
+			args=(user, password, tree)).start(),
+			text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
 		
 		Button(lf, command=lambda: threading.Thread(target=self.admin_ban,
-		                                            args=(user, password, [day, month, year], tree,)).start(),
-		       text='Ban', borderwidth=3, width=10, bg='yellow').place(x=120, y=140)
+			args=(user, password, [day, month, year], tree,)).start(),
+			text='Ban', borderwidth=3, width=10, bg='yellow').place(x=120, y=140)
 		
 		Button(lf, command=lambda: threading.Thread(target=self.admin_free_ban,
-		                                            args=(user, password, tree)).start(),
-		       text="Free", borderwidth=3, width=10, bg='azure').place(x=220, y=140)
+		    args=(user, password, tree)).start(),
+		    text="Free", borderwidth=3, width=10, bg='azure').place(x=220, y=140)
 		
 		Button(lf, command=lambda: threading.Thread(target=self.admin_delete,
-		                                            args=(user, password, tree)).start(),
-		       text='Delete', borderwidth=3, width=10, bg='red').place(x=320, y=140)
+			args=(user, password, tree)).start(),
+		    text='Delete', borderwidth=3, width=10, bg='red').place(x=320, y=140)
 		
-		# Clients data's widgets
-		switches_lf = LabelFrame(window, font=FONT, text="Clients adder")
-		switches_lf.place(x=0, y=215, width=110, height=130)
-		Radiobutton(switches_lf, text="On", variable=self.__is_clients_adder_on,
+		connections_lf = LabelFrame(window, font=FONT, text="New Connections")
+		connections_lf.place(x=0, y=215, width=120, height=130)
+		Radiobutton(connections_lf, text="On", variable=self.__open_connections,
 		            value=True).place(x=10, y=20)
-		Radiobutton(switches_lf, text="Off", variable=self.__is_clients_adder_on,
+		Radiobutton(connections_lf, text="Off", variable=self.__open_connections,
 		            value=False).place(x=10, y=60)
 		
+		arenas_lf = LabelFrame(window, font=FONT, text="New Arenas")
+		arenas_lf.place(x=121, y=215, width=120, height=130)
+		Radiobutton(arenas_lf, text="On", variable=self.__open_arenas,
+		            value=True).place(x=10, y=20)
+		Radiobutton(arenas_lf, text="Off", variable=self.__open_arenas,
+		            value=False).place(x=10, y=60)
+		
+		# Clients data's widgets
 		headers = ('Username', 'Password', 'Wins',
 		           'Loses', 'Draws', 'Points', 'Color', 'Status', 'Ban date', 'Arena')
 		scroll = Scrollbar(window, orient=VERTICAL)
@@ -410,8 +409,9 @@ class Server:
 		window.bind("<FocusIn>", lambda event: self.show_account_data(tree))
 		window.bind("<Enter>", lambda event: self.show_account_data(tree))
 		window.mainloop()
-		self.__is_clients_adder_on = None
-		self.players_label = None
+		self.__open_connections = None
+		self.__open_arenas = None
+		self.__players_label = None
 	
 	@staticmethod
 	def is_valid_username(username):
@@ -434,17 +434,7 @@ class Server:
 			username - string, the username to check
 		"""
 		return (0 < len(password) <= 10) and all([letter in string.ascii_letters or
-			letter.isdigit() for letter in password])
-	
-	@staticmethod
-	def is_valid_ban_date(date_values_list):
-		"""
-		filter for legal date for ban action
-		argument:
-			date_values_list - list, the widgets of the ban date (day month and year)
-		"""
-		return all(True if element.get().isdigit() else False for element in date_values_list) \
-		       and MAX_NUM_DAY_IN_MONTHS[date_values_list[1].get()] >= int(date_values_list[0].get())
+		                                          letter.isdigit() for letter in password])
 	
 	def admin_register(self, new_username, new_password, window):
 		"""
@@ -456,36 +446,41 @@ class Server:
 		"""
 		if self.is_valid_username(new_username.get()) and self.is_valid_password(new_password.get()):
 			if new_username.get() not in [element.get_username() for element in self.__accounts_list]:
-				self.register_new_player([new_username.get(), new_password.get()], is_online=False)
+				self.register_new_player([new_username.get(), new_password.get()], is_admin_command=True)
 		window.focus_set()
 		window.master.focus_set()
 		new_password.set("")
 		new_username.set("")
 	
-	def admin_ban(self, username, password, ban_until, window):
+	def admin_ban(self, username, password, ban_date, window):
 		"""
 		the admin ban a player, if username/password incorrect ignore
 		same if the ban date is wrong
 		arguments:
 		username - Entry widget, username to ban
 		password - Entry widget, password to ban
-		ban_until - Entry widget, the date of ban
+		ban_date - list, the widgets of ban date
 		window - Treeview, the widget of the accounts data
 		"""
 		if self.is_valid_username(username.get()):
-			for account in self.__accounts_list:
-				if account.get_username() == username.get():
-					ban_player_until = "/".join(element.get() for element in ban_until)
-					account.set_ban_until(ban_player_until)
-					self.__accounts_updates_to_table.append([account, "B"])
-					break
+			try:
+				day, month, year = [int(element.get()) for element in ban_date]
+				_ = datetime.datetime(day=day, year=year, month=month)
+				for account in self.__accounts_list:
+					if account.get_username() == username.get():
+						ban_player_until = "/".join(element.get() for element in ban_date)
+						account.set_ban_until(ban_player_until)
+						self.__accounts_updates_to_table.append([account, "B"])
+						break
+			except ValueError:
+				pass
 		window.focus_set()
 		window.master.focus_set()
 		username.set("")
 		password.set("")
-		ban_until[0].set("day")
-		ban_until[1].set("month")
-		ban_until[2].set("year")
+		ban_date[0].set("day")
+		ban_date[1].set("month")
+		ban_date[2].set("year")
 	
 	def admin_free_ban(self, username_to_free, user_password, window):
 		"""
@@ -498,7 +493,7 @@ class Server:
 		if self.is_valid_username(username_to_free.get()):
 			for acc in self.__accounts_list:
 				if acc.get_username() == username_to_free.get():
-					acc.erase_ban()
+					acc.free()
 					self.__accounts_updates_to_table.append([acc, "B"])
 					break
 		window.focus_set()
@@ -577,6 +572,7 @@ class Server:
 		conn = connect('my database.db')
 		curs = conn.cursor()
 		while self.__stop_running is False:
+			
 			for update in self.__accounts_updates_to_table:
 				account, act = update[0], update[1]
 				if act == "W":
@@ -606,38 +602,65 @@ class Server:
 				elif act == "B":
 					if self.__is_online_database:
 						self.__fire.put(f"Accounts/{account.get_firebase_token()}/",
-						                "Bandate", account.get_bandate_string())
+						                "Bandate", account.get_ban_date())
 					curs.execute("UPDATE Accounts SET Bandate = (?) WHERE Username = (?)",
-					             (account.get_bandate_string(), account.get_username()))
+					             (account.get_ban_date(), account.get_username()))
 				self.__accounts_updates_to_table.remove(update)
 			conn.commit()
 			time.sleep(2)
+			
 			self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
 		print("Accounts updater shut down...")
 	
+	def refresh_bans(self):
+		print("Refresh bans run...")
+		while not self.__stop_running:
+			today = datetime.datetime.replace(datetime.datetime.now(), hour=0, minute=0, second=0)
+			banned_list = list(filter(lambda x: x.get_client_status() == "Ban", self.__accounts_list))
+			for acc in banned_list:
+				day, month, year = acc.get_ban_date().split("/")
+				ban_date = datetime.datetime(day=day, month=month, year=year)
+				if ban_date <= today:
+					acc.free()
+			time.sleep(5)
+		print("Refresh ban shut down...")
+	
 	def clients_adder(self):
 		"""check if any account should be release from ban"""
-		print("clients adder run...")
-		last_time_checked_ban = time.time()
+		print("Clients adder run...")
 		while self.__stop_running is False:
 			rlist, _, _ = select([self.__server_socket], [], [], 0)
-			if self.__server_socket in rlist and (self.__is_clients_adder_on is None or
-				self.__is_clients_adder_on.get()):
+			if self.__server_socket in rlist and (self.__open_connections is None or
+			                                      self.__open_connections.get()):
 				new_player_socket, player_address = self.__server_socket.accept()
-				new_player_socket.send(b"R")
 				threading.Thread(target=self.player_services, args=(new_player_socket, player_address)).start()
-			
-			if time.time() - last_time_checked_ban >= 3:
-				banned_list = list(filter(lambda x: x.get_client_status() == "Ban", self.__accounts_list))
-				current_time = time.mktime(time.localtime())
-				for acc in banned_list:
-					if time.mktime(acc.get_bandate_struct()) < current_time:
-						acc.erase_ban()
-						self.__accounts_updates_to_table.append([acc, "B"])
-				last_time_checked_ban = time.time()
-		print("client adder shut down...")
+		print("Client adder shut down...")
 	
-	def player_services(self, player, address):
+	def send_to_client(self, client, encryption, data, account=None):
+		encrypted_packet = encryption.encrypt(data)
+		try:
+			client.send(encrypted_packet)
+		except socket.error:
+			self.release_client(encryption, client, account)
+		
+	def receive_from_client(self, client, encryption, account=None):
+		try:
+			length = ord(client.recv(1))
+			data = encryption.decrypt(client.recv(length).decode())
+			return data
+		except socket.error:
+			self.release_client(encryption, client, account)
+			
+	def release_client(self, encryption, client, account=None):
+		if account is not None:
+			account.player_offline()
+		client.close()
+		self.__n_cryption.remove(encryption.get_n())
+		self.__online_players_counter -= 1
+		self.__players_label['text'] = f"{self.__online_players_counter} player are online"
+		exit()
+	
+	def player_services(self, client, address):
 		"""
 		all the services to the clients of the game
 		after it gets action code reply accordingly and asked data
@@ -649,86 +672,71 @@ class Server:
 		self.__n_cryption.append(encryption.get_n())
 		pk_to_send = encode(','.join([str(i) for i in encryption.get_public()]).encode(), 'base64')[::-1]
 		pk_to_send = chr(len(pk_to_send)).encode() + pk_to_send
-		player.send(pk_to_send)
+		client.send(pk_to_send)
 		
-		key_length = ord(player.recv(1))
+		key_length = ord(client.recv(1))
 		encryption.set_partner_public_key([int(x) for x in decode
-		(player.recv(key_length)[::-1], 'base64').decode().split(',')])
+		(client.recv(key_length)[::-1], 'base64').decode().split(',')])
 		
-		account = self.allocate_account(player, encryption)
+		account = self.allocate_account(client, encryption)
 		if account is None:
-			player.close()
+			client.close()
 			return
 		self.__online_players_counter += 1
-		self.players_label['text'] = f"{self.__online_players_counter} player are online"
-		while self.__stop_running is False:
-			if self.__stop_running:  # maybe unnecessary
-				player.close()
-				sys.exit()
+		self.__players_label['text'] = f"{self.__online_players_counter} player are online"
+		while not self.__stop_running:
 			if account not in self.__accounts_list:  # account deleted
-				player.send(encryption.encrypt("@"))
+				self.send_to_client(client, encryption, "@")
 				break
 			elif account.get_client_status() == "Ban":
-				player.send(encryption.encrypt("!"))
-				player.send(encryption.encrypt(account.get_bandate_string()))
+				self.send_to_client(client, encryption, "!")
+				self.send_to_client(client, encryption, account.get_ban_date())
 				break
-			rlist, _, _ = select([player], [], [], 0)
-			if player in rlist:
-				length = ord(player.recv(1))
-				request = encryption.decrypt(player.recv(length).decode()).split(" ")
-				
+			rlist, _, _ = select([client], [], [], 0)
+			if client in rlist:
+				request = self.receive_from_client(client, encryption, account).split(" ")
 				if request[0] == "exit":
-					player.close()
-					account.player_offline()
-					break
+					self.release_client(encryption, client, account)
 				
 				elif request[0] == "GetColor":
-					player.send(encryption.encrypt(account.get_color()))
+					self.send_to_client(client, encryption, account.get_color(), account)
 				
 				elif request[0] == "SetColor":
 					account.change_color(request[1])
 					self.__accounts_updates_to_table.append([account, "C"])
 				
 				elif request[0] == "rating":
-					top_rating = self.get_rating()
-					top_rating += f"{account.get_wins()} {account.get_loses()} {account.get_draws()}\n"
-					top_rating += str(self.__accounts_list.index(account) + 1)
-					player.send(encryption.encrypt(top_rating))
+					rating = self.get_rating(account)
+					self.send_to_client(client, encryption, rating, account)
 				
 				elif request[0] == "game":
 					mode_code = int(request[1])
-					is_disconnect = self.make_battle(account, player, mode_code, address, encryption)
-					if is_disconnect:
-						break
-		player.close()
-		self.__n_cryption.remove(encryption.get_n())
-		self.__online_players_counter -= 1
-		self.players_label['text'] = f"{self.__online_players_counter} player are online"
+					self.make_battle(account, client, mode_code, address, encryption)
+		client.close()
 	
 	def allocate_account(self, player_socket, encryption):
 		account = None
-		while True:
-			if self.__stop_running:
-				player_socket.close()
-				exit()
+		while not self.__stop_running:
 			rlist, _, _ = select([player_socket], [], [], 0)
 			if player_socket in rlist:
-				length = ord(player_socket.recv(1))
-				request = encryption.decrypt(player_socket.recv(length).decode()).split(" ")
+				request = self.receive_from_client(player_socket, encryption).split(" ")
 				if request[0] == "exit":
 					return None
-				elif request[0] == "register":
+				#  sending the data from client for identification
+				elif request[0] == "Signup":
 					account = self.confirm_register(player_socket, request[1], encryption)
 				elif request[0] == "login":
 					account = self.player_login(player_socket, request[1], encryption)
 				if account is not None:
 					return account
 	
-	def get_rating(self):
-		top_account = self.__accounts_list[0]
-		top_rating = f"{top_account.get_username()} {top_account.get_wins()} " \
-		             f"{top_account.get_loses()} {top_account.get_draws()}\n"
-		return top_rating
+	def get_rating(self, account):
+		champion = self.__accounts_list[0]
+		champion_score = f"{champion.get_username()} {champion.get_wins()} " \
+		             f"{champion.get_loses()} {champion.get_draws()}\n"
+		player_score = f"{account.get_wins()} {account.get_loses()} {account.get_draws()}\n"
+		index_of_player = str(self.__accounts_list.index(account) + 1)
+		return champion_score + player_score + index_of_player
 	
 	def make_battle(self, account, player, mode_code, address, encryption):
 		if mode_code == self.DEATH_MODE:
@@ -736,32 +744,42 @@ class Server:
 		else:
 			flag = self.time_mode_request(address, player, account, encryption)
 		if flag is True:  # player disconnect
-			return True
+			self.release_client(encryption, player, account)
 		elif flag is False:  # player quit for waiting to match
 			return
 		while True:
-			rlist, _, _ = select([player], [], [], 0)
 			if self.__stop_running:
 				player.close()
-				return True  # server shut down
+				exit()  # server shut down
 			if account not in self.__accounts_list:
-				player.send(encryption.encrypt("@"))  # account deleted
-				return True
+				account.set_arena_number(0)
+				self.send_to_client(player, encryption, "@")  # account deleted
+				break
 			if account.get_client_status() == "Ban":
-				player.send(encryption.encrypt("!"))
-				player.send(encryption.encrypt(account.get_bandate_string()))
-				return True
+				account.set_arena_number(0)
+				self.send_to_client(player, encryption, "!")
+				self.send_to_client(player, encryption, account.get_ban_date())
+				break
+			rlist, _, _ = select([player], [], [], 0)
 			if player in rlist:
-				outcome = encryption.decrypt(player.recv(ord(player.recv(1))).decode())
+				outcome = ""
+				try:
+					outcome = encryption.decrypt(player.recv(ord(player.recv(1))).decode())
+				except socket.error:
+					account.set_arena_number(0)
+					account.add_lose()
+					self.release_client(encryption, player, account)
 				act = None
 				account.set_arena_number(0)
-				if outcome == "exit" or outcome == "":  # client exit the game
+				if outcome == "exit":  # client exit the game
 					self.__accounts_updates_to_table.append([account, "L"])
 					player.close()
 					account.add_lose()
 					account.player_offline()
 					return True
-				if outcome == "Victory":
+				elif outcome == "$":  # client couldn't connect to the other
+					break
+				elif outcome == "Victory":
 					act = "W"
 					account.add_win()
 				elif outcome == "Defeat":
@@ -778,93 +796,102 @@ class Server:
 		handle the request of the client for making a new death match
 		"""
 		if self.__death_battle_ip == "":  # player create connection
-			client_socket.send(encryption.encrypt("T"))
+			self.send_to_client(client_socket, encryption, "T", account)
 			self.__death_map_index = randint(0, len(self.__maps_list) - 1)
 			battle_arena = self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
 			self.__death_battle_ip = address[0]
 			self.__death_battle_creator = client_socket
-			while True:
+			while self.__death_battle_arena != 0:  # another player has been found
 				rlist, _, _ = select([client_socket], [], [], 0)
 				if client_socket in rlist:
 					try:
 						message = encryption.decrypt(client_socket.recv(ord(client_socket.recv(1))).decode())
 					except socket.error:
+						self.__death_battle_ip = ""
 						return True
 					if message == "exit":  # player disconnect
-						client_socket.close()
 						self.__death_battle_ip = ""
 						return True
-					elif message == "%":
+					elif message == "%":  # player doesn't wait for match anymore
 						self.__death_battle_ip = ""
 						return False
-				if self.__death_battle_arena == 0:
-					break
 				if self.__stop_running:
 					client_socket.close()
 					exit()
 			account.set_arena_number(battle_arena)
-			client_socket.send(encryption.encrypt_map(
-				str(self.__maps_list[self.__death_map_index])))
-		
+			try:
+				client_socket.send(encryption.encrypt_map(str(self.__maps_list[self.__death_map_index])))
+			except socket.error:
+				account.set_arena_number(0)
+				self.release_client(encryption, client_socket, account)
+				
 		else:  # second player
-			client_socket.send(encryption.encrypt("F"))
 			account.set_arena_number(self.__death_battle_arena)
 			self.__death_battle_arena = 0
-			client_socket.send(encryption.encrypt(self.__death_battle_ip))
-			client_socket.send(encryption.encrypt_map(
-				str(self.__maps_list[self.__death_map_index])))
-			self.__death_battle_ip = ""
+			try:
+				client_socket.send(encryption.encrypt("F"))
+				client_socket.send(encryption.encrypt(self.__death_battle_ip))
+				client_socket.send(encryption.encrypt_map(
+					str(self.__maps_list[self.__death_map_index])))
+				self.__death_battle_ip = ""
+			except socket.error:
+				self.__death_battle_ip = ""
+				account.set_arena_number(0)
+				self.release_client(encryption, client_socket, account)
 	
 	def time_mode_request(self, address, client_socket, account, encryption):
 		"""
-		handle the request of the client for making a new arena (battle)
-		wait until they are 2 players to start
-		if the first player disconnect modifies the
-		details of the first login to the second player
+		handle the request of the client for making a new time match
 		"""
 		if self.__time_battle_ip == "":  # player create connection
-			client_socket.send(encryption.encrypt("T"))
+			self.send_to_client(client_socket, encryption, "T", account)
 			self.__time_map_index = randint(0, len(self.__maps_list) - 1)
 			battle_arena = self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
 			self.__time_battle_ip = address[0]
 			self.__time_battle_creator = client_socket
-			while True:
+			while self.__time_battle_arena != 0:  # another player has been found
 				rlist, _, _ = select([client_socket], [], [], 0)
 				if client_socket in rlist:
 					try:
 						message = encryption.decrypt(client_socket.recv(ord(client_socket.recv(1))).decode())
 					except socket.error:
+						self.__time_battle_ip = ""
 						return True
 					if message == "exit":  # player disconnect
-						client_socket.close()
 						self.__time_battle_ip = ""
 						return True
-					elif message == "%":
+					elif message == "%":  # player doesn't wait for match anymore
 						self.__time_battle_ip = ""
 						return False
-				if self.__time_battle_arena == 0:
-					break
 				if self.__stop_running:
 					client_socket.close()
 					exit()
 			account.set_arena_number(battle_arena)
-			client_socket.send(encryption.encrypt_map(
-				str(self.__maps_list[self.__time_map_index])))
+			try:
+				client_socket.send(encryption.encrypt_map(str(self.__maps_list[self.__time_map_index])))
+			except socket.error:
+				account.set_arena_number(0)
+				self.release_client(encryption, client_socket, account)
 		
-		else:
-			client_socket.send(encryption.encrypt("F"))
+		else:  # second player
 			account.set_arena_number(self.__time_battle_arena)
 			self.__time_battle_arena = 0
-			client_socket.send(encryption.encrypt(self.__time_battle_ip))
-			client_socket.send(encryption.encrypt_map(
-				str(self.__maps_list[self.__time_map_index])))
-			self.__time_battle_ip = ""
+			try:
+				client_socket.send(encryption.encrypt("F"))
+				client_socket.send(encryption.encrypt(self.__time_battle_ip))
+				client_socket.send(encryption.encrypt_map(
+					str(self.__maps_list[self.__time_map_index])))
+				self.__time_battle_ip = ""
+			except socket.error:
+				self.__time_battle_ip = ""
+				account.set_arena_number(0)
+				self.release_client(encryption, client_socket, account)
 	
 	def confirm_register(self, client, account, encryption):
 		"""
 		check if the asked username and password doesn't exist in the accounts list
 		if they don't, send Y to client and register the new player
-		if they are, send N to the client
+		if there is already an account, send N to the client
 		argument:
 			client - socket, the socket which used for communicate with the client
 		"""
@@ -874,14 +901,14 @@ class Server:
 			if acc.get_username() == new_player_data[0]:
 				exist = True
 		if exist:
-			client.send(encryption.encrypt("N"))
+			self.send_to_client(client, encryption, "N")
 		else:
-			client.send(encryption.encrypt("Y"))
+			self.send_to_client(client, encryption, "Y")
 			new_account = self.register_new_player(new_player_data)
 			print("A new player signed up, is username is: " + new_player_data[0])
 			return new_account
 	
-	def register_new_player(self, new_account_data, is_online=True):
+	def register_new_player(self, new_account_data, is_admin_command=False):
 		"""add the new account to the list and insert it to the databases
 		if the request is from the client, automatically set his status to online
 		argument:
@@ -903,7 +930,7 @@ class Server:
 		conn.close()
 		new_account = Account(new_account_data[0], new_account_data[1],
 		                      0, 0, 0, "4d784e", "00/00/0000", firebase_token)
-		if is_online:
+		if not is_admin_command:
 			new_account.player_online()
 		self.__accounts_list.append(new_account)
 		self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
@@ -924,16 +951,16 @@ class Server:
 				# found match
 				exist = True
 				if account.get_client_status() == "On":  # this account is already taken
-					client.send(encryption.encrypt("T"))
+					self.send_to_client(client, encryption, "T")
 				elif account.get_client_status() == "Ban":
-					client.send(encryption.encrypt("B"))
-					client.send(encryption.encrypt(account.get_bandate_string()))
+					self.send_to_client(client, encryption, "B")
+					self.send_to_client(client, encryption, account.get_ban_date())
 				else:
-					client.send(encryption.encrypt("O"))  # can use this account
+					self.send_to_client(client, encryption, "O")  # can use this account
 					account.player_online()
 					return account
 		if not exist:
-			client.send(encryption.encrypt("F"))  # desired account does not exist
+			self.send_to_client(client, encryption, "F")  # desired account does not exist
 	
 	def find_next_arena(self, mode_code):
 		"""
