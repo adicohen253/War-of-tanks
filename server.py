@@ -176,7 +176,7 @@ class Server:
 	TIME_MODE = 1
 	
 	def __init__(self):
-		self.__ip = self.my_ip()
+		self.__ip = socket.gethostbyname(socket.gethostname())
 		self.__server_socket = socket.socket()
 		self.__server_socket.bind((self.__ip, 2020))
 		self.__server_socket.listen(1)
@@ -288,11 +288,6 @@ class Server:
 			for map_ in curs.fetchall():
 				self.__maps_list.append(Map(map_[0], map_[1], map_[2], map_[3], map_[4]))
 	
-	@staticmethod
-	def my_ip():
-		"""return my local current ip in string"""
-		return socket.gethostbyname(socket.gethostname())
-	
 	def active(self):
 		"""
 		active all the functions of the server
@@ -305,7 +300,7 @@ class Server:
 		threading.Thread(target=self.refresh_bans).start()
 		threading.Thread(target=lambda:
 		system(f"python web/manage.py runserver {self.__ip}:8000")).start()
-		self.create_server_screen()
+		self.server_screen()
 		# kill django server using PID - check if must to...
 		result = Popen("netstat -ano | findstr :8000", stdout=PIPE, shell=True)
 		available_django_processes = result.communicate()[0].decode().split("\r\n")
@@ -317,7 +312,25 @@ class Server:
 		self.__stop_running = True
 		self.__server_socket.close()
 	
-	def create_server_screen(self):
+	@staticmethod
+	def open_documentation_window(window):
+		new_window = Toplevel(window)
+		new_window.geometry('600x400')
+		new_window.title("Documentation")
+		new_window.config(bg='gray79')
+		new_window.resizable(False, False)
+		scroll = Scrollbar(new_window, orient=VERTICAL)
+		t = Text(new_window, yscrollcommand=scroll.set, wrap=WORD)
+		scroll.config(command=t.yview)
+		with open("doc.txt", "r") as file_handler:
+			data = file_handler.read()
+		t.insert(END, data)
+		t.config(state=DISABLED)
+		t.place(y=10, x=10, height=380, width=450)
+		scroll.place(x=460, y=10, height=380, width=18)
+		new_window.grab_set()
+	
+	def server_screen(self):
 		"""
 		create the API of the admin
 		"""
@@ -335,21 +348,25 @@ class Server:
 		lf = LabelFrame(window, font=FONT, text="Accounts manage interface")
 		lf.place(x=0, y=0, width=750, height=200)
 		
-		Button(lf, text='Reset accounts', bg='dodger blue', height=2, width=15,
-		       command=lambda: threading.Thread(target=self.clean_accounts_data,
+		Button(lf, text='Reset accounts', bg='dodger blue', height=2, width=16,
+		       command=lambda: threading.Thread(target=self.reset_all_accounts_command,
 		                                        args=([tree])).start()).place(x=585, y=10)
-		Button(window, text='exit', bg='dodger blue', height=2, width=15,
-		       command=lambda: window.destroy()).place(x=585, y=80)
+		
+		Button(window, text='Open documentation', bg='dodger blue', height=2, width=16,
+		       command=lambda: self.open_documentation_window(window)).place(x=585, y=80)
+		
+		Button(window, text='Exit', bg='dodger blue', height=2, width=16,
+		       command=lambda: window.destroy()).place(x=585, y=130)
 		
 		self.__open_connections = BooleanVar(value=True)
 		self.__open_battlefields = BooleanVar(value=True)
 		user, password = StringVar(), StringVar()
 		day, month = StringVar(value="day"), StringVar(value="month")
 		year = StringVar(value="year")
-		Label(lf, text="Username:", font=FONT).place(x=20, y=10)
+		Label(lf, text="Username:", font=FONT).place(x=30, y=10)
 		Entry(lf, textvariable=user).place(x=125, y=15)
 		
-		Label(lf, text="Password:\n(Register only)", font=FONT).place(x=20, y=50)
+		Label(lf, text="Password:\n(Sign ups only)", font=FONT).place(x=20, y=50)
 		Entry(lf, textvariable=password).place(x=125, y=55)
 		
 		Label(lf, text="Date:", font=FONT).place(x=300, y=10)
@@ -363,21 +380,28 @@ class Server:
 		Combobox(lf, state='readonly', takefocus=OFF, width=4, textvariable=year,
 		         values=["year"] + [str(x) for x in range(2020, 2024)]).place(x=515, y=10)
 		
-		Button(lf, command=lambda: threading.Thread(target=self.admin_register,
-			args=(user, password, tree)).start(),
-			text='Register', borderwidth=3, width=10, bg='green').place(x=20, y=140)
+		Button(lf, command=lambda: self.clear_input_command(user, password, day, month, year, window),
+		       text="Clean inputs", borderwidth=3, width=15, bg="white").place(x=320, y=70)
 		
-		Button(lf, command=lambda: threading.Thread(target=self.admin_ban,
-			args=(user, password, [day, month, year], tree,)).start(),
+		Button(lf, command=lambda: threading.Thread(target=self.signup_command,
+			args=(user, password, tree)).start(),
+			text='Sign up', borderwidth=3, width=10, bg='green').place(x=20, y=140)
+		
+		Button(lf, command=lambda: threading.Thread(target=self.ban_command,
+			args=(user, [day, month, year], tree)).start(),
 			text='Ban', borderwidth=3, width=10, bg='yellow').place(x=120, y=140)
 		
-		Button(lf, command=lambda: threading.Thread(target=self.admin_free_ban,
-		    args=(user, password, tree)).start(),
-		    text="Free", borderwidth=3, width=10, bg='azure').place(x=220, y=140)
+		Button(lf, command=lambda: threading.Thread(target=self.free_command,
+		    args=(user, tree)).start(),
+		    text="Free", borderwidth=3, width=10, bg='deep sky blue').place(x=220, y=140)
 		
-		Button(lf, command=lambda: threading.Thread(target=self.admin_delete,
-			args=(user, password, tree)).start(),
+		Button(lf, command=lambda: threading.Thread(target=self.delete_command,
+			args=(user, tree)).start(),
 		    text='Delete', borderwidth=3, width=10, bg='red').place(x=320, y=140)
+		
+		Button(lf, command=lambda: threading.Thread(target=self.reset_command,
+			args=(user, tree)).start(), text="Reset",
+		    borderwidth=3, width=10, bg="orange").place(x=420, y=140)
 		
 		connections_lf = LabelFrame(window, font=FONT, text="New Connections")
 		connections_lf.place(x=0, y=215, width=120, height=130)
@@ -406,6 +430,8 @@ class Server:
 		scroll.place(x=1023, y=375, height=225, width=27)
 		window.bind("<FocusIn>", lambda event: self.show_account_data(tree))
 		window.bind("<Enter>", lambda event: self.show_account_data(tree))
+		tree.bind("<FocusIn>", lambda event: self.show_account_data(tree))
+		tree.bind("<Enter>", lambda event: self.show_account_data(tree))
 		window.mainloop()
 		self.__open_connections = None
 		self.__open_battlefields = None
@@ -434,7 +460,7 @@ class Server:
 		return (0 < len(password) <= 10) and all([letter in string.ascii_letters or
 		                                          letter.isdigit() for letter in password])
 	
-	def admin_register(self, new_username, new_password, window):
+	def signup_command(self, username_entry, password_entry, tree):
 		"""
 		the admin registers a new player, if already exist ignore
 		argument:
@@ -442,15 +468,15 @@ class Server:
 			new_password - Entry widget, password to register
 			window - Treeview, the widget of the accounts data
 		"""
-		if self.is_valid_username(new_username.get()) and self.is_valid_password(new_password.get()):
-			if new_username.get() not in [element.get_username() for element in self.__accounts_list]:
-				self.register_new_player([new_username.get(), new_password.get()], is_admin_command=True)
-		window.focus_set()
-		window.master.focus_set()
-		new_password.set("")
-		new_username.set("")
+		if self.is_valid_username(username_entry.get()) and self.is_valid_password(password_entry.get()):
+			if username_entry.get() not in [element.get_username() for element in self.__accounts_list]:
+				self.register_new_player([username_entry.get(), password_entry.get()], is_admin_command=True)
+		tree.focus_set()
+		tree.master.focus_set()
+		password_entry.set("")
+		username_entry.set("")
 	
-	def admin_ban(self, username, password, ban_date, window):
+	def ban_command(self, username_entry, ban_date, tree):
 		"""
 		the admin ban a player, if username/password incorrect ignore
 		same if the ban date is wrong
@@ -460,27 +486,26 @@ class Server:
 		ban_date - list, the widgets of ban date
 		window - Treeview, the widget of the accounts data
 		"""
-		if self.is_valid_username(username.get()):
+		if self.is_valid_username(username_entry.get()):
 			try:
 				day, month, year = [int(element.get()) for element in ban_date]
 				_ = datetime.datetime(day=day, year=year, month=month)
 				for account in self.__accounts_list:
-					if account.get_username() == username.get():
+					if account.get_username() == username_entry.get():
 						ban_player_until = "/".join(element.get() for element in ban_date)
 						account.set_ban_until(ban_player_until)
 						self.__accounts_updates_to_table.append([account, "B"])
 						break
 			except ValueError:
 				pass
-		window.focus_set()
-		window.master.focus_set()
-		username.set("")
-		password.set("")
+		tree.focus_set()
+		tree.master.focus_set()
+		username_entry.set("")
 		ban_date[0].set("day")
 		ban_date[1].set("month")
 		ban_date[2].set("year")
 	
-	def admin_free_ban(self, username_to_free, user_password, window):
+	def free_command(self, username_entry, tree):
 		"""
 		the admin deletes a player, if username/password incorrect ignore
 		arguments:
@@ -488,18 +513,17 @@ class Server:
 			password - Entry widget, password to free
 			window - Treeview, the widget of the accounts data
 		"""
-		if self.is_valid_username(username_to_free.get()):
+		if self.is_valid_username(username_entry.get()):
 			for acc in self.__accounts_list:
-				if acc.get_username() == username_to_free.get():
+				if acc.get_username() == username_entry.get():
 					acc.free()
 					self.__accounts_updates_to_table.append([acc, "B"])
 					break
-		window.focus_set()
-		window.master.focus_set()
-		username_to_free.set("")
-		user_password.set("")
+		tree.focus_set()
+		tree.master.focus_set()
+		username_entry.set("")
 	
-	def admin_delete(self, username, password, window):
+	def delete_command(self, username_entry, tree):
 		"""
 		the admin deletes a player, if username/password incorrect ignore
 		arguments:
@@ -507,18 +531,46 @@ class Server:
 			password - Entry widget, password to ban
 			window - Treeview, the widget of the accounts data
 		"""
-		if self.is_valid_username(username.get()):
+		if self.is_valid_username(username_entry.get()):
 			for acc in self.__accounts_list:
-				if acc.get_username() == username.get():
+				if acc.get_username() == username_entry.get():
 					self.__accounts_list.remove(acc)
-					self.delete_from_accounts(acc)
+					self.delete_account(acc)
 					break
+		tree.focus_set()
+		tree.master.focus_set()
+		username_entry.set("")
+		
+	def reset_command(self, username_entry, tree):
+		if self.is_valid_username(username_entry.get()):
+			for account in self.__accounts_list:
+				if account.get_username() == username_entry.get():
+					self.reset_account(account)
+		tree.focus_set()
+		tree.master.focus_set()
+		username_entry.set("")
+	
+	@staticmethod
+	def clear_input_command(username_entry, password_entry, day, month, year, window):
+		username_entry.set("")
+		password_entry.set("")
+		day.set("day")
+		month.set("month")
+		year.set("year")
+		window.focus_set()
+	
+	def reset_all_accounts_command(self, window):
+		"""
+		clean the data of all the accounts and set it to default
+		argument:
+			window - Treeview, the widget of the accounts data
+		"""
+		for account in self.__accounts_list:
+			self.reset_account(account)
 		window.focus_set()
 		window.master.focus_set()
-		username.set("")
-		password.set("")
 	
-	def delete_from_accounts(self, account):
+	def delete_account(self, account):
 		"""
 		delete the account from the databases (if firebase is inevitable skip it)
 		argument:
@@ -532,24 +584,18 @@ class Server:
 		conn.commit()
 		conn.close()
 	
-	def clean_accounts_data(self, window):
-		"""
-		clean the data of all the accounts and set it to default
-		argument:
-			window - Treeview, the widget of the accounts data
-		"""
+	def reset_account(self, account):
+		account.clean_data()
 		conn = connect('my database.db')
 		curs = conn.cursor()
-		curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0, Draws = 0, Color = '4d784e', Bandate = '00/00/0000'")
+		curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0,"
+		             f" Draws = 0, Color = '4d784e', Bandate = '00/00/0000'"
+		             f" WHERE Username = (?)", (account.get_username(), ))
 		conn.commit()
 		conn.close()
-		for account in self.__accounts_list:
-			if self.__is_online_database:
-				self.__fire.patch(f"Accounts/{account.get_firebase_token()}/",
-				                  {"Wins": 0, "Loses": 0, "Draws": 0, "Color": "4d784e", "Bandate": "00/00/0000"})
-			account.clean_data()
-		window.focus_set()
-		window.master.focus_set()
+		if self.__is_online_database:
+			self.__fire.patch(f"Accounts/{account.get_firebase_token()}/",
+			                  {"Wins": 0, "Loses": 0, "Draws": 0, "Color": "4d784e", "Bandate": "00/00/0000"})
 	
 	def show_account_data(self, tree):
 		"""
@@ -616,7 +662,7 @@ class Server:
 			today = datetime.datetime.replace(datetime.datetime.now(), hour=0, minute=0, second=0)
 			banned_list = list(filter(lambda x: x.get_client_status() == "Ban", self.__accounts_list))
 			for acc in banned_list:
-				day, month, year = acc.get_ban_date().split("/")
+				day, month, year = [int(x) for x in acc.get_ban_date().split("/")]
 				ban_date = datetime.datetime(day=day, month=month, year=year)
 				if ban_date <= today:
 					acc.free()

@@ -1,0 +1,7 @@
+Welcome! This is the documentation for the "World of Tanks" server's API
+Parts of the documentation:
+	->Buttons explanation
+	->Switches explanation
+	->Accounts fields
+	->Current state labels
+

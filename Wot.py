@@ -22,6 +22,7 @@ from RSA import RsaEncryption
 # constants
 SIZE = (1200, 600)
 TIME_TO_WAIT = 1.6
+
 BARS_POINTER_POS = ([630, 165], [630, 255])
 CONNECTING_INPUT_FIELD_POS = ([900, 190], [900, 270])
 ASKED_IP_LEN_PACKET = 15
@@ -74,7 +75,7 @@ LOGIN_WORKED = "Login successful"
 ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 BATTLES_LOCKED = "Server forbids new battle for now"
-PLAYER_WIN = "Congratulations you won"
+PLAYER_WIN = "you won"
 PLAYER_LOSE = "you lost"
 PLAYER_DRAW = "Draw"
 
@@ -581,18 +582,13 @@ class Game:
 						return BATTLE_ON_TIME
 					
 	def output_battle_result(self, is_win):
-		self.__events_font.set_bold(False)
 		if is_win:
 			output = self.__events_font.render(PLAYER_WIN, True, NEON)
-			pos = [420, 250]
 		elif is_win is False:
 			output = self.__events_font.render(PLAYER_LOSE, True, NEON)
-			pos = [420, 250]
 		else:
 			output = self.__events_font.render(PLAYER_DRAW, True, NEON)
-			pos = [420, 250]
-		self.__events_font.set_bold(True)
-		self.__screen.blit(output, pos)
+		self.__screen.blit(output, [900, 350])
 		pygame.display.flip()
 	
 	def _battle_start(self, mode_code=BATTLE_TO_DEATH):
@@ -689,7 +685,7 @@ class Game:
 					pygame.mixer.music.load(DEFEAT)
 					pygame.mixer.music.play()
 					self._send_to_server("exit")
-					# self.output_battle_result(False)
+					self.output_battle_result(False)
 					time.sleep(TIME_TO_WAIT)
 					self.__client.close()
 					sys.exit()
@@ -699,7 +695,7 @@ class Game:
 						self.__flags[0] = True
 						self._send_to_server("Defeat")
 						pygame.mixer.music.load(DEFEAT)
-						# self.output_battle_result(False)
+						self.output_battle_result(False)
 						break
 						
 					elif event.key == pygame.K_BACKSPACE:
@@ -717,14 +713,14 @@ class Game:
 			
 			if self.__flags[1]:
 				self._send_to_server("Victory")
-				# self.output_battle_result(True)
+				self.output_battle_result(True)
 				pygame.mixer.music.load(VICTORY)
 				break
 			
 			if pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
 				self.__is_collide_happened = True
 				self._send_to_server("Draw")
-				# self.output_battle_result(None)
+				self.output_battle_result(None)
 				pygame.mixer.music.load(DRAW)
 				break
 			
@@ -763,7 +759,7 @@ class Game:
 			if self.__player.get_health() <= 0:
 				self._send_to_server("Defeat")
 				self.tank_destroyed(self.__player.get_loc())
-				# self.output_battle_result(False)
+				self.output_battle_result(False)
 				pygame.mixer.music.load(DEFEAT)
 				self.__flags[0] = True
 				break
@@ -771,7 +767,7 @@ class Game:
 			elif self.__enemy.get_health() <= 0:
 				self._send_to_server("Victory")
 				self.tank_destroyed(self.__enemy.get_loc())
-				# self.output_battle_result(True)
+				self.output_battle_result(True)
 				pygame.mixer.music.load(VICTORY)
 				self.__flags[0] = True
 				break
