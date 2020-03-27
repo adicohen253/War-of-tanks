@@ -21,7 +21,64 @@ from RSA import RsaEncryption
 
 # constants
 SIZE = (1200, 600)
-TIME_TO_WAIT = 1.3
+TIME_TO_WAIT = 1.6
+BARS_POINTER_POS = ([630, 165], [630, 255])
+CONNECTING_INPUT_FIELD_POS = ([900, 190], [900, 270])
+ASKED_IP_LEN_PACKET = 15
+FPS_RATE = 50
+PACKET_SENDING_RATE = 60
+SECS_TO_PLAY = 10  # 2:30 minutes
+BATTLE_TO_DEATH = 0
+BATTLE_ON_TIME = 1
+
+# screens and widgets
+POINTER = "game images/pointer.png"
+SIGN_UP_SCREEN = "game images/Sign up.jpg"
+LOGIN_SCREEN = "game images/Login.jpg"
+COLOR_SCREEN = "game images/colors.jpg"
+SETTINGS_SCREEN = "game images/settings.jpg"
+SETTINGS_SCREEN_PART_2 = "game images/settings1.jpg"
+MAIN_SCREEN = "game images/Main.jpg"
+MENU_SCREEN = "game images/menu.jpg"
+SCORE_BOARD = "game images/scoreboard.png"
+CHOOSE_MODE_SCREEN = "game images/modes.png"
+CONNECT = "game images/connect.jpg"
+FIELD = "game images/zone.jpg"
+MY_PLAYER_POINT = "game images/player_point.png"
+EXPLODE_SHEET = "game images/explode.png"
+
+# fonts
+FONT = "game fonts/font.ttf"
+EVENT_FONT = "game fonts/events font.ttf"
+
+# sounds
+DRAW = "game sounds/draw.mp3"
+BOOST = "game sounds/boost.mp3"
+ERROR_INPUT = "game sounds/error.mp3"
+DEFEAT = "game sounds/losing.mp3"
+VICTORY = "game sounds/wining.mp3"
+FIRE = "game sounds/shot.mp3"
+BRAKE = "game sounds/brake.mp3"
+RELOAD = "game sounds/reload.mp3"
+
+# Outputs
+WAITING_TO_ANOTHER = "Waiting for another player"
+SERVER_DOWN = "Server shut down"
+ACCOUNT_DELETED = "Admin deleted your account"
+ACCOUNT_BANNED = "Admin banned your account until: "
+CANT_CONNECT = "Cant connect to server"
+ILLEGAL_USERNAME = "username must start with character"
+INVALID_USERNAME = "invalid account change username please"
+REGISTER_WORKED = "Registration accepted"
+LOGIN_WORKED = "Login successful"
+ALREADY_TAKEN = "cant login, another player use this account"
+LOGIN_FAILED = "Login failed"
+BATTLES_LOCKED = "Server forbids new battle for now"
+PLAYER_WIN = "Congratulations you won"
+PLAYER_LOSE = "you lost"
+PLAYER_DRAW = "Draw"
+
+# colors
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)
 KELLY = (76, 187, 23)
@@ -29,59 +86,10 @@ RED = (255, 0, 0)
 BLACK = (0, 0, 0)
 BROWN = (129, 97, 60)
 GREEN = (0, 255, 0)
-BARS_POINTER_POS = ([630, 165], [630, 255])
-CONNECTING_INPUT_FIELD_POS = ([900, 195], [900, 275])
-ASKED_IP_LEN_PACKET = 15
-FPS_RATE = 50
-PACKET_SENDING_RATE = 60
-SECS_TO_PLAY = 150  # 2:30 minutes
-BATTLE_TO_DEATH = 0
-BATTLE_ON_TIME = 1
-
-# screens and widgets
-POINTER = "project images/pointer.png"
-SIGN_UP_SCREEN = "project images/Sign up.jpg"
-LOGIN_SCREEN = "project images/Login.jpg"
-COLOR_SCREEN = "project images/colors.jpg"
-SETTINGS_SCREEN = "project images/settings.jpg"
-SETTINGS_SCREEN_PART_2 = "project images/settings1.jpg"
-MAIN_SCREEN = "project images/Main.jpg"
-MENU_SCREEN = "project images/menu.jpg"
-SCORE_BOARD = "project images/scoreboard.png"
-CHOOSE_MODE_SCREEN = "project images/modes.png"
-CONNECT = "project images/connect.jpg"
-FIELD = "project images/zone.jpg"
-MY_PLAYER_POINT = "project images/player_point.png"
-EXPLODE_SHEET = "project images/explode.png"
-
-# fonts
-FONT = "project images/game font.ttf"
-
-# sounds
-DRAW = "project sounds/draw.mp3"
-BOOST = "project sounds/boost.mp3"
-ERROR_INPUT = "project sounds/error.mp3"
-DEFEAT = "project sounds/losing.mp3"
-VICTORY = "project sounds/wining.mp3"
-FIRE = "project sounds/shot.mp3"
-BRAKE = "project sounds/brake.mp3"
-RELOAD = "project sounds/reload.mp3"
-
-# messages
-WAITING_TO_ANOTHER = "Waiting for another player"
-SERVER_DOWN = "Server shut down"
-ACCOUNT_DELETED = "Admin deleted your account"
-ACCOUNT_BANNED = "Admin banned your account until until: "
-SERVER_DENIED = "Server access denied, cant create a connection"
-ILLEGAL_USERNAME = "username must start with character"
-INVALID_USERNAME = "invalid account change username please"
-REGISTER_WORKED = "Registration accepted"
-LOGIN_WORKED = "Login successful"
-ALREADY_TAKEN = "cant login, another player use this account"
-LOGIN_FAILED = "Login failed"
+NEON = (57, 255, 20)
 
 # network
-SERVER_IP = "192.168.1.34"
+SERVER_IP = "192.168.1.35"
 SERVER_PORT = 2020
 GAME_PORT = 5120
 STREAM_PORT = 32000
@@ -99,18 +107,18 @@ screen = pygame.display.set_mode(SIZE)
 
 class Game:
 	# constant widgets
-	BULLET = pygame.image.load("project images/bullet.png").convert()
+	BULLET = pygame.image.load("game images/bullet.png").convert()
 	BULLET.set_colorkey(WHITE)
 	BULLET = pygame.transform.scale(BULLET, (50, 50))
 	
-	GHOST = pygame.image.load("project images/ghost.png").convert()
+	GHOST = pygame.image.load("game images/ghost.png").convert()
 	GHOST.set_colorkey(WHITE)
-	SOUND_OFF = pygame.image.load("project images/Sound off.png").convert()
+	SOUND_OFF = pygame.image.load("game images/Sound off.png").convert()
 	SOUND_OFF.set_colorkey(WHITE)
-	SOUND_ON = pygame.image.load("project images/Sound on.png").convert()
+	SOUND_ON = pygame.image.load("game images/Sound on.png").convert()
 	SOUND_ON.set_colorkey(WHITE)
 	
-	ENDLESS_AMMO = pygame.image.load("project images/Endless_Ammo.png").convert()
+	ENDLESS_AMMO = pygame.image.load("game images/Endless_Ammo.png").convert()
 	ENDLESS_AMMO.set_colorkey(WHITE)
 	
 	def __init__(self, game_screen):
@@ -118,13 +126,15 @@ class Game:
 		self.__ip = socket.gethostbyname(socket.gethostname())
 		self.__server_ip = SERVER_IP
 		self.__encryption = RsaEncryption()
-		self.__font = pygame.font.Font(FONT, 40)
+		self.__input_font = pygame.font.Font(FONT, 40)
+		self.__events_font = pygame.font.Font(EVENT_FONT, 35)
+		self.__events_font.set_bold(True)
 		self.__demo_player = game_objects.Tank((500, 400))
 		self.__demo_player.set_demo_tank_image(pygame.transform.scale(self.__demo_player.get_image(), [100, 100]))
 		self.__client = socket.socket()
 		self.__last_time_check_server = time.time()
 		self.__account = ["", ""]
-		self.__flags = [False, False]  # for ending match
+		self.__flags = [False, False]  # for ending battle
 		self.__explodes = game_objects.Spritesheet(EXPLODE_SHEET, (0, 0, 70, 70), 5, 5, (0, 0, 0))
 		
 		# game start and it's functions manage these attributes
@@ -153,6 +163,7 @@ class Game:
 			pygame.display.flip()
 			image = self.__explodes.next()
 			time.sleep(0.07)
+		self.__explodes.reload_strip()
 	
 	def _make_connection_with_server(self):
 		"""Return if client success to connect the game server, None otherwise"""
@@ -170,10 +181,8 @@ class Game:
 			pk_to_send = chr(len(pk_to_send)).encode() + pk_to_send
 			self.__client.send(pk_to_send)
 		except (socket.error, socket.timeout):
-			failed_output = self.__font.render(SERVER_DENIED, True, RED)
-			# not using server down protocol because
-			# there is no connection from the beginning
-			self.__screen.blit(failed_output, [100, 500])
+			failed_output = self.__events_font.render(CANT_CONNECT, True, BLACK)
+			self.__screen.blit(failed_output, [350, 250])
 			pygame.display.flip()
 			time.sleep(TIME_TO_WAIT)
 			sys.exit()
@@ -182,8 +191,8 @@ class Game:
 				
 	def server_down_protocol(self):
 		"""Protocol of error when try to communicate with server"""
-		output = self.__font.render(SERVER_DOWN, True, RED)
-		self.__screen.blit(output, [400, 100])
+		output = self.__events_font.render(SERVER_DOWN, True, BLACK)
+		self.__screen.blit(output, [420, 250])
 		pygame.display.flip()
 		self.__client.close()
 		time.sleep(2)
@@ -225,18 +234,18 @@ class Game:
 				respond = self.__encryption.decrypt(self.__client.recv(ord(length)).decode())
 				if "@" in respond:  # client's account deleted
 					self.__flags[0] = True
-					output = self.__font.render(ACCOUNT_DELETED, True, BLACK)
-					self.__screen.blit(output, [450, 200])
+					output = self.__events_font.render(ACCOUNT_DELETED, True, BLACK)
+					self.__screen.blit(output, [330, 200])
 					pygame.display.flip()
 					self.__client.close()
 					time.sleep(2)
 					sys.exit()
-				if "!" in respond:  # client's account banned
+				elif "!" in respond:  # client's account banned
 					self.__flags[0] = True
 					length = self.__client.recv(1).decode()
 					bandate = self.__encryption.decrypt(self.__client.recv(ord(length)).decode())
-					output = self.__font.render(ACCOUNT_BANNED + bandate, True, BLACK)
-					self.__screen.blit(output, [450, 200])
+					output = self.__events_font.render(ACCOUNT_BANNED + bandate, True, BLACK)
+					self.__screen.blit(output, [150, 200])
 					pygame.display.flip()
 					time.sleep(2)
 					sys.exit()
@@ -301,7 +310,7 @@ class Game:
 		self.__screen.blit(connection_screen, [0, 0])
 		pygame.display.flip()
 		for i in range(len(self.__account)):
-			point_pos = BARS_POINTER_POS[i]
+			pointer_pos = BARS_POINTER_POS[i]
 			while True:
 				self.keep_alive()
 				events = pygame.event.get()
@@ -314,11 +323,11 @@ class Game:
 				if end_collecting:
 					break
 				self.__screen.blit(connection_screen, [0, 0])
-				self.__screen.blit(pointer_to_bar, point_pos)
+				self.__screen.blit(pointer_to_bar, pointer_pos)
 				for index in range(len(self.__account)):
 					if self.__account[index] != "":
 						account_field_pos = CONNECTING_INPUT_FIELD_POS[index]
-						account_field_input = self.__font.render(self.__account[index], True, KELLY)
+						account_field_input = self.__input_font.render(self.__account[index], True, KELLY)
 						self.__screen.blit(account_field_input, account_field_pos)
 				pygame.display.flip()
 		if not self._take_care_connection_cases(is_login_now):
@@ -334,7 +343,7 @@ class Game:
 		msg_pos = 100, 500
 		output = ""
 		if not self.__account[0][0].isalpha():  # username must start with alphabetical letter
-			output = self.__font.render(ILLEGAL_USERNAME, True, BLUE)
+			output = self.__input_font.render(ILLEGAL_USERNAME, True, BLUE)
 			self.__screen.blit(output, msg_pos)
 			pygame.display.flip()
 			time.sleep(TIME_TO_WAIT)
@@ -345,23 +354,23 @@ class Game:
 			self._send_to_server("login " + self.__account[0] + "," + self.__account[1])
 			respond = self._receive_from_server()
 			if respond == "O":  # Ok
-				output = self.__font.render(LOGIN_WORKED, True, GREEN)
+				output = self.__input_font.render(LOGIN_WORKED, True, GREEN)
 				legal_case = True
 			elif respond == "B":  # Ban
 				date = self._receive_from_server()
-				output = self.__font.render(ACCOUNT_BANNED + date, True, RED)
+				output = self.__input_font.render(ACCOUNT_BANNED + date, True, RED)
 			elif respond == "T":  # Taken
-				output = self.__font.render(ALREADY_TAKEN, True, RED)
+				output = self.__input_font.render(ALREADY_TAKEN, True, RED)
 			elif respond == "F":  # Failed
-				output = self.__font.render(LOGIN_FAILED, True, RED)
+				output = self.__input_font.render(LOGIN_FAILED, True, RED)
 		else:
 			self._send_to_server("Signup " + self.__account[0] + "," + self.__account[1])
 			respond = self._receive_from_server()
 			if respond == "Y":
-				output = self.__font.render(REGISTER_WORKED, True, RED)
+				output = self.__input_font.render(REGISTER_WORKED, True, GREEN)
 				legal_case = True
 			elif respond == "N":
-				output = self.__font.render(INVALID_USERNAME, True, RED)
+				output = self.__input_font.render(INVALID_USERNAME, True, RED)
 		self.__screen.blit(output, msg_pos)
 		pygame.display.flip()
 		time.sleep(TIME_TO_WAIT)
@@ -392,7 +401,7 @@ class Game:
 				self.__screen.blit(rainbow_screen, [0, 0])
 				for element in range(len(my_color)):
 					color_pos = 200 + 300 * element, 310
-					show_color = self.__font.render(my_color[element], True, WHITE)
+					show_color = self.__input_font.render(my_color[element], True, WHITE)
 					self.__screen.blit(show_color, color_pos)
 				self.__screen.blit(self.__demo_player.get_image(), self.__demo_player.get_loc())
 				pygame.display.flip()
@@ -492,9 +501,9 @@ class Game:
 		self._send_to_server("rating")
 		respond = self._receive_from_server()
 		champ_data, user_data, index = respond.split("\n")  # for be sure
-		champ_data = self.__font.render(champ_data, True, BLUE)
-		user_data = self.__font.render(self.__account[0] + " " + user_data, True, BLUE)
-		index = self.__font.render(index, True, BLUE)
+		champ_data = self.__input_font.render(champ_data, True, BLUE)
+		user_data = self.__input_font.render(self.__account[0] + " " + user_data, True, BLUE)
+		index = self.__input_font.render(index, True, BLUE)
 		for i, element in enumerate([champ_data, user_data, index]):
 			self.__screen.blit(element, [400, 150 + 100 * i])
 		pygame.display.flip()
@@ -570,6 +579,21 @@ class Game:
 						return BATTLE_TO_DEATH
 					elif event.key == pygame.K_2:
 						return BATTLE_ON_TIME
+					
+	def output_battle_result(self, is_win):
+		self.__events_font.set_bold(False)
+		if is_win:
+			output = self.__events_font.render(PLAYER_WIN, True, NEON)
+			pos = [420, 250]
+		elif is_win is False:
+			output = self.__events_font.render(PLAYER_LOSE, True, NEON)
+			pos = [420, 250]
+		else:
+			output = self.__events_font.render(PLAYER_DRAW, True, NEON)
+			pos = [420, 250]
+		self.__events_font.set_bold(True)
+		self.__screen.blit(output, pos)
+		pygame.display.flip()
 	
 	def _battle_start(self, mode_code=BATTLE_TO_DEATH):
 		"""all the process of the game
@@ -577,14 +601,18 @@ class Game:
 			account: type list, the username and password
 			client: type - socket - the connection to the server
 			demo_player: type - tank, for the color of the player
-			size_screen_before: type - tuple, when battle start the screen size back to normal (SIZE)
-			(right now it's temporary)
+			
 		"""
-		self.__flags = [False, False]
-		self.__is_sound_active = True
 		self._ask_for_color()
 		battlefield = pygame.image.load(FIELD).convert()
 		self._send_to_server("game " + str(mode_code))
+		respond = self._receive_from_server()
+		if respond == "#":  # Battlefields are locked
+			output = self.__events_font.render(BATTLES_LOCKED, True, BLACK)
+			self.__screen.blit(output, [270, 280])
+			pygame.display.flip()
+			time.sleep(2)
+			return
 		player_point = pygame.image.load(MY_PLAYER_POINT).convert()
 		player_point.set_colorkey(WHITE)
 		clock = pygame.time.Clock()
@@ -603,17 +631,11 @@ class Game:
 			main_socket = socket.socket()
 			main_socket.bind((self.__ip, GAME_PORT))  # for game communicate
 			main_socket.listen(1)
-			main_socket.settimeout(3)
 			
 			rect1, rect2 = self._build_map()
-			if rect1 is None:
+			if rect1 is None or rect1 is False:
 				return
-			try:
-				self.__enemy_socket, address = main_socket.accept()
-			except socket.timeout:
-				self.clean_match_data()
-				self._send_to_server("$")
-				return
+			self.__enemy_socket, address = main_socket.accept()
 			self.__enemy_ip = address[0]  # only ip address
 			self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
 			enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
@@ -629,15 +651,10 @@ class Game:
 		else:  # player makes connection with main player
 			self.__enemy_ip = self._receive_from_server()
 			rect1, rect2 = self._build_map()
-			if rect1 is None:
+			if rect1 is None or rect1 is False:
 				return
 			self.__enemy_socket = socket.socket()
-			try:
-				self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
-			except socket.error:
-				self.clean_match_data()
-				self._send_to_server("$")
-				return
+			self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
 			self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
 			enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
 			self.__player = game_objects.Tank(rect2, direct=0, new_color=self.__demo_player.get_color())
@@ -672,6 +689,7 @@ class Game:
 					pygame.mixer.music.load(DEFEAT)
 					pygame.mixer.music.play()
 					self._send_to_server("exit")
+					# self.output_battle_result(False)
 					time.sleep(TIME_TO_WAIT)
 					self.__client.close()
 					sys.exit()
@@ -681,6 +699,7 @@ class Game:
 						self.__flags[0] = True
 						self._send_to_server("Defeat")
 						pygame.mixer.music.load(DEFEAT)
+						# self.output_battle_result(False)
 						break
 						
 					elif event.key == pygame.K_BACKSPACE:
@@ -698,12 +717,14 @@ class Game:
 			
 			if self.__flags[1]:
 				self._send_to_server("Victory")
+				# self.output_battle_result(True)
 				pygame.mixer.music.load(VICTORY)
 				break
 			
 			if pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
 				self.__is_collide_happened = True
 				self._send_to_server("Draw")
+				# self.output_battle_result(None)
 				pygame.mixer.music.load(DRAW)
 				break
 			
@@ -740,17 +761,19 @@ class Game:
 					self.__traps.remove(t)
 			
 			if self.__player.get_health() <= 0:
-				self.__flags[0] = True
 				self._send_to_server("Defeat")
-				self.tank_destroyed(self.__player.rect[:2])
+				self.tank_destroyed(self.__player.get_loc())
+				# self.output_battle_result(False)
 				pygame.mixer.music.load(DEFEAT)
+				self.__flags[0] = True
 				break
 			
 			elif self.__enemy.get_health() <= 0:
-				self.__flags[0] = True
 				self._send_to_server("Victory")
-				self.tank_destroyed(self.__enemy.rect[:2])
+				self.tank_destroyed(self.__enemy.get_loc())
+				# self.output_battle_result(True)
 				pygame.mixer.music.load(VICTORY)
+				self.__flags[0] = True
 				break
 			
 			self.__player.move_tank(self.__walls)
@@ -762,9 +785,7 @@ class Game:
 				self.__screen.blit(player_point, [self.__player.get_loc()[0], self.__player.get_loc()[1] - 50])
 			if mode_code == BATTLE_ON_TIME:
 				if self._take_care_time_mode(start_battle_from):  # time is up
-					pass
-					# pygame.mixer.music.play()
-					# time.sleep(TIME_TO_WAIT)
+					break
 			pygame.display.flip()
 			if self.__player.reload_ammo():  # only makes sound of reload when the player reloads
 				pygame.mixer.music.load(RELOAD)
@@ -778,15 +799,15 @@ class Game:
 	def clean_match_data(self):
 		self.__enemy = None
 		self.__player = None
-		self.__enemy_socket.close()
 		self.__enemy_socket = None
-		self.__voice_socket.close()
 		self.__voice_socket = None
 		self.__enemy_ip = ""
 		self.__traps = []
 		self.__bullets = []
 		self.__walls = []
 		self.__is_collide_happened = False
+		self.__flags = [False, False]
+		self.__is_sound_active = True
 	
 	def _flip_screen(self, zone):
 		"""shows all the data of the surface (pixels) plus the data of the players
@@ -825,7 +846,7 @@ class Game:
 			if output_list.index(element) == 5 and self.__player.get_is_eternal_ammo_mode():  # in case of endless ammo
 				self.__screen.blit(self.ENDLESS_AMMO, element[1])
 				continue
-			self.__screen.blit(self.__font.render(element[0], True, WHITE), element[1])
+			self.__screen.blit(self.__input_font.render(element[0], True, WHITE), element[1])
 	
 	def _channeling_with_the_enemy(self):
 		clock = pygame.time.Clock()
@@ -844,22 +865,24 @@ class Game:
 				packet_to_send += "C\n"
 				self.__flags[0] = True
 			
-			rlist, _, _ = select([self.__enemy_socket], [], [], 0)
 			try:
 				self.__enemy_socket.send((chr(len(packet_to_send))).encode()
 					+ packet_to_send.encode())
 			except socket.error:
-				self.__flags[1] = True
+				self.__flags[1] = True  # enemy quit
 				break
+			rlist, _, _ = select([self.__enemy_socket], [], [], 0)
 			if self.__enemy_socket in rlist:
-				msg_len = self.__enemy_socket.recv(1).decode()
-				if msg_len == "":  # enemy quit
+				length = self.__enemy_socket.recv(1).decode()
+				if length == "":  # enemy quit
 					self.__flags[1] = True
 					break
 				else:
-					enemy_data = self.__enemy_socket.recv(ord(msg_len)).decode().split()
+					enemy_data = self.__enemy_socket.recv(ord(length)).decode().split()
 					self._take_care_enemy_packet(enemy_data)
 			clock.tick(PACKET_SENDING_RATE)
+		self.__enemy_socket.close()
+		self.__voice_socket.close()
 	
 	def _take_care_enemy_packet(self, enemy_data):
 		for header in enemy_data:
@@ -912,7 +935,7 @@ class Game:
 	def _build_map(self):
 		connect_img = pygame.image.load(CONNECT)
 		self.__screen.blit(connect_img, [0, 0])
-		output = self.__font.render(WAITING_TO_ANOTHER + "...", True, (0, 0, 255))
+		output = self.__input_font.render(WAITING_TO_ANOTHER + "...", True, (0, 0, 255))
 		screen.blit(output, [75, 520])
 		pygame.display.flip()
 		while True:
@@ -921,8 +944,14 @@ class Game:
 				length = self.__client.recv(2)
 				if length == b"":
 					self.server_down_protocol()
+				if length == b"##":  # server closed battlefields
+					output = self.__events_font.render(BATTLES_LOCKED, True, WHITE)
+					self.__screen.blit(output, [270, 280])
+					pygame.display.flip()
+					time.sleep(2)
+					return False, False
 				length = unpack("<H", length)[0]
-				all_walls, rects = self.__encryption.decrypt_map(self.__client.recv(length).decode())
+				all_walls, rects = self.__encryption.decrypt_map_data(self.__client.recv(length).decode())
 				break
 				
 			for event in pygame.event.get():
@@ -946,11 +975,11 @@ class Game:
 	
 	def refresh_connection_screen(self, img):
 		screen.blit(img, (0, 0))
-		output = self.__font.render(WAITING_TO_ANOTHER, True, (0, 0, 255))
+		output = self.__input_font.render(WAITING_TO_ANOTHER, True, (0, 0, 255))
 		screen.blit(output, [75, 520])
 		pygame.display.flip()
 		for i in range(4):
-			output = self.__font.render("." * i, True, (0, 0, 255))
+			output = self.__input_font.render("." * i, True, (0, 0, 255))
 			screen.blit(output, [405, 520])
 			pygame.display.flip()
 			time.sleep(0.3)
@@ -959,21 +988,24 @@ class Game:
 		time_to_play = SECS_TO_PLAY - (time.time() - start_time)
 		if time_to_play <= 0:
 			if self.__player.get_health() > self.__enemy.get_health():
-				self._send_to_server(self.__encryption.encrypt("Victory"))
+				self._send_to_server("Victory")
+				self.output_battle_result(True)
 				pygame.mixer.music.load(VICTORY)
 				self.__flags[0] = True
 			elif self.__player.get_health() < self.__enemy.get_health():
-				self._send_to_server(self.__encryption.encrypt("Defeat"))
+				self._send_to_server("Defeat")
+				self.output_battle_result(False)
 				pygame.mixer.music.load(DEFEAT)
-				self.__flags[1] = True
+				self.__flags[0] = True
 			else:
-				self._send_to_server(self.__encryption.encrypt("Draw"))
+				self._send_to_server("Draw")
+				self.output_battle_result(None)
 				pygame.mixer.music.load(DRAW)
 				self.__flags[0] = True
-				return True
+			return True
 		else:
 			time_to_play = time.strftime("%M:%S", time.gmtime(time_to_play))
-			self.__screen.blit(self.__font.render(time_to_play, True, WHITE), [900, 420])
+			self.__screen.blit(self.__input_font.render(time_to_play, True, WHITE), [900, 420])
 	
 	def _trap_affect(self, trap, is_myself):
 		"""active the trap attribute on the player"""

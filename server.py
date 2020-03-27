@@ -48,7 +48,7 @@ class Account:
 		self.__draws = draws
 		self.__points = wins + draws / 2 - loses
 		self.__favorite_color = color
-		self.__arena_number = 0
+		self.__battlefield_id = 0
 		self.__ban_date = bandate
 		self.__firebase_token = firebase_token
 		if self.__ban_date != "00/00/0000":
@@ -83,8 +83,8 @@ class Account:
 	def get_color(self):
 		return self.__favorite_color
 	
-	def get_arena_number(self):
-		return self.__arena_number
+	def get_battlefield_id(self):
+		return self.__battlefield_id
 	
 	def get_ban_date(self):
 		return self.__ban_date
@@ -95,8 +95,8 @@ class Account:
 	def get_points(self):
 		return self.__points
 	
-	def set_arena_number(self, new_arena_number):
-		self.__arena_number = new_arena_number
+	def set_battlefield_id(self, new_battlefield_id):
+		self.__battlefield_id = new_battlefield_id
 	
 	def clean_data(self):
 		"""
@@ -152,7 +152,7 @@ class Account:
 		return f"{self.__username} {self.__password} " \
 		       f"{self.__wins} {self.__loses} {self.__draws} {float(self.__points)} " \
 		       f"{self.__favorite_color} {self.__client_status} " \
-		       f"{self.__ban_date} {self.__arena_number}"
+		       f"{self.__ban_date} {self.__battlefield_id}"
 
 
 class Map:
@@ -190,17 +190,15 @@ class Server:
 		self.__accounts_updates_to_table = []
 		self.__stop_running = False
 		self.__open_connections = None  # boolean var for connections switch
-		self.__open_arenas = None  # boolean var for arenas switch
+		self.__open_battlefields = None  # boolean var for battlefields switch
 		
 		self.__death_map_index = 0
 		self.__death_battle_ip = ""
-		self.__death_battle_arena = 0
-		self.__death_battle_creator = None
+		self.__new_death_battlefield_id = 0
 		
 		self.__time_map_index = 0
 		self.__time_battle_ip = ""
-		self.__time_battle_arena = 0
-		self.__time_battle_creator = None
+		self.__new_time_battlefield_id = 0
 	
 	def sync_data(self):
 		"""
@@ -330,7 +328,7 @@ class Server:
 		window.configure(background='azure')
 		Label(window, text="My IP is: " + self.__ip, fg='blue',
 		      bg='white', borderwidth=5, relief=SUNKEN).place(x=850, y=30)
-		self.__players_label = Label(window, text=f"{self.__online_players_counter} player are online", fg='blue',
+		self.__players_label = Label(window, text="0 players are online", fg='blue',
 		                           bg='white', borderwidth=5, relief=SUNKEN)
 		self.__players_label.place(x=850, y=70)
 		# Admin options's widgets
@@ -344,7 +342,7 @@ class Server:
 		       command=lambda: window.destroy()).place(x=585, y=80)
 		
 		self.__open_connections = BooleanVar(value=True)
-		self.__open_arenas = BooleanVar(value=True)
+		self.__open_battlefields = BooleanVar(value=True)
 		user, password = StringVar(), StringVar()
 		day, month = StringVar(value="day"), StringVar(value="month")
 		year = StringVar(value="year")
@@ -388,16 +386,16 @@ class Server:
 		Radiobutton(connections_lf, text="Off", variable=self.__open_connections,
 		            value=False).place(x=10, y=60)
 		
-		arenas_lf = LabelFrame(window, font=FONT, text="New Arenas")
-		arenas_lf.place(x=121, y=215, width=120, height=130)
-		Radiobutton(arenas_lf, text="On", variable=self.__open_arenas,
+		battlefields_lf = LabelFrame(window, font=FONT, text="New Battlefields")
+		battlefields_lf.place(x=121, y=215, width=120, height=130)
+		Radiobutton(battlefields_lf, text="On", variable=self.__open_battlefields,
 		            value=True).place(x=10, y=20)
-		Radiobutton(arenas_lf, text="Off", variable=self.__open_arenas,
+		Radiobutton(battlefields_lf, text="Off", variable=self.__open_battlefields,
 		            value=False).place(x=10, y=60)
 		
 		# Clients data's widgets
 		headers = ('Username', 'Password', 'Wins',
-		           'Loses', 'Draws', 'Points', 'Color', 'Status', 'Ban date', 'Arena')
+		           'Loses', 'Draws', 'Points', 'Color', 'Status', 'Ban date', 'Battlefield')
 		scroll = Scrollbar(window, orient=VERTICAL)
 		tree = Treeview(window, columns=headers, show='headings', yscrollcommand=scroll.set)
 		for elem in headers:
@@ -410,7 +408,7 @@ class Server:
 		window.bind("<Enter>", lambda event: self.show_account_data(tree))
 		window.mainloop()
 		self.__open_connections = None
-		self.__open_arenas = None
+		self.__open_battlefields = None
 		self.__players_label = None
 	
 	@staticmethod
@@ -656,8 +654,8 @@ class Server:
 			account.player_offline()
 		client.close()
 		self.__n_cryption.remove(encryption.get_n())
-		self.__online_players_counter -= 1
-		self.__players_label['text'] = f"{self.__online_players_counter} player are online"
+		self.__players_label['text'] = \
+			f"{int(self.__players_label['text'].split(' ')[0]) -1} player are online"
 		exit()
 	
 	def player_services(self, client, address):
@@ -682,15 +680,21 @@ class Server:
 		if account is None:
 			client.close()
 			return
-		self.__online_players_counter += 1
-		self.__players_label['text'] = f"{self.__online_players_counter} player are online"
+		self.__players_label['text'] =\
+			f"{int(self.__players_label['text'].split(' ')[0]) + 1} players are online"
 		while not self.__stop_running:
 			if account not in self.__accounts_list:  # account deleted
 				self.send_to_client(client, encryption, "@")
+				self.__n_cryption.remove(encryption.get_n())
+				self.__players_label['text'] = \
+					f"{int(self.__players_label['text'].split(' ')[0]) - 1} player are online"
 				break
 			elif account.get_client_status() == "Ban":
 				self.send_to_client(client, encryption, "!")
 				self.send_to_client(client, encryption, account.get_ban_date())
+				self.__n_cryption.remove(encryption.get_n())
+				self.__players_label['text'] = \
+					f"{int(self.__players_label['text'].split(' ')[0]) - 1} player are online"
 				break
 			rlist, _, _ = select([client], [], [], 0)
 			if client in rlist:
@@ -706,7 +710,7 @@ class Server:
 					self.__accounts_updates_to_table.append([account, "C"])
 				
 				elif request[0] == "rating":
-					rating = self.get_rating(account)
+					rating = self.get_player_and_champ_rate(account)
 					self.send_to_client(client, encryption, rating, account)
 				
 				elif request[0] == "game":
@@ -730,7 +734,7 @@ class Server:
 				if account is not None:
 					return account
 	
-	def get_rating(self, account):
+	def get_player_and_champ_rate(self, account):
 		champion = self.__accounts_list[0]
 		champion_score = f"{champion.get_username()} {champion.get_wins()} " \
 		             f"{champion.get_loses()} {champion.get_draws()}\n"
@@ -739,26 +743,37 @@ class Server:
 		return champion_score + player_score + index_of_player
 	
 	def make_battle(self, account, player, mode_code, address, encryption):
+		if not self.__open_battlefields.get():  # Battlefields are locked
+			self.send_to_client(player, encryption, "#", account)
+			return
+		elif self.__open_battlefields is not None:
+			self.send_to_client(player, encryption, "$", account)
 		if mode_code == self.DEATH_MODE:
-			flag = self.death_mode_request(address, player, account, encryption)
+			is_need_release = self.death_battle_request(address, player, account, encryption)
 		else:
-			flag = self.time_mode_request(address, player, account, encryption)
-		if flag is True:  # player disconnect
+			is_need_release = self.time_battle_request(address, player, account, encryption)
+		if is_need_release is True:  # player disconnect
 			self.release_client(encryption, player, account)
-		elif flag is False:  # player quit for waiting to match
+		elif is_need_release is False:  # clients backs to menu screen
 			return
 		while True:
 			if self.__stop_running:
 				player.close()
 				exit()  # server shut down
 			if account not in self.__accounts_list:
-				account.set_arena_number(0)
+				account.set_battlefield_id(0)
 				self.send_to_client(player, encryption, "@")  # account deleted
+				self.__n_cryption.remove(encryption.get_n())
+				self.__players_label['text'] = \
+					f"{int(self.__players_label['text'].split(' ')[0]) - 1} player are online"
 				break
 			if account.get_client_status() == "Ban":
-				account.set_arena_number(0)
+				account.set_battlefield_id(0)
 				self.send_to_client(player, encryption, "!")
 				self.send_to_client(player, encryption, account.get_ban_date())
+				self.__n_cryption.remove(encryption.get_n())
+				self.__players_label['text'] = \
+					f"{int(self.__players_label['text'].split(' ')[0]) - 1} player are online"
 				break
 			rlist, _, _ = select([player], [], [], 0)
 			if player in rlist:
@@ -766,19 +781,17 @@ class Server:
 				try:
 					outcome = encryption.decrypt(player.recv(ord(player.recv(1))).decode())
 				except socket.error:
-					account.set_arena_number(0)
+					account.set_battlefield_id(0)
 					account.add_lose()
 					self.release_client(encryption, player, account)
 				act = None
-				account.set_arena_number(0)
+				account.set_battlefield_id(0)
 				if outcome == "exit":  # client exit the game
 					self.__accounts_updates_to_table.append([account, "L"])
 					player.close()
 					account.add_lose()
 					account.player_offline()
 					return True
-				elif outcome == "$":  # client couldn't connect to the other
-					break
 				elif outcome == "Victory":
 					act = "W"
 					account.add_win()
@@ -791,17 +804,16 @@ class Server:
 				self.__accounts_updates_to_table.append([account, act])
 				break
 	
-	def death_mode_request(self, address, client_socket, account, encryption):
+	def death_battle_request(self, address, client_socket, account, encryption):
 		"""
 		handle the request of the client for making a new death match
 		"""
 		if self.__death_battle_ip == "":  # player create connection
 			self.send_to_client(client_socket, encryption, "T", account)
 			self.__death_map_index = randint(0, len(self.__maps_list) - 1)
-			battle_arena = self.__death_battle_arena = self.find_next_arena(self.DEATH_MODE)
+			battle_id = self.__new_death_battlefield_id = self.find_next_battlefield(self.DEATH_MODE)
 			self.__death_battle_ip = address[0]
-			self.__death_battle_creator = client_socket
-			while self.__death_battle_arena != 0:  # another player has been found
+			while self.__new_death_battlefield_id != 0:  # another player has been found
 				rlist, _, _ = select([client_socket], [], [], 0)
 				if client_socket in rlist:
 					try:
@@ -815,41 +827,48 @@ class Server:
 					elif message == "%":  # player doesn't wait for match anymore
 						self.__death_battle_ip = ""
 						return False
+				if not self.__open_battlefields.get():
+					client_socket.send(b"##")
+					self.__death_battle_ip = ""
+					return False
 				if self.__stop_running:
 					client_socket.close()
 					exit()
-			account.set_arena_number(battle_arena)
+			account.set_battlefield_id(battle_id)
 			try:
-				client_socket.send(encryption.encrypt_map(str(self.__maps_list[self.__death_map_index])))
+				client_socket.send(encryption.encrypt_map_data(str(self.__maps_list[self.__death_map_index])))
 			except socket.error:
-				account.set_arena_number(0)
+				account.set_battlefield_id(0)
 				self.release_client(encryption, client_socket, account)
 				
 		else:  # second player
-			account.set_arena_number(self.__death_battle_arena)
-			self.__death_battle_arena = 0
+			account.set_battlefield_id(self.__new_death_battlefield_id)
+			self.__new_death_battlefield_id = 0
 			try:
 				client_socket.send(encryption.encrypt("F"))
+				if not self.__open_battlefields.get():  #
+					client_socket.send(encryption.encrypt("0.0.0.0"))  # indefinite ip address
+					client_socket.send(b"##")
+					return False
 				client_socket.send(encryption.encrypt(self.__death_battle_ip))
-				client_socket.send(encryption.encrypt_map(
+				client_socket.send(encryption.encrypt_map_data(
 					str(self.__maps_list[self.__death_map_index])))
 				self.__death_battle_ip = ""
 			except socket.error:
 				self.__death_battle_ip = ""
-				account.set_arena_number(0)
+				account.set_battlefield_id(0)
 				self.release_client(encryption, client_socket, account)
 	
-	def time_mode_request(self, address, client_socket, account, encryption):
+	def time_battle_request(self, address, client_socket, account, encryption):
 		"""
 		handle the request of the client for making a new time match
 		"""
 		if self.__time_battle_ip == "":  # player create connection
 			self.send_to_client(client_socket, encryption, "T", account)
 			self.__time_map_index = randint(0, len(self.__maps_list) - 1)
-			battle_arena = self.__time_battle_arena = self.find_next_arena(self.TIME_MODE)
+			battle_id = self.__new_time_battlefield_id = self.find_next_battlefield(self.TIME_MODE)
 			self.__time_battle_ip = address[0]
-			self.__time_battle_creator = client_socket
-			while self.__time_battle_arena != 0:  # another player has been found
+			while self.__new_time_battlefield_id != 0:  # another player has been found
 				rlist, _, _ = select([client_socket], [], [], 0)
 				if client_socket in rlist:
 					try:
@@ -863,28 +882,36 @@ class Server:
 					elif message == "%":  # player doesn't wait for match anymore
 						self.__time_battle_ip = ""
 						return False
+				if not self.__open_battlefields.get():
+					client_socket.send(b"##")
+					self.__time_battle_ip = ""
+					return False
 				if self.__stop_running:
 					client_socket.close()
 					exit()
-			account.set_arena_number(battle_arena)
+			account.set_battlefield_id(battle_id)
 			try:
-				client_socket.send(encryption.encrypt_map(str(self.__maps_list[self.__time_map_index])))
+				client_socket.send(encryption.encrypt_map_data(str(self.__maps_list[self.__time_map_index])))
 			except socket.error:
-				account.set_arena_number(0)
+				account.set_battlefield_id(0)
 				self.release_client(encryption, client_socket, account)
 		
 		else:  # second player
-			account.set_arena_number(self.__time_battle_arena)
-			self.__time_battle_arena = 0
+			account.set_battlefield_id(self.__new_time_battlefield_id)
+			self.__new_time_battlefield_id = 0
 			try:
 				client_socket.send(encryption.encrypt("F"))
+				if not self.__open_battlefields.get():  #
+					client_socket.send(encryption.encrypt("0.0.0.0"))  # indefinite ip address
+					client_socket.send(b"##")
+					return False
 				client_socket.send(encryption.encrypt(self.__time_battle_ip))
-				client_socket.send(encryption.encrypt_map(
+				client_socket.send(encryption.encrypt_map_data(
 					str(self.__maps_list[self.__time_map_index])))
 				self.__time_battle_ip = ""
 			except socket.error:
 				self.__time_battle_ip = ""
-				account.set_arena_number(0)
+				account.set_battlefield_id(0)
 				self.release_client(encryption, client_socket, account)
 	
 	def confirm_register(self, client, account, encryption):
@@ -962,32 +989,32 @@ class Server:
 		if not exist:
 			self.send_to_client(client, encryption, "F")  # desired account does not exist
 	
-	def find_next_arena(self, mode_code):
+	def find_next_battlefield(self, battle_mode_id):
 		"""
-		finds the next first available arena and return it's number
+		finds the next first available battlefield and return it's number
 		arguments:
 			mode_code - int, for determine for which mode need to find
 		"""
-		if mode_code == self.DEATH_MODE:
-			my_arenas = [x.get_arena_number() for x in self.__accounts_list
-			             if x.get_arena_number() >= 1 and x.get_arena_number() % 2]
-			if my_arenas:  # not empty list
-				min_arena = min(my_arenas)
-				if min_arena == 1:
-					return max(my_arenas) + 2
+		if battle_mode_id == self.DEATH_MODE:
+			my_battlefield_ids = [x.get_battlefield_id() for x in self.__accounts_list
+			             if x.get_battlefield_id() >= 1 and x.get_battlefield_id() % 2]
+			if my_battlefield_ids:  # not empty list
+				min_id = min(my_battlefield_ids)
+				if min_id == 1:
+					return max(my_battlefield_ids) + 2
 				else:
-					return min_arena - 2
+					return min_id - 2
 			else:
 				return 1
 		else:
-			my_arenas = [x.get_arena_number() for x in self.__accounts_list
-			             if x.get_arena_number() >= 1 and not (x.get_arena_number() % 2)]
-			if my_arenas:  # not empty list
-				min_arena = min(my_arenas)
-				if min_arena == 2:
-					return max(my_arenas) + 2
+			my_battlefield_ids = [x.get_battlefield_id() for x in self.__accounts_list
+			             if x.get_battlefield_id() >= 1 and not (x.get_battlefield_id() % 2)]
+			if my_battlefield_ids:  # not empty list
+				min_id = min(my_battlefield_ids)
+				if min_id == 2:
+					return max(my_battlefield_ids) + 2
 				else:
-					return min_arena - 2
+					return min_id - 2
 			else:
 				return 2
 

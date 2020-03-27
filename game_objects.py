@@ -8,9 +8,9 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
 # war of tanks
-IMG_PLY = "project images/tank player.png"
-BULLET = "project images/bullet.png"
-SURPRISE = "project images/surprise.png"
+IMG_PLY = "game images/tank player.png"
+BULLET = "game images/bullet.png"
+SURPRISE = "game images/surprise.png"
 EXPLODE = "1.png"
 
 
@@ -18,7 +18,7 @@ class Tank(pygame.sprite.Sprite):
 	MOVES = [(3, 0), (2, -2), (0, -3), (-2, -2), (-3, 0), (-2, 2), (0, 3), (2, 2)]
 
 	NUM_BULLETS = 10
-	START_HEALTH = 30
+	START_HEALTH = 1
 
 	def __init__(self, rect, direct=0, new_color=RED):
 		super(Tank, self).__init__()
@@ -335,15 +335,18 @@ class Trap(pygame.sprite.Sprite):
 
 class Spritesheet(object):
 	def __init__(self, filename, rect, cols, rows, colorkey=None):
-		self.sheet = pygame.image.load(filename).convert()
-		self.images = self.load_strip(rect, cols, rows, colorkey)
-		self.i = 0
-
+		self.__sheet = pygame.image.load(filename).convert()
+		self.__images = self.load_strip(rect, cols, rows, colorkey)
+		self.__i = 0
+		
+	def reload_strip(self):
+		self.__i = 0
+		
 	def image_at(self, rectangle, colorkey=None):
 		"""Loads image from x,y,x+offset,y+offset"""
 		rect = pygame.Rect(rectangle)
 		image = pygame.Surface(rect.size).convert()
-		image.blit(self.sheet, (0, 0), rect)
+		image.blit(self.__sheet, (0, 0), rect)
 		if colorkey is not None:
 			if colorkey is -1:
 				colorkey = image.get_at((0, 0))
@@ -364,10 +367,10 @@ class Spritesheet(object):
 		return self.images_at(tups, colorkey)
 
 	def next(self):
-		if self.i >= len(self.images):
+		if self.__i >= len(self.__images):
 			return False
-		image = self.images[self.i]
-		self.i += 1
+		image = self.__images[self.__i]
+		self.__i += 1
 		return image
 
 

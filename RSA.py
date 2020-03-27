@@ -90,7 +90,7 @@ class RsaEncryption:
 		message = [int(num) for num in ciphertext.split(" ")]
 		return ''.join([chr(num ** key % n) for num in message])
 	
-	def encrypt_map(self, map_data):
+	def encrypt_map_data(self, map_data):
 		key, n = self.__partner_public_key
 		encrypted_map = []
 		walls, players_pos = map_data.split("+")
@@ -112,7 +112,7 @@ class RsaEncryption:
 		encrypted_map = ("\n".join(encrypted_map) + "+" + players_coordinates).encode()
 		return len(encrypted_map).to_bytes(2, 'little') + encrypted_map
 	
-	def decrypt_map(self, map_data):
+	def decrypt_map_data(self, map_data):
 		key, n = self.__private_key
 		encrypted_map = []
 		walls, players_pos = map_data.split("+")
