@@ -6,6 +6,7 @@ from subprocess import Popen, PIPE
 from re import findall
 from os import system
 import datetime
+from pyperclip import copy
 from random import randint
 from firebase import firebase
 from select import select
@@ -26,7 +27,7 @@ FIREBASE_URL = "https://my-project-b9bb8.firebaseio.com/"
 
 
 class Account:
-	def __init__(self, username, password, wins, loses, draws, color,
+	def __init__(self, username, password, wins, loses, draws, points, color,
 	             bandate, firebase_token):
 		"""
 		The class used to organize the static accounts data so as the dynamic, also used
@@ -46,7 +47,7 @@ class Account:
 		self.__wins = wins
 		self.__loses = loses
 		self.__draws = draws
-		self.__points = wins + draws / 2 - loses
+		self.__points = points
 		self.__favorite_color = color
 		self.__battlefield_id = 0
 		self.__ban_date = bandate
@@ -127,17 +128,19 @@ class Account:
 		self.__ban_date = "00/00/0000"
 		self.__client_status = "Off"
 	
+	def get_bonus(self, bonus):
+		self.__points += bonus
+	
 	def add_win(self):
 		self.__wins += 1
-		self.__points += 1
+		self.__points += 2
 	
 	def add_lose(self):
 		self.__loses += 1
-		self.__points -= 1
 	
 	def add_draws(self):
 		self.__draws += 1
-		self.__points += 0.5
+		self.__points += 1
 	
 	def change_color(self, newcolor):
 		"""
@@ -150,7 +153,7 @@ class Account:
 	def __str__(self):
 		"""make a string to describe all the account headers"""
 		return f"{self.__username} {self.__password} " \
-		       f"{self.__wins} {self.__loses} {self.__draws} {float(self.__points)} " \
+		       f"{self.__wins} {self.__loses} {self.__draws} {self.__points} " \
 		       f"{self.__favorite_color} {self.__client_status} " \
 		       f"{self.__ban_date} {self.__battlefield_id}"
 
@@ -182,7 +185,6 @@ class Server:
 		self.__server_socket.listen(1)
 		self.__fire = firebase.FirebaseApplication(FIREBASE_URL, None)
 		self.__is_online_database = False
-		self.__online_players_counter = 0
 		self.__n_cryption = []
 		self.__players_label = None
 		self.__accounts_list = []
@@ -208,9 +210,9 @@ class Server:
 		try:
 			global_accounts = self.__fire.get('Accounts/', '')
 			if global_accounts is None:
-				online_tokens = set()
+				global_tokens = set()
 			else:
-				online_tokens = set(global_accounts.keys())
+				global_tokens = set(global_accounts.keys())
 			self.__is_online_database = True
 		except ConnectionError:
 			print("cant get access to online firebase")
@@ -221,27 +223,26 @@ class Server:
 		is_offline_updated = bool(curs.fetchall()[0][0])
 		if is_offline_updated:
 			curs.execute("SELECT * FROM Accounts")
-			data = curs.fetchall()
-			local_tokens = set([x[7] for x in data])
-			deleted_tokens = list(online_tokens - local_tokens)
+			local_accounts = curs.fetchall()
+			local_tokens = set([x[8] for x in local_accounts])
+			deleted_tokens = list(global_tokens - local_tokens)
 			for element in deleted_tokens:
 				self.__fire.delete("Accounts/", element)
-			for element in data:
-				if element[7] == "":
+			for element in local_accounts:
+				if element[8] == "":  # if account need posting in firebase
 					token = self.__fire.post(f"Accounts/",
 					                         {"Username": element[0], "Password": element[1],
 					                          "Wins": element[2], "Loses": element[3],
-					                          "Draws": element[4], "Color": element[5],
-					                          "Bandate": element[6]})['name']
+					                          "Draws": element[4], "Points": element[5], "Color": element[6],
+					                          "Bandate": element[7]})['name']
 					curs.execute("UPDATE Accounts SET Netoken = (?) WHERE Username = (?)", (token, element[0]))
 				else:
-					self.__fire.patch(f"Accounts/{element[7]}",
+					self.__fire.patch(f"Accounts/{element[8]}",
 					                  {"Wins": element[2], "Loses": element[3], "Draws": element[4],
-					                   "Color": element[5], "Bandate": element[6]})
+					                   "Points": element[5], "Color": element[6], "Bandate": element[7]})
 			
 			curs.execute("UPDATE Flags set IsOfflineUpdated = 0")
 			conn.commit()
-		
 		conn.close()
 	
 	def build_my_accounts(self):
@@ -255,11 +256,11 @@ class Server:
 			data = [x for x in accounts_data.items()]
 			for element in data:
 				firebase_token = element[0]
-				username, password = element[1]['Username'], element[1]['Password']
-				wins, loses, draws = element[1]['Wins'], element[1]['Loses'], element[1]['Draws']
+				username, password, wins = element[1]['Username'], element[1]['Password'], element[1]['Wins']
+				loses, draws, points = element[1]['Loses'], element[1]['Draws'], element[1]['Points']
 				color, bandate = element[1]['Color'], element[1]['Bandate']
 				self.__accounts_list.append(Account(username, password, wins, loses,
-				                                    draws, color, bandate, firebase_token))
+				                                    draws, points, color, bandate, firebase_token))
 				self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
 			return
 		conn = connect("my database.db")
@@ -271,7 +272,7 @@ class Server:
 		data = [list(x) for x in curs.fetchall()]
 		for acc in data:
 			self.__accounts_list.append(Account(acc[0], acc[1], acc[2],
-			                                    acc[3], acc[4], acc[5], acc[6], acc[7]))
+			    acc[3], acc[4], acc[5], acc[6], acc[7], acc[8]))
 		self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
 	
 	def build_my_maps(self):
@@ -432,10 +433,27 @@ class Server:
 		window.bind("<Enter>", lambda event: self.show_account_data(tree))
 		tree.bind("<FocusIn>", lambda event: self.show_account_data(tree))
 		tree.bind("<Enter>", lambda event: self.show_account_data(tree))
+		tree.bind("<Control-c>", lambda event: self.get_username_from_tree(tree))
 		window.mainloop()
 		self.__open_connections = None
 		self.__open_battlefields = None
 		self.__players_label = None
+	
+	def show_account_data(self, tree):
+		"""
+		print the data of all the accounts
+		tree - Treeview, the widget of the accounts data
+		"""
+		for i in tree.get_children():
+			tree.delete(i)
+		for account in self.__accounts_list:
+			tree.insert("", END, values=str(account).split(' '))
+			
+	@staticmethod
+	def get_username_from_tree(tree):
+		line = tree.focus()
+		username = tree.item(line)['values'][0]
+		copy(username)
 	
 	@staticmethod
 	def is_valid_username(username):
@@ -589,23 +607,14 @@ class Server:
 		conn = connect('my database.db')
 		curs = conn.cursor()
 		curs.execute(f"UPDATE ACCOUNTS SET Wins = 0, Loses = 0,"
-		             f" Draws = 0, Color = '4d784e', Bandate = '00/00/0000'"
+		             f" Draws = 0, Points = 0, Color = '4d784e', Bandate = '00/00/0000'"
 		             f" WHERE Username = (?)", (account.get_username(), ))
 		conn.commit()
 		conn.close()
 		if self.__is_online_database:
 			self.__fire.patch(f"Accounts/{account.get_firebase_token()}/",
-			                  {"Wins": 0, "Loses": 0, "Draws": 0, "Color": "4d784e", "Bandate": "00/00/0000"})
-	
-	def show_account_data(self, tree):
-		"""
-		print the data of all the accounts
-		tree - Treeview, the widget of the accounts data
-		"""
-		for i in tree.get_children():
-			tree.delete(i)
-		for account in self.__accounts_list:
-			tree.insert("", END, values=str(account).split(' '))
+			                  {"Wins": 0, "Loses": 0, "Draws": 0, "Points": 0,
+			                   "Color": "4d784e", "Bandate": "00/00/0000"})
 	
 	def update_users_data(self):
 		"""
@@ -621,10 +630,10 @@ class Server:
 				account, act = update[0], update[1]
 				if act == "W":
 					if self.__is_online_database:
-						self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
-						                'Wins', account.get_wins())
-					curs.execute("UPDATE Accounts SET Wins = (?) WHERE Username = (?)",
-					             (account.get_wins(), account.get_username()))
+						self.__fire.patch(f'Accounts/{account.get_firebase_token()}/',
+						    {"Wins": account.get_wins(), "Points": account.get_points()})
+					curs.execute("UPDATE Accounts SET Wins = (?), Points = (?) WHERE Username = (?)",
+					             (account.get_wins(), account.get_points(), account.get_username()))
 				elif act == "L":
 					if self.__is_online_database:
 						self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
@@ -633,10 +642,10 @@ class Server:
 					             (account.get_loses(), account.get_username()))
 				elif act == "E":
 					if self.__is_online_database:
-						self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
-						                'Draws', account.get_draws())
-					curs.execute("UPDATE Accounts SET Draws = (?) WHERE Username = (?)",
-					             (account.get_loses(), account.get_username()))
+						self.__fire.patch(f'Accounts/{account.get_firebase_token()}/',
+							{'Draws': account.get_draws(), "Points": account.get_points()})
+					curs.execute("UPDATE Accounts SET Draws = (?), Points = (?) WHERE Username = (?)",
+					             (account.get_loses(), account.get_points(), account.get_username()))
 				elif act == "C":
 					if self.__is_online_database:
 						self.__fire.put(f'Accounts/{account.get_firebase_token()}/',
@@ -689,7 +698,10 @@ class Server:
 		
 	def receive_from_client(self, client, encryption, account=None):
 		try:
-			length = ord(client.recv(1))
+			length = client.recv(1)
+			if length == b"":
+				raise socket.error
+			length = ord(length)
 			data = encryption.decrypt(client.recv(length).decode())
 			return data
 		except socket.error:
@@ -788,6 +800,15 @@ class Server:
 		index_of_player = str(self.__accounts_list.index(account) + 1)
 		return champion_score + player_score + index_of_player
 	
+	def calculate_bonus_points(self, enemy_username):
+		if enemy_username == self.__accounts_list[0].get_username():
+			return 3
+		elif enemy_username == self.__accounts_list[1].get_username():
+			return 2
+		elif len(self.__accounts_list) >= 3 and enemy_username == self.__accounts_list[2].get_usermame():
+			return 1
+		return 0
+		
 	def make_battle(self, account, player, mode_code, address, encryption):
 		if not self.__open_battlefields.get():  # Battlefields are locked
 			self.send_to_client(player, encryption, "#", account)
@@ -825,7 +846,10 @@ class Server:
 			if player in rlist:
 				outcome = ""
 				try:
-					outcome = encryption.decrypt(player.recv(ord(player.recv(1))).decode())
+					outcome = player.recv(1)
+					if outcome == b"":
+						raise socket.error
+					outcome = encryption.decrypt(player.recv(ord(outcome)).decode())
 				except socket.error:
 					account.set_battlefield_id(0)
 					account.add_lose()
@@ -841,12 +865,17 @@ class Server:
 				elif outcome == "Victory":
 					act = "W"
 					account.add_win()
+					enemy_username = self.receive_from_client(player, encryption, account)
+					account.get_bonus(self.calculate_bonus_points(enemy_username))
 				elif outcome == "Defeat":
 					act = "L"
 					account.add_lose()
 				elif outcome == "Draw":  # draw in the match
 					act = "E"
 					account.add_draws()
+				elif outcome == "Cancel":
+					# first player didn't identify attempt to connect
+					pass
 				self.__accounts_updates_to_table.append([account, act])
 				break
 	
@@ -863,7 +892,10 @@ class Server:
 				rlist, _, _ = select([client_socket], [], [], 0)
 				if client_socket in rlist:
 					try:
-						message = encryption.decrypt(client_socket.recv(ord(client_socket.recv(1))).decode())
+						message = client_socket.recv(1)
+						if message == b"":
+							raise socket.error
+						message = encryption.decrypt(client_socket.recv(ord(message)).decode())
 					except socket.error:
 						self.__death_battle_ip = ""
 						return True
@@ -874,7 +906,7 @@ class Server:
 						self.__death_battle_ip = ""
 						return False
 				if not self.__open_battlefields.get():
-					client_socket.send(b"##")
+					client_socket.send(b"##")  # New battles are close
 					self.__death_battle_ip = ""
 					return False
 				if self.__stop_running:
@@ -882,24 +914,29 @@ class Server:
 					exit()
 			account.set_battlefield_id(battle_id)
 			try:
+				if not self.__open_battlefields.get():
+					client_socket.send(b"##")  # New battles are close
+					self.__death_battle_ip = ""
+					return False
 				client_socket.send(encryption.encrypt_map_data(str(self.__maps_list[self.__death_map_index])))
 			except socket.error:
 				account.set_battlefield_id(0)
 				self.release_client(encryption, client_socket, account)
 				
 		else:  # second player
+			ip = self.__death_battle_ip
+			self.__death_battle_ip = ""  # players make communication, can start another battle
 			account.set_battlefield_id(self.__new_death_battlefield_id)
 			self.__new_death_battlefield_id = 0
 			try:
 				client_socket.send(encryption.encrypt("F"))
-				if not self.__open_battlefields.get():  #
+				if not self.__open_battlefields.get():  # New battles are close
 					client_socket.send(encryption.encrypt("0.0.0.0"))  # indefinite ip address
 					client_socket.send(b"##")
 					return False
-				client_socket.send(encryption.encrypt(self.__death_battle_ip))
+				client_socket.send(encryption.encrypt(ip))
 				client_socket.send(encryption.encrypt_map_data(
 					str(self.__maps_list[self.__death_map_index])))
-				self.__death_battle_ip = ""
 			except socket.error:
 				self.__death_battle_ip = ""
 				account.set_battlefield_id(0)
@@ -929,7 +966,7 @@ class Server:
 						self.__time_battle_ip = ""
 						return False
 				if not self.__open_battlefields.get():
-					client_socket.send(b"##")
+					client_socket.send(b"##")  # New battles are close
 					self.__time_battle_ip = ""
 					return False
 				if self.__stop_running:
@@ -937,24 +974,29 @@ class Server:
 					exit()
 			account.set_battlefield_id(battle_id)
 			try:
+				if not self.__open_battlefields.get():
+					client_socket.send(b"##")  # New battles are close
+					self.__time_battle_ip = ""
+					return False
 				client_socket.send(encryption.encrypt_map_data(str(self.__maps_list[self.__time_map_index])))
 			except socket.error:
 				account.set_battlefield_id(0)
 				self.release_client(encryption, client_socket, account)
 		
 		else:  # second player
+			ip = self.__time_battle_ip
+			self.__time_battle_ip = ""  # players make communication, can start another battle
 			account.set_battlefield_id(self.__new_time_battlefield_id)
 			self.__new_time_battlefield_id = 0
 			try:
 				client_socket.send(encryption.encrypt("F"))
-				if not self.__open_battlefields.get():  #
+				if not self.__open_battlefields.get():  # New battles are close
 					client_socket.send(encryption.encrypt("0.0.0.0"))  # indefinite ip address
 					client_socket.send(b"##")
 					return False
-				client_socket.send(encryption.encrypt(self.__time_battle_ip))
+				client_socket.send(encryption.encrypt(ip))
 				client_socket.send(encryption.encrypt_map_data(
 					str(self.__maps_list[self.__time_map_index])))
-				self.__time_battle_ip = ""
 			except socket.error:
 				self.__time_battle_ip = ""
 				account.set_battlefield_id(0)
@@ -991,18 +1033,18 @@ class Server:
 		firebase_token = ""
 		if self.__is_online_database:
 			data = {"Username": new_account_data[0], "Password": new_account_data[1],
-			        "Wins": 0, "Loses": 0, "Draws": 0, "Color": "4d784e", "Bandate": "00/00/0000"}
+			    "Wins": 0, "Loses": 0, "Draws": 0, "Points": 0, "Color": "4d784e", "Bandate": "00/00/0000"}
 			firebase_token = self.__fire.post("Accounts", data)['name']
 		
 		conn = connect("my database.db")
 		cursor = conn.cursor()
-		cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
-		               (new_account_data[0], new_account_data[1], 0, 0, 0,
+		cursor.execute("INSERT INTO Accounts VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		               (new_account_data[0], new_account_data[1], 0, 0, 0, 0,
 		                "4d784e", "00/00/0000", firebase_token))
 		conn.commit()
 		conn.close()
 		new_account = Account(new_account_data[0], new_account_data[1],
-		                      0, 0, 0, "4d784e", "00/00/0000", firebase_token)
+		                      0, 0, 0, 0, "4d784e", "00/00/0000", firebase_token)
 		if not is_admin_command:
 			new_account.player_online()
 		self.__accounts_list.append(new_account)

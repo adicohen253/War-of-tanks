@@ -18,7 +18,7 @@ class Tank(pygame.sprite.Sprite):
 	MOVES = [(3, 0), (2, -2), (0, -3), (-2, -2), (-3, 0), (-2, 2), (0, 3), (2, 2)]
 
 	NUM_BULLETS = 10
-	START_HEALTH = 1
+	START_HEALTH = 30
 
 	def __init__(self, rect, direct=0, new_color=RED):
 		super(Tank, self).__init__()
@@ -190,8 +190,8 @@ class Tank(pygame.sprite.Sprite):
 	def is_need_pointing(self):
 		return self.__need_pointing
 
-	def set_demo_tank_image(self, img):
-		self.__image = img
+	def set_demo_tank_image(self):
+		self.__image = pygame.transform.scale(self.__image, [100, 100])
 
 	def get_color(self):
 		return self.__color
@@ -334,39 +334,55 @@ class Trap(pygame.sprite.Sprite):
 
 
 class Spritesheet(object):
+	"""This class used for using giffs from a image file on the pygame's screen,
+	 the file need to include the images of the giffs shaped in 2D"""
 	def __init__(self, filename, rect, cols, rows, colorkey=None):
+		"""set the strip of images of the wanted giff
+		arguments:
+			filename: type string, the name of the photo which include the giff's images
+			rect: type tuple, the size oh each images in the strip
+			cols: type int, the amount of columns in the file
+			rows: type int, the amount of rows in the file
+			colorkey: type tuple, the rgb values the make transparent
+		"""
 		self.__sheet = pygame.image.load(filename).convert()
-		self.__images = self.load_strip(rect, cols, rows, colorkey)
+		self.__rect = rect
+		self.__color_key = colorkey
+		self.__cols = cols
+		self.__rows = rows
+		self.__images = self.load_strip()
 		self.__i = 0
 		
-	def reload_strip(self):
+	def repeat_strip(self):
 		self.__i = 0
 		
-	def image_at(self, rectangle, colorkey=None):
-		"""Loads image from x,y,x+offset,y+offset"""
+	def image_at(self, rectangle):
+		"""Loads image from given rectangle
+		argument:
+			rectangle: type tuple, (x, y, width, height)
+		returns:
+			surface, the image in this pixels of the file
+		"""
 		rect = pygame.Rect(rectangle)
 		image = pygame.Surface(rect.size).convert()
 		image.blit(self.__sheet, (0, 0), rect)
-		if colorkey is not None:
-			if colorkey == -1:
+		if self.__color_key is not None:
+			colorkey = self.__color_key
+			if self.__color_key == -1:
 				colorkey = image.get_at((0, 0))
 			image.set_colorkey(colorkey, pygame.RLEACCEL)
 		return image
-
-	# Load a whole bunch of images and return them as a list
-	def images_at(self, rects, colorkey=None):
-		return [self.image_at(rect, colorkey) for rect in rects]
-
-	# Load a whole strip of images
-	def load_strip(self, rect, cols, rows, colorkey=None):
-		"""Loads a strip of images and returns them as a list"""
+	
+	def load_strip(self):
+		"""Loads a strip of images and returns them as a list of surfaces"""
 		tups = []
-		for y in range(cols):
-			for x in range(rows):
-				tups.append((rect[0] + rect[2] * x, rect[1] + rect[3] * y, rect[2], rect[3]))
-		return self.images_at(tups, colorkey)
+		for y in range(self.__rows):
+			for x in range(self.__cols):
+				tups.append((self.__rect[0] * x, self.__rect[1] * y, self.__rect[0], self.__rect[1]))
+		return [self.image_at(rectangle) for rectangle in tups]
 
 	def next(self):
+		"""returns the next image in the strip"""
 		if self.__i >= len(self.__images):
 			return False
 		image = self.__images[self.__i]

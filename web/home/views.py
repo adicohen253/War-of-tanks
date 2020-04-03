@@ -13,13 +13,9 @@ def top_players(request):
     curs = conn.cursor()
     curs.execute("SELECT * FROM Accounts")
     champions = [{"rank": index + 1, "username": value[0], "wins": value[2],
-                  "loses": value[3], "draws": value[4], "total_points": calculate_points(value)}
-                 for index, value in enumerate(sorted(curs.fetchall(), key=calculate_points, reverse=True)[:5])]
+                  "loses": value[3], "draws": value[4], "total_points": value[5]}
+                 for index, value in enumerate(sorted(curs.fetchall(), key=lambda x: x[5], reverse=True)[:5])]
     return render(request, "champions.html", {"champions": champions})
-
-
-def calculate_points(account):
-    return account[2] + account[4] / 2 - account[3]
 
 
 def download(request):  # doesn't needed here but must except 1 argument

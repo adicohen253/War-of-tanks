@@ -3,15 +3,25 @@ from re import findall
 
 
 class RsaEncryption:
+	"""The encryption and decryption of server-client communication, using simple
+	principles and logic of RSA, (uses small prime numbers)
+	the characters are encrypted by their ASCII value A-65, B-66 etc'
+	except the map coordinates that the server sends, the format is
+	the same but the encryption changes the coordinates themselves
+	"""
 	def __init__(self):
+		"""generates prime numbers q and p and build a public and private key
+		p and q are between 2-409 for avoid of slowing down the game
+		"""
 		self.__p = random.randint(2, 409)
 		while not self.is_prime(self.__p):
 			self.__p = random.randint(2, 409)
 		
 		self.__q = random.randint(2, 409)
-		while self.__q == self.__p or self.__q * self.__p < 1000\
-			 or self.__q * self.__p > 3000 or not self.is_prime(self.__q):
+		while self.__q == self.__p or not (1000 < self.__q * self.__p < 3000) \
+			or not self.is_prime(self.__q):
 			self.__q = random.randint(2, 409)
+		#  p * q need to be bigger than 1000 for encrypt the map coordinates
 		
 		self.__n = self.__q * self.__p
 		
@@ -19,9 +29,10 @@ class RsaEncryption:
 		self.__private_key = None
 		self.generate_keypair()
 		
-		self.__partner_public_key = None
+		self.__partner_public_key = None  # the public key of the other network entity
 	
 	def set_partner_public_key(self, new):
+		"""sets the public key of the other network entity"""
 		self.__partner_public_key = new
 	
 	def get_p(self):
@@ -40,6 +51,7 @@ class RsaEncryption:
 		return self.__private_key
 	
 	def generate_keypair(self):
+		"""generates the public and private key (e, n) (d, n)"""
 		phi = (self.__p - 1) * (self.__q - 1)
 		
 		e = random.randrange(2, phi)
@@ -63,14 +75,15 @@ class RsaEncryption:
 		return True
 	
 	@staticmethod
-	def gcd(a, b):
-		"""return 1 if e and phi(n) are a coprimes"""
-		while b != 0:
-			a, b = b, a % b
-		return a
+	def gcd(e, phi):
+		"""returns 1 if e and phi(n) are a coprimes relied on Euler's theorem"""
+		while phi != 0:
+			e, phi = phi, e % phi
+		return e
 	
 	@staticmethod
 	def multiplicative_inverse(e, phi):
+		"""returns d such that -> d * e (mod phi(n)) = 1"""
 		d = 1
 		while True:
 			if (d * e) % phi == 1:
@@ -78,6 +91,12 @@ class RsaEncryption:
 			d += 1
 	
 	def encrypt(self, message):
+		"""encrypts the message to ciphertext (using the partner's public key)
+		argument:
+			message: type string, the message to encrypt
+		returns:
+			bytes, the length of the ciphertext + the ciphertext itself
+		"""
 		key, n = self.__partner_public_key
 		encrypted_message = []
 		for char in message:
@@ -86,11 +105,23 @@ class RsaEncryption:
 		return bytes([len(encrypted_message)]) + encrypted_message.encode()
 	
 	def decrypt(self, ciphertext):
+		"""decrypts the ciphertext to the original message (using the private key)
+		argument:
+			ciphertext: type string, the ciphertext to decrypt
+		returns:
+			string, the original message
+		"""
 		key, n = self.__private_key
 		message = [int(num) for num in ciphertext.split(" ")]
 		return ''.join([chr(num ** key % n) for num in message])
 	
 	def encrypt_map_data(self, map_data):
+		"""like the encrypt function but for maps data
+		argument:
+			map_data: type string, the information of the map (walls and player positions)
+		returns:
+			bytes, the length of the ciphertext + the ciphertext itself
+		"""
 		key, n = self.__partner_public_key
 		encrypted_map = []
 		walls, players_pos = map_data.split("+")
@@ -112,10 +143,16 @@ class RsaEncryption:
 		encrypted_map = ("\n".join(encrypted_map) + "+" + players_coordinates).encode()
 		return len(encrypted_map).to_bytes(2, 'little') + encrypted_map
 	
-	def decrypt_map_data(self, map_data):
+	def decrypt_map_data(self, map_ciphertext):
+		"""like the encrypt function but for maps data
+		argument:
+			map_ciphertext: type string, the ciphertext of the map to decrypt
+		returns:
+			string, the original map information
+		"""
 		key, n = self.__private_key
 		encrypted_map = []
-		walls, players_pos = map_data.split("+")
+		walls, players_pos = map_ciphertext.split("+")
 		for wall in walls.split("\n"):
 			coordinates_list = findall(r'\d+', wall)
 			encrypted_wall = []

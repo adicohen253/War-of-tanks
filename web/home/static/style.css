@@ -1,6 +1,4 @@
-*{
-    margin: 0;
-}
+
 
 .page-main{
     background-image: url(images/home.jpg);
@@ -18,11 +16,6 @@
     -o-background-size: cover;
     background-size: cover;
     height: 100vh
-}
-
-@font-face {
-    font-family: myfont;
-    src: url(myfont.ttf);
 }
 
 .nav-bar {
@@ -89,9 +82,27 @@
     text-shadow: 2px 2px green;
 }
 
+@font-face
+{
+    font-family: "Gunmetal";
+    src: url(font.otf);
+}
+
+.subtitle {
+    font-family: "Gunmetal";
+    font-size: 70px;
+    text-decoration: underline;
+    font-variant: small-caps;
+    font-weight: lighter;
+    line-height: 40.7px;
+    margin-top: 3%;
+    margin-left: 39%;
+}
+
 .content-table {
     border-collapse: collapse;
-    margin: 10% 10%;
+    margin-top: 2%;
+    margin-left: 12%;
     font-size: 0.9em;
     min-height: 300px;
     min-width: 1000px;
