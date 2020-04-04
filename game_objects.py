@@ -8,10 +8,9 @@ WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
 # war of tanks
-IMG_PLY = "game images/tank player.png"
+IMG_PLY = "game images/Tank.png"
 BULLET = "game images/bullet.png"
-SURPRISE = "game images/surprise.png"
-EXPLODE = "1.png"
+SURPRISE = "game images/Trap.png"
 
 
 class Tank(pygame.sprite.Sprite):
@@ -22,8 +21,7 @@ class Tank(pygame.sprite.Sprite):
 
 	def __init__(self, rect, direct=0, new_color=RED):
 		super(Tank, self).__init__()
-		self.__image = pygame.image.load(IMG_PLY).convert()
-		self.__image.set_colorkey(WHITE)
+		self.__image = pygame.image.load(IMG_PLY)
 		self.rect = self.__image.get_rect()  # the location of the player
 		self.__tank_direct = direct  # uses as direct of the tank
 		self.rect.x, self.rect.y = rect
@@ -109,15 +107,14 @@ class Tank(pygame.sprite.Sprite):
 		self.__tank_direct = point
 		self.__image = pygame.transform.rotate(self.__original_image, point * 45)
 
-	def update_enemy_loc(self, x, y):
-		"""
-		set a new location of the enemy
-		argument:
-			x - int, the horizontal axis
-			y - int, the vertical axis
-		"""
-		self.rect.x = x
-		self.rect.y = y
+	def update_loc(self, x=None, y=None):
+		"""move the tank in the current direct"""
+		if x is None and y is None:
+			self.rect.x += self.MOVES[self.__tank_direct][0]
+			self.rect.y += self.MOVES[self.__tank_direct][1]
+		else:
+			self.rect.x = x
+			self.rect.y = y
 
 	def move_tank(self, walls):
 		"""make the tank move forward
@@ -214,11 +211,6 @@ class Tank(pygame.sprite.Sprite):
 	def get_loc(self):
 		return self.rect.x, self.rect.y
 
-	def update_loc(self):
-		"""move the tank in the current direct"""
-		self.rect.x += self.MOVES[self.__tank_direct][0]
-		self.rect.y += self.MOVES[self.__tank_direct][1]
-
 	def get_image(self):
 		return self.__image
 
@@ -255,8 +247,7 @@ class Bullet(pygame.sprite.Sprite):
 
 	def __init__(self, tank, enemy_shoot=-1):  # get the tank's as shooter
 		super(Bullet, self).__init__()
-		self.__image = pygame.image.load(BULLET).convert()
-		self.__image.set_colorkey(WHITE)
+		self.__image = pygame.image.load(BULLET)
 		if enemy_shoot == -1:
 			self.__bullet_direct = tank.get_pointer()
 		else:
@@ -312,8 +303,7 @@ class Bullet(pygame.sprite.Sprite):
 class Trap(pygame.sprite.Sprite):
 	def __init__(self, x, y, attr=None):
 		super(Trap, self).__init__()
-		self.__image = pygame.image.load(SURPRISE).convert()
-		self.__image.set_colorkey(WHITE)
+		self.__image = pygame.image.load(SURPRISE)
 		self.rect = self.__image.get_rect()
 		self.rect.x, self.rect.y = x, y
 		if attr is None:
@@ -345,7 +335,7 @@ class Spritesheet(object):
 			rows: type int, the amount of rows in the file
 			colorkey: type tuple, the rgb values the make transparent
 		"""
-		self.__sheet = pygame.image.load(filename).convert()
+		self.__sheet = pygame.image.load(filename)
 		self.__rect = rect
 		self.__color_key = colorkey
 		self.__cols = cols
@@ -364,7 +354,7 @@ class Spritesheet(object):
 			surface, the image in this pixels of the file
 		"""
 		rect = pygame.Rect(rectangle)
-		image = pygame.Surface(rect.size).convert()
+		image = pygame.Surface(rect.size)
 		image.blit(self.__sheet, (0, 0), rect)
 		if self.__color_key is not None:
 			colorkey = self.__color_key
