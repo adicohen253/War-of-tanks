@@ -1,4 +1,3 @@
-import sys
 import pygame
 import time
 import socket
@@ -17,6 +16,7 @@ from RSA import RsaEncryption
 # --------------------------------
 # author: Adi cohen
 # Final project: WOT Online
+# try to add one more map could be simple map
 # --------------------------------
 
 # constants
@@ -28,7 +28,6 @@ CONNECTING_INPUT_FIELD_POS = ([900, 190], [900, 270])
 RGB_VALUES_POS = ([200, 310], [500, 310], [800, 310])
 ASKED_IP_LEN_PACKET = 15
 FPS_RATE = 60
-PACKET_SENDING_RATE = 60
 SECS_TO_PLAY = 10  # 2:30 minutes
 BATTLE_TO_DEATH = 0
 BATTLE_ON_TIME = 1
@@ -100,7 +99,7 @@ PLAYER_LOSE = "you lose"
 PLAYER_DRAW = "Draw"
 
 # network
-SERVER_ADDRESS = ("192.168.1.35", 2020)
+SERVER_ADDRESS = ("192.168.1.34", 2020)
 GAME_PORT = 5120
 STREAM_PORT = 32000
 
@@ -110,8 +109,6 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 2
 RATE = 44100
 WIDTH = 2
-
-pygame.init()
 
 
 class Game:
@@ -160,19 +157,6 @@ class Game:
 		self.__bullets = []  # list of the bullets in map
 		self.__walls = []  # list of the walls in map
 	
-	def tank_destroyed(self, rect):
-		"""Actives the gif of explosion
-		argument:
-			rect: type pygame.rect, to location of the tank that explode
-		"""
-		image = self.__explodes.next()
-		while image is not False:
-			self.__screen.blit(image, (rect[0] - 12, rect[1] - 10))
-			pygame.display.flip()
-			image = self.__explodes.next()
-			time.sleep(0.07)
-		self.__explodes.repeat_strip()
-	
 	def _make_connection_with_server(self):
 		"""Sets connection with server, in addition sets the values of the keys of the encryption"""
 		try:
@@ -193,7 +177,7 @@ class Game:
 			self.__screen.blit(failed_output, [350, 250])
 			pygame.display.flip()
 			time.sleep(TIME_TO_WAIT)
-			sys.exit()
+			exit()
 		
 	def _send_to_server(self, message_to_send):
 		"""Encrypts the message and sends to server, if gets an error close the game
@@ -225,7 +209,7 @@ class Game:
 		pygame.display.flip()
 		self.__client.close()
 		time.sleep(2)
-		sys.exit()
+		exit()
 	
 	def keep_alive(self):
 		"""Checks if server is down or user's account is now invalid
@@ -244,7 +228,7 @@ class Game:
 					pygame.display.flip()
 					self.__client.close()
 					time.sleep(2)
-					sys.exit()
+					exit()
 				elif "!" in respond:  # client's account banned
 					self.__flags[0] = True
 					length = self.__client.recv(1).decode()
@@ -253,7 +237,7 @@ class Game:
 					self.__screen.blit(output, [150, 200])
 					pygame.display.flip()
 					time.sleep(2)
-					sys.exit()
+					exit()
 			self.__last_time_check_server = time.time()  # update last time of checking
 	
 	def _get_input_from_user(self, current_data, events, limit_data_len, filter1, filter2=lambda x: False):
@@ -274,7 +258,7 @@ class Game:
 			if event.type == pygame.QUIT:
 				self._send_to_server("exit")
 				self.__client.close()
-				sys.exit()
+				exit()
 			if event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_ESCAPE:
 					return current_data, None, False
@@ -282,6 +266,10 @@ class Game:
 					if len(current_data) < limit_data_len:
 						current_data += event.unicode
 						is_need_refresh = True
+					else:
+						pygame.mixer.music.load(ERROR_INPUT)
+						pygame.mixer.music.play()
+						pygame.event.clear()
 					if filter2(current_data):
 						current_data = current_data[:-1]
 				elif (event.key == pygame.K_BACKSPACE) and (len(current_data) > 0):
@@ -313,12 +301,12 @@ class Game:
 				if event.type == pygame.QUIT:
 					self._send_to_server("exit")
 					self.__client.close()
-					sys.exit()
+					exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						self._send_to_server("exit")
 						self.__client.close()
-						sys.exit()
+						exit()
 					elif event.key == pygame.K_l:  # player login
 						self.__account = self._register_and_login_screen(True)
 						self.__screen.blit(home_screen, [0, 0])
@@ -432,12 +420,12 @@ class Game:
 				if event.type == pygame.QUIT:
 					self._send_to_server("exit")
 					self.__client.close()
-					sys.exit()
+					exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						self._send_to_server("exit")
 						self.__client.close()
-						sys.exit()
+						exit()
 					
 					elif event.key == pygame.K_s:  # player look for a match
 						mode_code = self._choose_battle_mode()
@@ -494,7 +482,7 @@ class Game:
 					if my_color[i] == "":
 						my_color[i] = "0"
 					break
-		self.__demo_player.change_player_color(my_color)  # store the final color in demo tank
+		self.__demo_player.change_player_color([int(x) for x in my_color])  # store the final color in demo tank
 		self.__screen.blit(self.__demo_player.get_image(), self.__demo_player.get_loc())
 		pygame.display.flip()
 		while True:
@@ -502,7 +490,7 @@ class Game:
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					self._send_to_server("exit")
-					sys.exit()
+					exit()
 				if event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						return 
@@ -543,7 +531,7 @@ class Game:
 				if event.type == pygame.QUIT:
 					self._send_to_server("exit")
 					self.__client.close()
-					sys.exit()
+					exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						return
@@ -566,7 +554,7 @@ class Game:
 				if event.type == pygame.QUIT:
 					self._send_to_server("exit")
 					self.__client.close()
-					sys.exit()
+					exit()
 				if event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						return
@@ -581,7 +569,7 @@ class Game:
 				if event.type == pygame.QUIT:
 					self._send_to_server("exit")
 					self.__client.close()
-					sys.exit()
+					exit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						return None
@@ -657,8 +645,8 @@ class Game:
 			enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
 			
 			self.__player = game_objects.Tank(self.__player_start_pos,
-			    direct=6, new_color=self.__demo_player.get_color())
-			self.__enemy = game_objects.Tank(self.__enemy_start_pos, direct=0, new_color=enemy_color)
+			    direction=6, new_color=self.__demo_player.get_color())
+			self.__enemy = game_objects.Tank(self.__enemy_start_pos, direction=0, new_color=enemy_color)
 			
 			self.__voice_socket = stream_socket.accept()[0]
 			main_socket.close()
@@ -678,8 +666,9 @@ class Game:
 			self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
 			enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
 			
-			self.__player = game_objects.Tank(self.__player_start_pos, direct=0, new_color=self.__demo_player.get_color())
-			self.__enemy = game_objects.Tank(self.__enemy_start_pos, direct=6, new_color=enemy_color)
+			self.__player = game_objects.Tank(self.__player_start_pos,
+				direction=0, new_color=self.__demo_player.get_color())
+			self.__enemy = game_objects.Tank(self.__enemy_start_pos, direction=6, new_color=enemy_color)
 			
 			self.__voice_socket = socket.socket()
 			self.__voice_socket.connect((self.__enemy_ip, STREAM_PORT))
@@ -687,7 +676,8 @@ class Game:
 		self.__enemy_username = self.__enemy_socket.recv(10).decode()
 		self.__enemy_socket.settimeout(0.5)
 		self.__voice_socket.settimeout(1)
-		self.__enemy.change_player_color(enemy_color)
+		self.__player.change_player_color(self.__player.get_color())
+		self.__enemy.change_player_color(self.__enemy.get_color())
 		
 		start_battle_from = time.time()  # for time battle mode
 		
@@ -710,7 +700,7 @@ class Game:
 					self.output_battle_result(False)
 					time.sleep(TIME_TO_WAIT)
 					self.__client.close()
-					sys.exit()
+					exit()
 				
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
@@ -754,31 +744,32 @@ class Game:
 			for bullet in self.__bullets:
 				bullet.update_loc()
 				
-				if pygame.sprite.spritecollide(bullet, self.__walls, False):
+				if pygame.sprite.spritecollide(bullet, [self.__player], False):
+					self.__bullets.remove(bullet)
+					self.__player.lost_health(1)
+			
+				elif pygame.sprite.spritecollide(bullet, [self.__enemy], False):
+					self.__bullets.remove(bullet)
+					self.__enemy.lost_health(1)
+				
+				elif pygame.sprite.spritecollide(bullet, self.__walls, False):
 					bullet.hit_wall()
 					if bullet.get_ttl() == 0:
 						self.__bullets.remove(bullet)
 				
-				elif pygame.sprite.spritecollide(bullet, [self.__player], False):
-					self.__bullets.remove(bullet)
-					self.__player.lost_health(1)
-				
-				elif pygame.sprite.spritecollide(bullet, [self.__enemy], False):
-					self.__bullets.remove(bullet)
-					self.__enemy.lost_health(1)
-			
 			for t in self.__traps:
 				if pygame.sprite.spritecollide(t, [self.__player], False):
-					self._trap_affect(t, True)
+					if self.__player.trap_affect(t):
+						pygame.mixer.music.load(BOOST)
+						pygame.mixer.music.play(1)
 					self.__traps.remove(t)
 				
 				elif pygame.sprite.spritecollide(t, [self.__enemy], False):
-					self._trap_affect(t, False)
 					self.__traps.remove(t)
 			
 			if self.__player.get_health() <= 0:
 				self._send_to_server("Defeat")
-				self.tank_destroyed(self.__player.get_loc())
+				self.__player.tank_destroyed(self.__screen, self.__explodes)
 				self.output_battle_result(False)
 				pygame.mixer.music.load(DEFEAT)
 				self.__flags[0] = True
@@ -787,14 +778,14 @@ class Game:
 			elif self.__enemy.get_health() <= 0:
 				self._send_to_server("Victory")
 				self._send_to_server(self.__enemy_username)
-				self.tank_destroyed(self.__enemy.get_loc())
+				self.__enemy.tank_destroyed(self.__screen, self.__explodes)
 				self.output_battle_result(True)
 				pygame.mixer.music.load(VICTORY)
 				self.__flags[0] = True
 				break
 			
 			self.__player.move_tank(self.__walls)
-			self.__player.is_done_eternal_ammo()
+			self.__player.is_done_infinity_ammo()
 			self.__player.is_done_ghost()
 			
 			self._flip_screen(battlefield)
@@ -840,7 +831,7 @@ class Game:
 			[str(self.__enemy.get_health()), (1050, 153)],
 			[str(self.__player.get_num_bullet()) + " X", (990, 90)],
 			["Sound:", (850, 210)]]
-		self.__screen.fill(BROWN)
+		self.__screen.fill(BROWN, (800, 0, 400, 600))
 		self.__screen.blit(zone, [0, 0])
 		self.__screen.blit(BULLET, (1060, 82))
 		
@@ -849,7 +840,7 @@ class Game:
 		else:
 			self.__screen.blit(SOUND_OFF, (950, 205))
 		
-		if self.__player.get_is_ghost_mode():
+		if self.__player.is_ghost_mode():
 			self.__screen.blit(GHOST, (850, 270))
 		for player in [self.__player, self.__enemy]:
 			self.__screen.blit(player.get_image(), player.get_loc())
@@ -860,7 +851,7 @@ class Game:
 		for wall in self.__walls:
 			wall.draw_line()
 		for element in output_list:
-			if output_list.index(element) == 5 and self.__player.get_is_eternal_ammo_mode():  # in case of endless ammo
+			if output_list.index(element) == 5 and self.__player.is_infinity_ammo():  # in case of endless ammo
 				self.__screen.blit(ENDLESS_AMMO, element[1])
 				continue
 			self.__screen.blit(self.__input_font.render(element[0], True, WHITE), element[1])
@@ -869,7 +860,7 @@ class Game:
 		clock = pygame.time.Clock()
 		while not self.__flags[0]:
 			packet_to_send = \
-				f"D{self.__player.get_pointer()}\n" \
+				f"D{self.__player.get_direction()}\n" \
 				f"L{self.__player.get_loc()[0]},{self.__player.get_loc()[1]}\n"
 			if self.__new_trap is not None:  # new trap
 				packet_to_send += f"T{self.__new_trap.get_attribute()}" \
@@ -901,14 +892,14 @@ class Game:
 				except socket.error:
 					self.__flags[1] = True
 					break
-			clock.tick(PACKET_SENDING_RATE)
+			clock.tick(FPS_RATE)
 		self.__enemy_socket.close()
 		self.__voice_socket.close()
 	
 	def _take_care_enemy_packet(self, enemy_data):
 		for header in enemy_data:
 			if "D" in header:
-				self.__enemy.set_enemy_pointer(int(header[1]))
+				self.__enemy.update_direction(int(header[1]))
 			if "L" in header:
 				x_pos, y_pos = header[1:].split(",")
 				self.__enemy.update_loc(int(x_pos), int(y_pos))
@@ -1030,26 +1021,6 @@ class Game:
 			time_to_play = time.strftime("%M:%S", time.gmtime(time_to_play))
 			self.__screen.blit(self.__input_font.render(time_to_play, True, WHITE), [900, 420])
 	
-	def _trap_affect(self, trap, is_myself):
-		"""active the trap attribute on the player"""
-		if is_myself:
-			tank = self.__player
-		else:
-			tank = self.__enemy
-		if trap.get_attribute() == 1:
-			tank.lost_health(1)
-		if trap.get_attribute() == 2:
-			if tank.get_health() <= 29:
-				tank.heal_health()
-		if trap.get_attribute() == 3:
-			tank.active_eternal_ammo_mode()
-			pygame.mixer.music.load(BOOST)
-			pygame.mixer.music.play(1)
-		if trap.get_attribute() == 4:
-			tank.active_ghost_mode()
-			pygame.mixer.music.load(BOOST)
-			pygame.mixer.music.play(1)
-	
 	def _create_trap(self):
 		"""create a new mine (location is safe)
 		argument:
@@ -1073,6 +1044,7 @@ def main():
 	#     _ = singleton.SingleInstance()
 	# except singleton.SingleInstanceException:
 	#     exit()
+	pygame.init()
 	pygame.mixer.init()
 	pygame.mixer.music.set_volume(1)
 	screen = pygame.display.set_mode(SIZE)

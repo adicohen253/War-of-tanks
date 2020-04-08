@@ -2,187 +2,220 @@ import pygame
 import random
 import time
 
-# general constants
+# general colors
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
-# war of tanks
-IMG_PLY = "game images/Tank.png"
-BULLET = "game images/bullet.png"
-SURPRISE = "game images/Trap.png"
-
 
 class Tank(pygame.sprite.Sprite):
-	MOVES = [(3, 0), (2, -2), (0, -3), (-2, -2), (-3, 0), (-2, 2), (0, 3), (2, 2)]
-
+	"""The character of the player during the match with other player,
+	hold the data about the player during the match, such as health, ammo, location etc'
+	"""
+	MOVES = [(3, 0), (2, -2), (0, -3), (-2, -2),
+		(-3, 0), (-2, 2), (0, 3), (2, 2)]  # the amount of pixel moving each direction
 	NUM_BULLETS = 10
 	START_HEALTH = 30
-
-	def __init__(self, rect, direct=0, new_color=RED):
+	DEFAULT_COLOR = (77, 120, 78)
+	TANK_IMAGE = "game images/Tank.png"  # tank image
+	
+	def __init__(self, rect, direction=0, new_color=DEFAULT_COLOR):
 		super(Tank, self).__init__()
-		self.__image = pygame.image.load(IMG_PLY)
-		self.rect = self.__image.get_rect()  # the location of the player
-		self.__tank_direct = direct  # uses as direct of the tank
-		self.rect.x, self.rect.y = rect
-		self.__color = list(RED)
-		self.change_player_color(list(new_color))  # set color header
-		self.__original_image = self.__image  # original image uses to rotate the tank in every direct
-		self.__image = pygame.transform.rotate(self.__original_image, direct * 45)
+		self.__image = pygame.image.load(self.TANK_IMAGE)
+		self.rect = self.__image.get_rect()
+		self.rect.x, self.rect.y = rect  # the location of the tank
+		self.__tank_direction = direction  # the direction of the tank
+		self.__color = list(new_color)
+		if new_color != self.DEFAULT_COLOR:
+			self.change_player_color(new_color)  # paint the tank in the new color
+		self.__original_image = self.__image  # original image uses to rotate the tank in every angle
+		self.__image = pygame.transform.rotate(self.__original_image, direction * 45)
 
 		self.__num_bullet = self.NUM_BULLETS  # the current number of bullets
 		self.__health = self.START_HEALTH  # health of the player
-		self.__need_pointing = True
+		self.__need_pointing = True  # for let the player know who he is in the beginning
 
-		self.__last_time_of_shot = time.time()
-		self.reload_time = time.time()  # time passes from the last reload
-		self.__eternal_ammo_mode = False  # flag is tank has infinite ammo now, lasts for 6 seconds
-		self.__eternal_ammo_time = None  # the moment it became to be with endless ammo
-		# (when eternal ammo mode is of the time is none)
+		self.__last_time_of_shot = time.time()  # last time player shot a bullet
+		self.__reload_time = time.time()  # time passes from the last reload
+		
+		self.__infinity_ammo_mode = False  # flag is tank has infinite ammo now, lasts for 6 seconds
+		self.__infinity_ammo_time = None  # the moment it became to be with endless ammo
+		
 		self.__ghost_mode = False  # flag is tank in ghost mode, lasts for 5 seconds
-		self.__is_stuck_in_ghost = False  # turn to true when ghost mode turn of and tank still in wall
+		self.__is_stuck_while_ghost = False  # turn to true when ghost mode turn off and tank still in wall
 		self.__ghost_time = None  # the moment it became to be ghost
-		# (when ghost mode is of the time is none)
 
-	def change_player_color(self, new_color):
-		"""change the image of the player to the new color
+	def change_player_color(self, color):
+		"""changes the image of the player to the new color and paints tank's image
 		argument:
-			new_color = type: list, the new color for the player (rgb format)
+			color: type list, the new color for the player (rgb format)
 		"""
-		for element in range(len(new_color)):
-			new_color[element] = int(new_color[element])
-		# if color is totally white, set_colorkey make to color disappear
-		if new_color == list(WHITE):
-			new_color[0] -= 1
-		if new_color == list(BLACK):
-			new_color[0] += 1
+		if color == list(WHITE):
+			color[0] -= 1
+		if color == list(BLACK):
+			color[0] += 1
 		for x in range(self.__image.get_size()[0]):
 			for y in range(self.__image.get_size()[1]):
-				if self.__image.get_at((x, y)) != BLACK and self.__image.get_at((x, y)) != WHITE:
-					self.__image.set_at((x, y), new_color)
-		self.__color = new_color
+				if self.__image.get_at((x, y))[:3] != BLACK and self.__image.get_at((x, y))[:3] != WHITE:
+					self.__image.set_at((x, y), color)
+		self.__color = color
+	
+	def active_ghost_mode(self):
+		self.__ghost_mode = True
+		self.__ghost_time = time.time()  # starts use ghost mode
 
 	def is_done_ghost(self):
-		""""Checks if it's time to turn off ghost mode"""
+		""""Turns off the ghost mode if 6 seconds elapsed"""
 		if self.__ghost_time is not None:
-			if time.time() - self.__ghost_time >= 5:
-				# print "ghost mode over"
+			if time.time() - self.__ghost_time >= 6:
 				self.__ghost_time = None
 				self.__ghost_mode = False
-				self.__is_stuck_in_ghost = True
+				self.__is_stuck_while_ghost = True
+	
+	def turn_of_ghost(self):
+		"""Used only for server side (Map builder program)"""
+		self.__ghost_time = None
+		self.__ghost_mode = False
+		self.__is_stuck_while_ghost = True
+	
+	def active_infinity_ammo(self):
+		self.__infinity_ammo_mode = True
+		self.__infinity_ammo_time = time.time()  # starts use infinity ammo mode
 
-	def is_done_eternal_ammo(self):
-		"""Checks if it's time to turn off eternal mode"""
-		if self.__eternal_ammo_time is not None:
-			if time.time() - self.__eternal_ammo_time >= 6:
+	def is_done_infinity_ammo(self):
+		"""Turns off the infinity ammo if 6 seconds elapsed"""
+		if self.__infinity_ammo_time is not None:
+			if time.time() - self.__infinity_ammo_time >= 6:
 				self.__num_bullet = self.NUM_BULLETS
-				self.__eternal_ammo_time = None
-				self.__eternal_ammo_mode = False
+				self.__infinity_ammo_time = None
+				self.__infinity_ammo_mode = False
 
 	def reload_ammo(self):
-		"""taking care about load the ammo of the tank"""
-		if time.time() - self.reload_time >= 10:
+		"""loads the ammo of the tank if 10 seconds elapsed
+		returns:
+			boolean, if need to use loading sound"""
+		if time.time() - self.__reload_time >= 10:
 			flag = False
 			if self.__num_bullet == 0:
 				self.__num_bullet = self.NUM_BULLETS
-				if self.__eternal_ammo_mode is False:
+				if self.__infinity_ammo_mode is False:
 					flag = True
-			self.reload_time = time.time()
+			self.__reload_time = time.time()
 			return flag
 		return False
 
-	def active_ghost_mode(self):
-		self.__ghost_mode = True
-		self.__ghost_time = time.time()  # start be ghost
-
-	def active_eternal_ammo_mode(self):
-		self.__eternal_ammo_mode = True
-		self.__eternal_ammo_time = time.time()  # start use eternal ammo
-
-	def set_enemy_pointer(self, point):
-		"""update enemy point
-		argument:
-			point: type - int, the new enemy direct
-		"""
-		self.__tank_direct = point
-		self.__image = pygame.transform.rotate(self.__original_image, point * 45)
+	def update_direction(self, direction):
+		self.__tank_direction = direction
+		self.__image = pygame.transform.rotate(self.__original_image, direction * 45)
 
 	def update_loc(self, x=None, y=None):
-		"""move the tank in the current direct"""
+		"""updates to location of the tank on the screen
+		if x and y or None moves the tank depending on the direction
+		argument:
+			x: type int, the x coordinate
+			y: type int, the y coordinate
+		"""
 		if x is None and y is None:
-			self.rect.x += self.MOVES[self.__tank_direct][0]
-			self.rect.y += self.MOVES[self.__tank_direct][1]
+			self.rect.x += self.MOVES[self.__tank_direction][0]
+			self.rect.y += self.MOVES[self.__tank_direction][1]
 		else:
 			self.rect.x = x
 			self.rect.y = y
 
 	def move_tank(self, walls):
-		"""make the tank move forward
+		"""Controls the movements of the tank all over the compass rose (8 directions)
 		:argument:
-			walls: type- list of walls, every wall in the game
+			walls: type list, every wall of the map
 		"""
 		if self.__ghost_mode:
-			walls = walls[0:4]
+			walls = walls[0:4]  # only the frame of the screen
 		keys = pygame.key.get_pressed()
 		if keys[pygame.K_UP] or keys[pygame.K_LEFT] or \
 				keys[pygame.K_RIGHT] or keys[pygame.K_DOWN]:
-			if pygame.sprite.spritecollide(self, walls, False):
-				self.rect.x -= self.MOVES[self.__tank_direct][0]
-				self.rect.y -= self.MOVES[self.__tank_direct][1]
+			if pygame.sprite.spritecollide(self, walls, False) and not self.__is_stuck_while_ghost:
+				# if got into the wall when ghost mode is off
+				self.rect.x -= self.MOVES[self.__tank_direction][0]
+				self.rect.y -= self.MOVES[self.__tank_direction][1]
 				return
 			self.__need_pointing = False
+			# sets the new direction
 			if keys[pygame.K_RIGHT] and keys[pygame.K_UP]:
-				self.__tank_direct = 1
+				self.__tank_direction = 1
 			elif keys[pygame.K_LEFT] and keys[pygame.K_UP]:
-				self.__tank_direct = 3
+				self.__tank_direction = 3
 			elif keys[pygame.K_LEFT] and keys[pygame.K_DOWN]:
-				self.__tank_direct = 5
+				self.__tank_direction = 5
 			elif keys[pygame.K_RIGHT] and keys[pygame.K_DOWN]:
-				self.__tank_direct = 7
-			elif pygame.key.get_pressed()[pygame.K_RIGHT]:
-				self.__tank_direct = 0
-			elif pygame.key.get_pressed()[pygame.K_UP]:
-				self.__tank_direct = 2
-			elif pygame.key.get_pressed()[pygame.K_LEFT]:
-				self.__tank_direct = 4
-			elif pygame.key.get_pressed()[pygame.K_DOWN]:
-				self.__tank_direct = 6
-			self.__image = pygame.transform.rotate(self.__original_image, self.__tank_direct * 45)
+				self.__tank_direction = 7
+			elif keys[pygame.K_RIGHT]:
+				self.__tank_direction = 0
+			elif keys[pygame.K_UP]:
+				self.__tank_direction = 2
+			elif keys[pygame.K_LEFT]:
+				self.__tank_direction = 4
+			elif keys[pygame.K_DOWN]:
+				self.__tank_direction = 6
+			self.__image = pygame.transform.rotate(self.__original_image, self.__tank_direction * 45)
 			if not pygame.sprite.spritecollide(self, walls, False):
-				self.__is_stuck_in_ghost = False
-				self.update_loc()
-			else:
-				if self.__is_stuck_in_ghost:
-					self.update_loc()
+				self.__is_stuck_while_ghost = False
+			self.update_loc()
 
-	def shoot_bullet(self, event, bullets, enemy_shoot_flag):
-		"""add new bullets to the bullets in the battlefield, if there option to shoot
+	def shoot_bullet(self, event, bullets, direction):
+		"""shoots new bullet and adds it the the bullets list, (if there is bullets)
 		argument:
-			event: type- event (pygame class)
-			bullets: type - list of bullet, all the bullets in the battlefield
+			event: type event (pygame class)
+			bullets: type list of bullet, all the bullets in the battlefield
+			direction: type int, the direction of the new bullet (when the enemy shot)
 		"""
-		if event == pygame.K_f:
-			if self.__eternal_ammo_mode is False:
-				self.update_num_bullet()
-			bullet = Bullet(self, enemy_shoot_flag)
+		if event == pygame.K_f:  # enemy shot a bullet
+			bullet = Bullet(self, direction)
 			bullets.append(bullet)
-			self.__last_time_of_shot = time.time()
-			return True, bullet
-		elif (event.key == pygame.K_SPACE) and (self.__num_bullet > 0):
+		elif (event.key == pygame.K_SPACE) and (self.__num_bullet > 0):  # player shoot a bullet
 			if time.time() - self.__last_time_of_shot >= 0.5:
-				if self.__eternal_ammo_mode is False:
-					self.update_num_bullet()
-				bullet = Bullet(self, -1)
+				if self.__infinity_ammo_mode is False:
+					self.__num_bullet -= 1
+				bullet = Bullet(self, -1)  # sets the direction of the player's tank
 				bullets.append(bullet)
 				self.__last_time_of_shot = time.time()
 				return True, bullet
 		return False, None
+	
+	def tank_destroyed(self, screen, explodes):
+		"""Actives the gif of explosion
+		argument:
+			screen: type surface, the screen of the game
+			explodes, type list, the images of the explosion gif
+		"""
+		image = explodes.next()
+		while image is not False:
+			screen.blit(image, (self.rect.x - 12, self.rect.y - 10))
+			pygame.display.flip()
+			image = explodes.next()
+			time.sleep(0.07)
+		explodes.repeat_strip()
+	
+	def trap_affect(self, trap):
+		"""Actives the trap attribute on the player
+		argument:
+			trap: type trap, the trap the tank just activated
+		"""
+		if trap.get_attribute() == 1:  # lost 1 hp
+			self.lost_health(1)
+		if trap.get_attribute() == 2:  # heal by 1 hp
+			if self.get_health() <= 29:
+				self.__health += 1
+		if trap.get_attribute() == 3:  # gets infinity bullets for 6 seconds
+			self.active_infinity_ammo()
+			return True
+		if trap.get_attribute() == 4:  # can go through walls for 6 seconds
+			self.active_ghost_mode()
+			return True
 
-	def get_is_ghost_mode(self):
+	def is_ghost_mode(self):
 		return self.__ghost_mode
 
-	def get_is_eternal_ammo_mode(self):
-		return self.__eternal_ammo_mode
+	def is_infinity_ammo(self):
+		return self.__infinity_ammo_mode
 
 	def is_need_pointing(self):
 		return self.__need_pointing
@@ -205,26 +238,29 @@ class Tank(pygame.sprite.Sprite):
 	def get_num_bullet(self):
 		return self.__num_bullet
 
-	def update_num_bullet(self):
-		self.__num_bullet -= 1
-
 	def get_loc(self):
 		return self.rect.x, self.rect.y
+
+	def get_rect(self):
+		return self.rect
 
 	def get_image(self):
 		return self.__image
 
-	def get_pointer(self):
-		return self.__tank_direct
+	def get_direction(self):
+		return self.__tank_direction
 
 
 class Wall(pygame.sprite.Sprite):
+	"""Represent the wall of the maps during a battle"""
+	WALL_COLOR = (43, 65, 28)
+	
 	def __init__(self, screen, start_pos, end_pose):
 		super(Wall, self).__init__()
 		self.__surface = screen
 		self.__start_pos = start_pos
 		self.__end_pos = end_pose
-		self.width = 7  # constant width
+		self.__width = 7  # constant width
 		self.rect = self.draw_line()
 
 	def get_start_pos(self):
@@ -232,66 +268,84 @@ class Wall(pygame.sprite.Sprite):
 
 	def get_end_pos(self):
 		return self.__end_pos
-
+	
+	def get_rect(self):
+		return self.rect
+	
+	def update_rect(self, pixels, axis):
+		if axis == 1:
+			if 0 < self.__start_pos[1] < 600:
+				self.__start_pos = (self.__start_pos[0], self.__start_pos[1] + pixels)
+			if 0 < self.__end_pos[1] < 600:
+				self.__end_pos = (self.__end_pos[0], self.__end_pos[1] + pixels)
+		else:
+			if 0 < self.__start_pos[0] < 800:
+				self.__start_pos = (self.__start_pos[0] + pixels, self.__start_pos[1])
+			if 0 < self.__end_pos[0] < 800:
+				self.__end_pos = (self.__end_pos[0] + pixels, self.__end_pos[1])
+		
 	def draw_line(self):
-		return pygame.draw.line(self.__surface, BLACK, self.__start_pos, self.__end_pos, self.width)
+		return pygame.draw.line(self.__surface, self.WALL_COLOR,
+		    self.__start_pos, self.__end_pos, self.__width)
 
 
 class Bullet(pygame.sprite.Sprite):
-	RIGHT_SIGNAL = 1
-	LEFT_SIGNAL = 2
-	SHIFTING_DIRECT = {1: 3, 2: -3}
-	BULLET_MOVES = [(4, 0, 30, 13), (3, -3, 33, -7), (0, -4, 12, -11), (-3, -3, -10, -9),
-					(-4, 0, -11, 12), (-3, 3, 2, 27), (0, 4, 12, 30), (3, 3, 27, 24)]
-	MAX_BULLET_HOPS = 6
+	"""The bullet that were shot from the player's/enemy's tank"""
+	BULLET_IMAGE = "game images/bullet.png"
+	BULLET_MOVES = [(4, 0), (3, -3), (0, -4), (-3, -3),
+		(-4, 0), (-3, 3), (0, 4), (3, 3)]  # the amount of pixel moving each direction
+	BULLET_ADJUSTMENT = [(30, 13), (33, -7), (12, -11), (-10, -9),
+	    (-11, 12), (2, 27), (12, 30), (27, 14)]  # For setting bullet in front of the tank's cannon
+	MAX_BULLET_HOPS = 7  # maximum times bullet can hit walls
 
-	def __init__(self, tank, enemy_shoot=-1):  # get the tank's as shooter
+	def __init__(self, tank, direction=-1):  # get the tank's as shooter
 		super(Bullet, self).__init__()
-		self.__image = pygame.image.load(BULLET)
-		if enemy_shoot == -1:
-			self.__bullet_direct = tank.get_pointer()
+		self.__image = pygame.image.load(self.BULLET_IMAGE)
+		if direction == -1:
+			self.__bullet_direction = tank.get_direction()  # player shoot the bullet
 		else:
-			self.__bullet_direct = enemy_shoot
+			self.__bullet_direction = direction  # enemy shot the bullet
 		self.rect = self.__image.get_rect()
-		self.rect.x, self.rect.y = tank.get_loc()
+		self.rect.x, self.rect.y = tank.get_loc()  # the location of the bullet when it has been shot
 		self.place_bullet()  # place the bullet in position in front of tank's canon
 		self.ttl = self.MAX_BULLET_HOPS  # number of times that bullet can hit the walls
 
 	def update_loc(self):
 		"""update the location of the bullet"""
-		self.rect.x += self.BULLET_MOVES[self.__bullet_direct][0]
-		self.rect.y += self.BULLET_MOVES[self.__bullet_direct][1]
+		self.rect.x += self.BULLET_MOVES[self.__bullet_direction][0]
+		self.rect.y += self.BULLET_MOVES[self.__bullet_direction][1]
 
 	def place_bullet(self):
-		"""place the bullet in order to direct of the shooter tank"""
-		self.rect.x += self.BULLET_MOVES[self.__bullet_direct][2]
-		self.rect.y += self.BULLET_MOVES[self.__bullet_direct][3]
+		"""place the bullet right in front of the tank who shot it"""
+		self.rect.x += self.BULLET_ADJUSTMENT[self.__bullet_direction][0]
+		self.rect.y += self.BULLET_ADJUSTMENT[self.__bullet_direction][1]
 
 	def get_direct(self):
-		return self.__bullet_direct
+		return self.__bullet_direction
 
 	def hit_wall(self):
-		if self.__bullet_direct % 2 == 0:
-			self.rect.x -= self.BULLET_MOVES[self.__bullet_direct][0] * 2
-			self.rect.y -= self.BULLET_MOVES[self.__bullet_direct][1] * 2
-			self.__bullet_direct += 4
-			self.absolute_pointer()
+		"""redirects the bullet after get into a wall"""
+		if self.__bullet_direction % 2 == 0:
+			self.rect.x -= self.BULLET_MOVES[self.__bullet_direction][0] * 2
+			self.rect.y -= self.BULLET_MOVES[self.__bullet_direction][1] * 2
+			self.__bullet_direction += 4
+			self.absolute_direct()
 		else:
-			self.rect.x -= self.BULLET_MOVES[self.__bullet_direct][0]
-			self.rect.y -= self.BULLET_MOVES[self.__bullet_direct][1]
-			self.__bullet_direct += 2
-			self.absolute_pointer()
-			self.rect.x += self.BULLET_MOVES[self.__bullet_direct][0]
-			self.rect.y += self.BULLET_MOVES[self.__bullet_direct][1]
-		self.ttl -= 1
+			self.rect.x -= self.BULLET_MOVES[self.__bullet_direction][0]
+			self.rect.y -= self.BULLET_MOVES[self.__bullet_direction][1]
+			self.__bullet_direction += 2
+			self.absolute_direct()
+			self.rect.x += self.BULLET_MOVES[self.__bullet_direction][0]
+			self.rect.y += self.BULLET_MOVES[self.__bullet_direction][1]
+		self.ttl -= 1  # reduce the amount of hops
 
 	def get_ttl(self):
 		return self.ttl
 
-	def absolute_pointer(self):
-		"""consider the pointer for always point to legal index on BULLET MOVE"""
-		if self.__bullet_direct >= len(self.BULLET_MOVES):
-			self.__bullet_direct -= len(self.BULLET_MOVES)
+	def absolute_direct(self):
+		"""Sets the direction to be always point to legal index on BULLET MOVE"""
+		if self.__bullet_direction >= len(self.BULLET_MOVES):
+			self.__bullet_direction -= len(self.BULLET_MOVES)
 
 	def get_loc(self):
 		return self.rect.x, self.rect.y
@@ -301,17 +355,25 @@ class Bullet(pygame.sprite.Sprite):
 
 
 class Trap(pygame.sprite.Sprite):
+	"""The trap in the map, has 4 different abilities:
+		*reduces 1 point of the tank's health
+		*heals 1 point of the tank's health
+		*Actives tank's ghost mode
+		*Actives tank's infinity ammo mode
+	"""
+	TRAP = "game images/Trap.png"
+	
 	def __init__(self, x, y, attr=None):
 		super(Trap, self).__init__()
-		self.__image = pygame.image.load(SURPRISE)
+		self.__image = pygame.image.load(self.TRAP)
 		self.rect = self.__image.get_rect()
-		self.rect.x, self.rect.y = x, y
-		if attr is None:
+		self.rect.x, self.rect.y = x, y  # the location of the trap
+		if attr is None:  # player create the trap
 			#  create the surprise
 			self.attribute = random.randint(1, 4)
-		else:
+		else:  # player got the trap's information from other player
 			# get info about surprise from the main player
-			self.attribute = attr
+			self.attribute = attr  # the special ability of the trap
 
 	def get_attribute(self):
 		return self.attribute
