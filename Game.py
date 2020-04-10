@@ -7,17 +7,12 @@ import threading
 import pyaudio
 import string
 # from tendo import singleton
+from sys import exit
 from select import select
 from re import findall
 from struct import unpack
 from codecs import encode, decode
 from RSA import RsaEncryption
-
-# --------------------------------
-# author: Adi cohen
-# Final project: WOT Online
-# try to add one more map could be simple map
-# --------------------------------
 
 # constants
 SIZE = (1200, 600)
@@ -43,18 +38,22 @@ BROWN = (129, 97, 60)
 GREEN = (0, 255, 0)
 NEON = (57, 255, 20)
 
-# screens and widgets
-POINTER = "game images/Account fields pointer.png"
+# screens
 SIGN_UP_SCREEN = "game images/Sign up.jpg"
 LOGIN_SCREEN = "game images/Login.jpg"
 COLOR_SCREEN = "game images/colors.jpg"
-SETTINGS_SCREEN = "game images/settings.jpg"
-SETTINGS_SCREEN_PART_2 = "game images/settings1.jpg"
+SETTINGS_SCREEN = "game images/instructions.jpg"
 MAIN_SCREEN = "game images/Main.jpg"
 MENU_SCREEN = "game images/menu.jpg"
-SCORE_BOARD = "game images/scoreboard.png"
+SCORE_BOARD = "game images/rating.png"
 CHOOSE_MODE_SCREEN = "game images/modes.png"
-CONNECT = "game images/connect.jpg"
+WAITING_SCREEN = "game images/waiting.jpg"
+
+# other widgets
+GOLD = "game images/gold.png"
+SILVER = "game images/silver.png"
+BRONZE = "game images/bronze.png"
+POINTER = "game images/Account fields pointer.png"
 FIELD = "game images/zone.jpg"
 PLAYER_POINTER = "game images/Tank pointer.png"
 EXPLODE_SHEET = "game images/explode.png"
@@ -67,8 +66,8 @@ SOUND_ON = pygame.image.load("game images/Sound on.png")
 ENDLESS_AMMO = pygame.image.load("game images/Endless_Ammo.png")
 
 # fonts
-FONT = "game fonts/font.ttf"
-EVENT_FONT = "game fonts/events font.ttf"
+FONT = "game fonts/ifont.ttf"
+EVENT_FONT = "game fonts/ofont.ttf"
 
 # sounds
 DRAW = "game sounds/draw.mp3"
@@ -94,8 +93,8 @@ ALREADY_TAKEN = "cant login, another player use this account"
 LOGIN_FAILED = "Login failed"
 ENEMY_GONE = "enemy doesn't connected"
 BATTLES_LOCKED = "Server forbids new battle for now"
-PLAYER_WIN = "you win"
-PLAYER_LOSE = "you lose"
+PLAYER_WIN = "Victory"
+PLAYER_LOSE = "Defeat"
 PLAYER_DRAW = "Draw"
 
 # network
@@ -113,12 +112,12 @@ WIDTH = 2
 
 class Game:
 	"""
-	This class used for manage all the client side and all the properties of the game such like:
+	Manages client side and all the properties of the game such like:
 		->Game interface (using pygame library)
 		->Encrypted Communication with the server
 		->Communication with enemies while fight in battle
 		->Handling Errors and exceptions from server side
-		->Fights with other player
+		->Fights with other player and the communication with them during the fights
 	"""
 	
 	def __init__(self, game_screen):
@@ -127,9 +126,8 @@ class Game:
 		self.__encryption = RsaEncryption()  # the encryption used for communicate
 		# with server (decryption stored here too)
 		self.__input_font = pygame.font.Font(FONT, 40)  # font for player's input - username, password and color
-		self.__events_font = pygame.font.Font(EVENT_FONT, 35)  # font for output and events
+		self.__output_font = pygame.font.Font(EVENT_FONT, 45)  # font for output and events
 		# (wins, losing connection etc')
-		self.__events_font.set_bold(True)
 		self.__demo_player = game_objects.Tank((500, 400))
 		self.__demo_player.set_demo_tank_image()
 		self.__client = None  # communicate with server
@@ -158,7 +156,7 @@ class Game:
 		self.__walls = []  # list of the walls in map
 	
 	def _make_connection_with_server(self):
-		"""Sets connection with server, in addition sets the values of the keys of the encryption"""
+		"""Sets connection with server, in addition config the encryption of the client"""
 		try:
 			self.__client = socket.create_connection(SERVER_ADDRESS, 1.5)
 			# configure key for encryption with server
@@ -171,17 +169,18 @@ class Game:
 			pk_to_send = encode(','.join([str(i) for i in self.__encryption.get_public()]).encode(), 'base64')[::-1]
 			pk_to_send = chr(len(pk_to_send)).encode() + pk_to_send
 			self.__client.send(pk_to_send)
+			self.__client.settimeout(None)
 		except (socket.error, socket.timeout):
 			# cant access to server so shut down the program
-			failed_output = self.__events_font.render(CANT_CONNECT, True, BLACK)
-			self.__screen.blit(failed_output, [350, 250])
+			failed_output = self.__output_font.render(CANT_CONNECT, True, BLACK)
+			self.__screen.blit(failed_output, [450, 250])
 			pygame.display.flip()
 			time.sleep(TIME_TO_WAIT)
 			exit()
 		
 	def _send_to_server(self, message_to_send):
 		"""Encrypts the message and sends to server, if gets an error close the game
-		argument:
+		parameters:
 			message_to_send: type string, the message to send to server
 		"""
 		try:
@@ -204,7 +203,7 @@ class Game:
 	
 	def server_down_protocol(self):
 		"""Protocol of error when try to communicate with server"""
-		output = self.__events_font.render(SERVER_DOWN, True, BLACK)
+		output = self.__output_font.render(SERVER_DOWN, True, BLACK)
 		self.__screen.blit(output, [420, 250])
 		pygame.display.flip()
 		self.__client.close()
@@ -223,7 +222,7 @@ class Game:
 				respond = self.__encryption.decrypt(self.__client.recv(ord(length)).decode())
 				if "@" in respond:  # client's account deleted
 					self.__flags[0] = True
-					output = self.__events_font.render(ACCOUNT_DELETED, True, BLACK)
+					output = self.__output_font.render(ACCOUNT_DELETED, True, BLACK)
 					self.__screen.blit(output, [330, 200])
 					pygame.display.flip()
 					self.__client.close()
@@ -233,7 +232,7 @@ class Game:
 					self.__flags[0] = True
 					length = self.__client.recv(1).decode()
 					bandate = self.__encryption.decrypt(self.__client.recv(ord(length)).decode())
-					output = self.__events_font.render(ACCOUNT_BANNED + bandate, True, BLACK)
+					output = self.__output_font.render(ACCOUNT_BANNED + bandate, True, BLACK)
 					self.__screen.blit(output, [150, 200])
 					pygame.display.flip()
 					time.sleep(2)
@@ -242,7 +241,7 @@ class Game:
 	
 	def _get_input_from_user(self, current_data, events, limit_data_len, filter1, filter2=lambda x: False):
 		"""add the input from the player to the current data - (account buffers or color rgb values)
-		argument:
+		parameters:
 			previous_data: type str, the current data
 			events: type pygame.event, the events from keyboard, mouse etc'
 			limit data len: type int, the length limit of the data
@@ -251,7 +250,7 @@ class Game:
 		returns:
 			string, the current data
 			boolean, if need to keep collecting
-			boolean, if need to refresh the screen
+			boolean, if need to refresh the screen (because the input is different now)
 		"""
 		is_need_refresh = False
 		for event in events:
@@ -287,7 +286,7 @@ class Game:
 		return current_data, False, is_need_refresh
 	
 	def _home_screen(self):
-		"""The home screen of the game, player can get to the menu
+		"""The home screen of the game, player can get to the menu screen
 		 only if assigned to him a valid account
 		"""
 		home_screen = pygame.image.load(MAIN_SCREEN).convert()
@@ -309,21 +308,22 @@ class Game:
 						exit()
 					elif event.key == pygame.K_l:  # player login
 						self.__account = self._register_and_login_screen(True)
+						if self.__account != ["", ""]:
+							return
 						self.__screen.blit(home_screen, [0, 0])
 						pygame.display.flip()
 					elif event.key == pygame.K_s:  # player sign up
 						self.__account = self._register_and_login_screen(False)
+						if self.__account != ["", ""]:
+							return
 						self.__screen.blit(home_screen, [0, 0])
 						pygame.display.flip()
-							
-			if self.__account != ["", ""]:
-				return
 	
 	def _register_and_login_screen(self, is_login_now):
 		"""Gets the data from the user (username and password), continue recursively
 		 until a valid account is assigned to the client or until client is quit.
 		 stores the new account's data in account attribute
-		argument:
+		parameters:
 			is_login_now: type boolean, flag of if player try to login or sign_up
 		"""
 		pointer_to_entry = pygame.image.load(POINTER).convert()
@@ -366,10 +366,10 @@ class Game:
 	
 	def _take_care_connection_cases(self, is_login_now=False):
 		"""Takes care of every case of signing up or login to valid username
-		argument:
+		parameters:
 			is_login_now: type boolean, flag of if player tries to login or register
 		returns:
-			boolean, is the client gets permission for using the required account
+			boolean, is the client gets permission for using the asked account
 		"""
 		msg_pos = 100, 500
 		output = ""
@@ -409,10 +409,11 @@ class Game:
 		return legal_case
 	
 	def menu_screen(self):
-		"""manage the game - (color, rating etc'), but first ask for connection to an account"""
+		"""manage the game - (color, start a fight etc'), but first need to connect to an account - (from home screen)"""
 		self._home_screen()
 		menu_screen = pygame.image.load(MENU_SCREEN).convert()
 		self.__screen.blit(menu_screen, [0, 0])
+		self.__screen.blit(self.__output_font.render("Hello " + self.__account[0], True, WHITE), [50, 130])
 		pygame.display.flip()
 		while True:
 			self.keep_alive()
@@ -427,33 +428,42 @@ class Game:
 						self.__client.close()
 						exit()
 					
-					elif event.key == pygame.K_s:  # player look for a match
+					elif event.key == pygame.K_s:  # player looks for a match
 						mode_code = self._choose_battle_mode()
 						if mode_code is not None:
 							self._battle_start(mode_code)
 						self.__screen.blit(menu_screen, (0, 0))
+						self.__screen.blit(self.__output_font.render("Hello " + self.__account[0],
+						    True, WHITE), [50, 130])
 						pygame.display.flip()
 					
-					elif event.key == pygame.K_i:  # introductions of game's buttons
+					elif event.key == pygame.K_i:  # introductions of the game
 						self._instructions_screen()
 						self.__screen.blit(menu_screen, (0, 0))
+						self.__screen.blit(self.__output_font.render("Hello " + self.__account[0],
+						    True, WHITE), [50, 130])
 						pygame.display.flip()
 					
-					elif event.key == pygame.K_c:  # player want to change his tank's color
+					elif event.key == pygame.K_c:  # players want to change his tank's color
 						self.colors_screen()
 						self.__screen.blit(menu_screen, (0, 0))
+						self.__screen.blit(self.__output_font.render("Hello " + self.__account[0],
+							True, WHITE), [50, 130])
 						pygame.display.flip()
 					
-					elif event.key == pygame.K_r:
+					elif event.key == pygame.K_r:  # player wants to get information about his rating
 						self._rating_screen()
 						self.__screen.blit(menu_screen, (0, 0))
+						self.__screen.blit(self.__output_font.render("Hello " + self.__account[0],
+							True, WHITE), [50, 130])
 						pygame.display.flip()
 				
 				pygame.event.clear()
 
 	def colors_screen(self):
 		"""Builds the new color of the player as list values of rgb (red, green, blue)
-		stores the value inside the demo tank
+		stores the value inside the demo tan, In addition the user can re-build other color
+		or go back to the last saved version
 		"""
 		self._ask_for_color()
 		rainbow_screen = pygame.image.load(COLOR_SCREEN).convert()
@@ -513,20 +523,12 @@ class Game:
 		self.__demo_player.change_player_color([int(x, base=16) for x in color])
 	
 	def _instructions_screen(self):
-		"""Explains the game keys"""
-		settings = [pygame.image.load(SETTINGS_SCREEN).convert(),
-			pygame.image.load(SETTINGS_SCREEN_PART_2).convert()]
-		time_to_exchange = time.time()
-		self.__screen.blit(settings[0], [0, 0])
-		settings[0], settings[1] = settings[1], settings[0]
+		"""Explanations about the game itself: keys, traps, special abilities etc'"""
+		settings = pygame.image.load(SETTINGS_SCREEN).convert()
+		self.__screen.blit(settings, [0, 0])
 		pygame.display.flip()
 		while True:
 			self.keep_alive()
-			if time.time() - time_to_exchange >= 0.8:
-				self.__screen.blit(settings[0], [0, 0])
-				settings[0], settings[1] = settings[1], settings[0]
-				pygame.display.flip()
-				time_to_exchange = time.time()
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					self._send_to_server("exit")
@@ -537,16 +539,33 @@ class Game:
 						return
 	
 	def _rating_screen(self):
+		"""Gets the rating of the 3 current champions In addition to the rating of the
+		 player himself (if he doesn't already in the top 3) from the server.
+		 organize the data and display it for the user"""
+		font = pygame.font.SysFont('arial', 30)
 		rating_screen = pygame.image.load(SCORE_BOARD).convert()
 		self.__screen.blit(rating_screen, [0, 0])
 		self._send_to_server("rating")
 		respond = self._receive_from_server()
-		champ_data, user_data, index = respond.split("\n")  # for be sure
-		champ_data = self.__input_font.render(champ_data, True, BLUE)
-		user_data = self.__input_font.render(self.__account[0] + " " + user_data, True, BLUE)
-		index = self.__input_font.render(index, True, BLUE)
-		for i, element in enumerate([champ_data, user_data, index]):
-			self.__screen.blit(element, [400, 150 + 100 * i])
+		information = respond.split("\n")  # for be sure
+		x_axis = {0: 115, 1: 325, 2: 505, 3: 685, 4: 870, 5: 1045}
+		for i, element in enumerate(information):
+			for j, value in enumerate(element.split(" ")):
+				output = font.render(value, True, WHITE)
+				self.__screen.blit(output, [x_axis[j], 120 + 40 * i])
+		names = [x.split(" ")[0] for x in information]
+		if names[0] == self.__account[0]:
+			self.__screen.blit(font.render("Congratulations " + self.__account[0]
+			        + " you are #1", True, BLACK), [400, 300])
+			self.__screen.blit(pygame.image.load(GOLD), [550, 400])
+		elif len(names) >= 2 and names[1] == self.__account[0]:
+			self.__screen.blit(font.render("Congratulations " + self.__account[0]
+			        + " you are #2", True, BLACK), [400, 300])
+			self.__screen.blit(pygame.image.load(SILVER), [550, 400])
+		elif len(names) >= 3 and names[2] == self.__account[0]:
+			self.__screen.blit(font.render("Congratulations " + self.__account[0]
+                   + " you are #3", True, BLACK), [400, 300])
+			self.__screen.blit(pygame.image.load(BRONZE), [550, 400])
 		pygame.display.flip()
 		while True:
 			self.keep_alive()
@@ -560,6 +579,8 @@ class Game:
 						return
 	
 	def _choose_battle_mode(self):
+		"""The player decides which mode he wants to play - life or time mode
+		return the mode code - 0 for life mode, 1 for time mode"""
 		modes_screen = pygame.image.load(CHOOSE_MODE_SCREEN).convert()
 		self.__screen.blit(modes_screen, [0, 0])
 		pygame.display.flip()
@@ -579,29 +600,33 @@ class Game:
 						return BATTLE_ON_TIME
 					
 	def output_battle_result(self, is_win):
+		"""display the result of the battle: win, lose or draw
+		parameters:
+			is_win: type boolean, represent the result to display: 
+			True for win, False for lose and None for draw"""
 		if is_win:
-			output = self.__events_font.render(PLAYER_WIN, True, NEON)
+			output = self.__output_font.render(PLAYER_WIN, True, GREEN)
 		elif is_win is False:
-			output = self.__events_font.render(PLAYER_LOSE, True, NEON)
+			output = self.__output_font.render(PLAYER_LOSE, True, RED)
 		else:
-			output = self.__events_font.render(PLAYER_DRAW, True, NEON)
+			output = self.__output_font.render(PLAYER_DRAW, True, BLUE)
 		self.__screen.blit(output, [900, 350])
 		pygame.display.flip()
 	
 	def _battle_start(self, mode_code=BATTLE_TO_DEATH):
-		"""all the process of the game
-		argument:
-			account: type list, the username and password
-			client: type - socket - the connection to the server
-			demo_player: type - tank, for the color of the player
-			
+		"""Runs the process of the battle after finish to get the relevant data from the server
+		like map information, other player's ip (in case of the being the connecting player)
+		during the battle, manages it's objects (bullets trap and tanks)
+		while communicate with the enemy: enemy tank's data and the voice chat
+		parameters:
+			mode_code: type int, the code of the asked mode to send to the server
 		"""
 		self._ask_for_color()
 		battlefield = pygame.image.load(FIELD).convert()
 		self._send_to_server("game " + str(mode_code))
 		respond = self._receive_from_server()
 		if respond == "#":  # Battlefields are locked
-			output = self.__events_font.render(BATTLES_LOCKED, True, BLACK)
+			output = self.__output_font.render(BATTLES_LOCKED, True, BLACK)
 			self.__screen.blit(output, [270, 280])
 			pygame.display.flip()
 			time.sleep(2)
@@ -612,7 +637,7 @@ class Game:
 		main_player = self._receive_from_server()
 		main_player = (main_player == "T")
 		if main_player:
-			waiting = pygame.image.load(CONNECT).convert()
+			waiting = pygame.image.load(WAITING_SCREEN).convert()
 			self.__screen.blit(waiting, [0, 0])
 			pygame.display.flip()
 			
@@ -634,7 +659,7 @@ class Game:
 			except socket.timeout:  # other player isn't connecting
 				self._send_to_server("Cancel")
 				self.clean_match_data()
-				output = self.__events_font.render(ENEMY_GONE, True, NEON)
+				output = self.__output_font.render(ENEMY_GONE, True, NEON)
 				self.__screen.blit(output, [900, 350])
 				pygame.display.flip()
 				time.sleep(TIME_TO_WAIT)
@@ -819,7 +844,7 @@ class Game:
 	
 	def _flip_screen(self, zone):
 		"""shows all the data of the surface (pixels) plus the data of the players
-		argument:
+		parameters:
 			players: type - list of tanks,(player and enemy)
 			zone: type - surface, the image of the field
 			ammo: type - list of bullets, all the bullets in the field
@@ -946,9 +971,9 @@ class Game:
 			pass
 	
 	def _build_map(self):
-		connect_img = pygame.image.load(CONNECT)
+		connect_img = pygame.image.load(WAITING_SCREEN)
 		self.__screen.blit(connect_img, [0, 0])
-		output = self.__input_font.render(WAITING_TO_ANOTHER + "...", True, (0, 0, 255))
+		output = self.__input_font.render(WAITING_TO_ANOTHER + "...", True, NEON)
 		self.__screen.blit(output, [75, 520])
 		pygame.display.flip()
 		while True:
@@ -958,7 +983,7 @@ class Game:
 				if length == b"":
 					self.server_down_protocol()
 				if length == b"##":  # server closed battlefields
-					output = self.__events_font.render(BATTLES_LOCKED, True, WHITE)
+					output = self.__output_font.render(BATTLES_LOCKED, True, WHITE)
 					self.__screen.blit(output, [270, 280])
 					pygame.display.flip()
 					time.sleep(2)
@@ -988,11 +1013,11 @@ class Game:
 	
 	def refresh_connection_screen(self, img):
 		self.__screen.blit(img, (0, 0))
-		output = self.__input_font.render(WAITING_TO_ANOTHER, True, (0, 0, 255))
+		output = self.__input_font.render(WAITING_TO_ANOTHER, True, NEON)
 		self.__screen.blit(output, [75, 520])
 		pygame.display.flip()
 		for i in range(4):
-			output = self.__input_font.render("." * i, True, (0, 0, 255))
+			output = self.__input_font.render("." * i, True, NEON)
 			self.__screen.blit(output, [405, 520])
 			pygame.display.flip()
 			time.sleep(0.3)
@@ -1023,7 +1048,7 @@ class Game:
 	
 	def _create_trap(self):
 		"""create a new mine (location is safe)
-		argument:
+		parameters:
 			surprise: type - list, the all traps in the battlefield
 			walls_and_players: type - list of all objects that's can block location for a new mine
 		"""

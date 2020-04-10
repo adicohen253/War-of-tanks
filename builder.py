@@ -7,7 +7,6 @@ import os
 
 
 LEFT = 1
-SCROLL = 2
 RIGHT = 3
 FPS = 60
 WHITE = (255, 255, 255)
@@ -17,29 +16,32 @@ SIZE = (1270, 600)
 LOCAL_DB = "my database.db"
 ICON = "Map Builder icon.png"
 PLAYER = pygame.image.load(Tank.TANK_IMAGE)
-BACKGROUND = pygame.image.load("game images/zone.jpg")
+BACKGROUND = pygame.image.load("battle background.jpg")
 COORDINATES = [((0, 3), (799, 3)), ((3, 0), (3, 592)), ((796, 0), (796, 592)), ((0, 596), (799, 596))]
 
 
 class MapBuilder:
+	"""This class used by the server's admin for building more maps which the players can fight,
+	in addition enable to run the map with a demo player to check the walls that the admin build
+	after the building process the map and it's data saved in the data base and photographed for display later"""
 	def __init__(self, firebase=None, maps=None):
 		pygame.init()
 		self.__screen = pygame.display.set_mode(SIZE)
 		pygame.display.set_caption("Map builder")
 		pygame.display.set_icon(pygame.image.load(ICON))
-		self.__firebase_app = firebase
-		self.__maps = maps
-		self.__tanks = []
+		self.__firebase_app = firebase  # the firebase application of the server, for save data in online database
+		self.__maps = maps  # the list of maps to add the new map to
+		self.__tanks = []  # the player's tanks which are placed in the map
 		self.__font = pygame.font.SysFont('Arial', 40)
 		self.__walls = [Wall(self.__screen, x[0], x[1]) for x in COORDINATES]  # built-in walls
 	
 	def start(self):
+		"""Runs the builder, if a minor function of the calls returns -1, means the admin close the builder"""
 		to_build_wall = self.__font.render("Click left to build wall", 1, WHITE)
 		to_destroy = self.__font.render("Press D to destroy last wall", True, WHITE)
 		to_place_tanks = self.__font.render("Press P to place the tanks", 1, WHITE)
 		to_save = self.__font.render("Press S to save and quit", 1, WHITE)
 		to_run = self.__font.render("Press R to run map", 1, WHITE)
-		clock = pygame.time.Clock()
 		while True:
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -85,10 +87,11 @@ class MapBuilder:
 				self.__screen.blit(tank.get_image(), tank.get_loc())
 			self.__screen.blit(self.__font.render("Mouse pos: "
                 + str(pygame.mouse.get_pos()), True, WHITE), [855, 300])
+			
 			pygame.display.flip()
-			clock.tick(FPS)
 	
 	def run_map(self):
+		"""Tests the map using demo tank which can get in/out ghost mode for checking the walls"""
 		to_go_back = self.__font.render("Press backspace to go back", True, WHITE)
 		to_switch = self.__font.render("Press space to switch modes", True, WHITE)
 		on = self.__font.render("Ghost mode: on", True, WHITE)
@@ -110,6 +113,7 @@ class MapBuilder:
 							check_tank.active_ghost_mode()
 					
 			check_tank.move_tank(self.__walls)
+			
 			self.__screen.blit(BACKGROUND, [0, 0])
 			self.__screen.fill(BROWN, (800, 0, 470, 600))
 			self.__screen.blit(to_go_back, [805, 50])
@@ -123,10 +127,14 @@ class MapBuilder:
 				self.__screen.blit(off, [805, 170])
 			self.__screen.blit(self.__font.render("Mouse pos: "
 				+ str(pygame.mouse.get_pos()), True, WHITE), [855, 300])
+			
 			pygame.display.flip()
 			clock.tick(FPS)
 
 	def place_tanks(self):
+		"""Lets the admin decide where to place the two tanks of the players
+		(recommended after the map has been built)
+		"""
 		for_place_tank = self.__font.render("Click left to place tank", True, WHITE)
 		for_delete_tank = self.__font.render("Click right on tank to delete", True, WHITE)
 		for_save_and_quit = self.__font.render("Press backspace to go back", True, WHITE)
@@ -163,10 +171,15 @@ class MapBuilder:
 			if len(self.__tanks) == 2:
 				self.__screen.blit(full_capacity, [830, 300])
 			self.__screen.blit(self.__font.render("Mouse pos: "
-                + str(pygame.mouse.get_pos()), True, WHITE), [855, 300])
+                + str(pygame.mouse.get_pos()), True, WHITE), [855, 350])
+			
 			pygame.display.flip()
 	
 	def move_last_wall(self, event):
+		"""Allows the admin to arrange the current wall by a few pixels for each side for accuracy
+		parameters:
+			event: type pygame.event, the key which been pressed
+		"""
 		if len(self.__walls) > 4:
 			if event.key == pygame.K_UP:
 				self.__walls[-1].update_rect(-1, 1)
@@ -178,6 +191,10 @@ class MapBuilder:
 				self.__walls[-1].update_rect(1, 0)
 			
 	def is_valid_pos(self, pos):
+		"""Checks if the asked position in screen is valid for placing a player's tank
+		parameters:
+			pos: type tuple, the position which been asked
+		"""
 		if pos[0] > 800:
 			return False
 		for wall in self.__walls:
@@ -186,11 +203,17 @@ class MapBuilder:
 		return True
 
 	def remove_tank(self, pos):
+		"""Delete the tank which the user right-click on
+		parameters:
+			pos: type tuple, the position of the mouse
+		"""
 		for tank in self.__tanks:
 			if tank.get_rect().colliderect(pygame.Rect(pos[0], pos[1], 1, 1)):
 				self.__tanks.remove(tank)
 	
 	def choose_axis(self):
+		"""Asked the admin which axis the next wall will be on, (X/Y)
+		returns 1 if for y axis, and 0 for x axis"""
 		which_axis = self.__font.render("Which axis?", True, WHITE)
 		option1 = self.__font.render("Press X for horizontal", True, WHITE)
 		option2 = self.__font.render("Press Z for vertical", True, WHITE)
@@ -222,6 +245,11 @@ class MapBuilder:
 			pygame.display.flip()
 	
 	def build_wall(self, start_pos, free_axis):
+		"""travels with the mouse for decided where to end the current wall
+		parameters:
+			start_pos: type tuple, the position the wall begin in
+			free_axis: type int, the axis which the wall built on
+		"""
 		for_cancel = self.__font.render("Press backspace to cancel", True, WHITE)
 		for_build = self.__font.render("Click left to build", True, WHITE)
 		end_pos = None
@@ -257,12 +285,18 @@ class MapBuilder:
 			pygame.display.flip()
 	
 	def save(self):
+		"""after the admin finished build the map, the builder saves the map's data
+		 in the databases and took a picture of the map for displaying later
+		 """
 		if len(self.__tanks) < 2:
-			self.cant_save()
+			self.cant_save()  # there are missing tanks for the players
 			return
+		
 		map_scratches = [x for x in os.listdir("Maps/") if x.endswith(".png")]
 		new_map = "Map" + str(max([int(x.split(".")[0][3:]) for x in map_scratches]) + 1)  # the next map number
 		pygame.image.save(self.__screen.subsurface((0, 0, 800, 600)), "Maps/" + new_map + ".png")
+		
+		# build the string of walls
 		walls = ""
 		for wall in self.__walls:
 			x_start, y_start, x_end, y_end = wall.get_start_pos() + wall.get_end_pos()
@@ -272,20 +306,24 @@ class MapBuilder:
 		tanks_locations = f"{self.__tanks[0].get_loc()[0]},{self.__tanks[0].get_loc()[1]} " \
 		                 f"{self.__tanks[1].get_loc()[0]},{self.__tanks[1].get_loc()[1]}"
 		token = ''
+		# save in local database
 		conn = connect(LOCAL_DB)
 		curs = conn.cursor()
 		curs.execute("INSERT INTO Maps VALUES(?, ?, ?, ?, ?, ?)", ("<admin>", new_map,
 		    "<admin>-" + new_map, walls, tanks_locations, token))
+		# save in online database - (firebase)
 		if self.__firebase_app is not None:
 			token = self.__firebase_app.post("Maps/", {"Creator": "<admin>", "Name": new_map,
                "MapId": "<admin>-" + new_map, "Walls": walls, "PlayersLocations": tanks_locations})['name']
 			curs.execute("UPDATE Maps SET Netoken = (?) WHERE MapId = (?)", (token, "<admin>-"+new_map))
+			
 		conn.commit()
 		if self.__maps is not None:
 			self.__maps.append(Map("<admin>", new_map, "<admin>-" + new_map, walls, tanks_locations, token))
 		return -1
 	
 	def cant_save(self):
+		"""error output if admin tries to save the map without placing 2 tanks for the players"""
 		output = self.__font.render("Need 2 tanks in map!", True, BLACK)
 		self.__screen.blit(output, [200, 90])
 		pygame.display.flip()

@@ -1,32 +1,21 @@
 class Account:
+	"""The class used by the server to organize the player's data and manage them, also used
+		for providing another security layer against SQL injections when getting requests from clients"""
 	def __init__(self, username, password, wins, loses, draws, points, color,
 	             bandate, firebase_token):
-		"""
-		The class used to organize the static accounts data so as the dynamic, also used
-		to make kind of defending layer for preventing SQL injection
-		argument:
-			username - string, the username of the user
-			password - string, the password of the user
-			wins - int, the number of wining of the user
-			loses - int, the number of losing of the user
-			draws - int, the number of drawing of the user
-			color - string. the color of the user
-			bandate - string, the date of ban
-			firebase_token - string, the token of the account in the online database
-		"""
-		self.__username = username
-		self.__password = password
-		self.__wins = wins
-		self.__loses = loses
-		self.__draws = draws
-		self.__points = points
-		self.__favorite_color = color
-		self.__battlefield_id = 0
-		self.__ban_date = bandate
+		self.__username = username  # account's username
+		self.__password = password  # account's password
+		self.__wins = wins  # number of wins
+		self.__loses = loses  # number of loses
+		self.__draws = draws  # number of ties
+		self.__points = points  # all the points the account gathers
+		self.__favorite_color = color  # tank's color
+		self.__battlefield_id = 0  # the number of the arena the player fights in
+		self.__ban_date = bandate  # until then account is banned
 		self.__firebase_token = firebase_token
-		if self.__ban_date != "00/00/0000":
+		if self.__ban_date != "00/00/0000":  # account is banned
 			self.__client_status = "Ban"
-		else:
+		else:  # account isn't banned
 			self.__client_status = "Off"
 	
 	def player_online(self):
@@ -72,9 +61,7 @@ class Account:
 		self.__battlefield_id = new_battlefield_id
 	
 	def clean_data(self):
-		"""
-		Clean the data of the account to default settings
-		"""
+		"""Clean the data of the account to default settings"""
 		self.__wins = 0
 		self.__loses = 0
 		self.__draws = 0
@@ -85,22 +72,20 @@ class Account:
 			self.__client_status = "Off"
 	
 	def set_ban_until(self, new_date):
-		"""
-		set a new ban date
-		argument:
-			new_date - string, the new date to set
+		"""set a new ban date
+		parameters:
+			new_date: type string, the new date to set
 		"""
 		self.__ban_date = new_date
 		self.__client_status = "Ban"
 	
 	def free(self):
-		"""
-		delete to current ban date and set it to default
-		"""
+		"""free the account from being banned"""
 		self.__ban_date = "00/00/0000"
 		self.__client_status = "Off"
 	
 	def get_bonus(self, bonus):
+		"""account receive a bonus by kill of the 3 best players"""
 		self.__points += bonus
 	
 	def add_win(self):
@@ -114,16 +99,11 @@ class Account:
 		self.__draws += 1
 		self.__points += 1
 	
-	def change_color(self, newcolor):
-		"""
-		change the current color
-		argument:
-			newcolor - string, the new color to set
-		"""
+	def update_color(self, newcolor):
 		self.__favorite_color = newcolor
 	
 	def __str__(self):
-		"""make a string to describe all the account headers"""
+		"""make a string to describe all the account members"""
 		return f"{self.__username} {self.__password} " \
 		       f"{self.__wins} {self.__loses} {self.__draws} {self.__points} " \
 		       f"{self.__favorite_color} {self.__client_status} " \
@@ -131,15 +111,19 @@ class Account:
 
 
 class Map:
+	"""As the Account class, organizes the maps data for the server to access and manage them
+	in this version of the project there is only one creator - the admin.
+	However, the foundation for multiple creators (like players) already exist"""
 	def __init__(self, creator, map_name, map_id, walls, players_locations, netoken):
-		self.__creator = creator
-		self.__map_name = map_name
-		self.__map_id = map_id
+		self.__creator = creator  # the creator of the map, for now there is only "<admin>"
+		self.__map_name = map_name  # also the map image's file name
+		self.__map_id = map_id  # the primary value of each map, (for identify)
 		self.__walls = walls
 		self.__players_locations = players_locations
-		self.__firebase_token = netoken
+		self.__firebase_token = netoken  # the token of firebase
 	
 	def __str__(self):
+		"""generates a string which describes the map's relevant data to sending to players"""
 		s = f"{self.__walls}+{self.__players_locations}"
 		return s
 	

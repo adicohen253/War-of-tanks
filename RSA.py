@@ -92,7 +92,7 @@ class RsaEncryption:
 	
 	def encrypt(self, message):
 		"""encrypts the message to ciphertext (using the partner's public key)
-		argument:
+		parameters:
 			message: type string, the message to encrypt
 		returns:
 			bytes, the length of the ciphertext + the ciphertext itself
@@ -106,7 +106,7 @@ class RsaEncryption:
 	
 	def decrypt(self, ciphertext):
 		"""decrypts the ciphertext to the original message (using the private key)
-		argument:
+		parameters:
 			ciphertext: type string, the ciphertext to decrypt
 		returns:
 			string, the original message
@@ -117,7 +117,7 @@ class RsaEncryption:
 	
 	def encrypt_map_data(self, map_data):
 		"""like the encrypt function but for maps data
-		argument:
+		parameters:
 			map_data: type string, the information of the map (walls and player positions)
 		returns:
 			bytes, the length of the ciphertext + the ciphertext itself
@@ -145,7 +145,7 @@ class RsaEncryption:
 	
 	def decrypt_map_data(self, map_ciphertext):
 		"""like the encrypt function but for maps data
-		argument:
+		parameters:
 			map_ciphertext: type string, the ciphertext of the map to decrypt
 		returns:
 			string, the original map information

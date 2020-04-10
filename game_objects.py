@@ -7,6 +7,8 @@ BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 RED = (255, 0, 0)
 
+# classes tank and wall used also in server-side in map builder program
+
 
 class Tank(pygame.sprite.Sprite):
 	"""The character of the player during the match with other player,
@@ -47,7 +49,7 @@ class Tank(pygame.sprite.Sprite):
 
 	def change_player_color(self, color):
 		"""changes the image of the player to the new color and paints tank's image
-		argument:
+		parameters:
 			color: type list, the new color for the player (rgb format)
 		"""
 		if color == list(WHITE):
@@ -111,7 +113,7 @@ class Tank(pygame.sprite.Sprite):
 	def update_loc(self, x=None, y=None):
 		"""updates to location of the tank on the screen
 		if x and y or None moves the tank depending on the direction
-		argument:
+		parameters:
 			x: type int, the x coordinate
 			y: type int, the y coordinate
 		"""
@@ -124,7 +126,7 @@ class Tank(pygame.sprite.Sprite):
 
 	def move_tank(self, walls):
 		"""Controls the movements of the tank all over the compass rose (8 directions)
-		:argument:
+		:parameters:
 			walls: type list, every wall of the map
 		"""
 		if self.__ghost_mode:
@@ -162,7 +164,7 @@ class Tank(pygame.sprite.Sprite):
 
 	def shoot_bullet(self, event, bullets, direction):
 		"""shoots new bullet and adds it the the bullets list, (if there is bullets)
-		argument:
+		parameters:
 			event: type event (pygame class)
 			bullets: type list of bullet, all the bullets in the battlefield
 			direction: type int, the direction of the new bullet (when the enemy shot)
@@ -182,7 +184,7 @@ class Tank(pygame.sprite.Sprite):
 	
 	def tank_destroyed(self, screen, explodes):
 		"""Actives the gif of explosion
-		argument:
+		parameters:
 			screen: type surface, the screen of the game
 			explodes, type list, the images of the explosion gif
 		"""
@@ -196,7 +198,7 @@ class Tank(pygame.sprite.Sprite):
 	
 	def trap_affect(self, trap):
 		"""Actives the trap attribute on the player
-		argument:
+		parameters:
 			trap: type trap, the trap the tank just activated
 		"""
 		if trap.get_attribute() == 1:  # lost 1 hp
@@ -410,7 +412,7 @@ class Spritesheet(object):
 		
 	def image_at(self, rectangle):
 		"""Loads image from given rectangle
-		argument:
+		parameters:
 			rectangle: type tuple, (x, y, width, height)
 		returns:
 			surface, the image in this pixels of the file

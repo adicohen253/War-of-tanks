@@ -95,15 +95,15 @@ class Server:
 		for element in local_accounts:
 			if element[8] == "":  # if account need to be posting in firebase
 				token = self.__firebase.post("Accounts/",
-				                         {"Username": element[0], "Password": element[1],
-				                          "Wins": element[2], "Loses": element[3],
-				                          "Draws": element[4], "Points": element[5], "Color": element[6],
-				                          "Bandate": element[7]})['name']
+				                             {"Username": element[0], "Password": element[1],
+				                              "Wins": element[2], "Loses": element[3],
+				                              "Draws": element[4], "Points": element[5], "Color": element[6],
+				                              "Bandate": element[7]})['name']
 				curs.execute("UPDATE Accounts SET Netoken = (?) WHERE Username = (?)", (token, element[0]))
 			else:  # make sure the account in firebase are updated
 				self.__firebase.patch(f"Accounts/{element[8]}",
-				                  {"Wins": element[2], "Loses": element[3], "Draws": element[4],
-				                   "Points": element[5], "Color": element[6], "Bandate": element[7]})
+				                      {"Wins": element[2], "Loses": element[3], "Draws": element[4],
+				                       "Points": element[5], "Color": element[6], "Bandate": element[7]})
 	
 	def sync_maps_data(self, curs, global_tokens):
 		curs.execute("SELECT * FROM Maps")
@@ -115,8 +115,8 @@ class Server:
 		for element in local_maps:
 			if element[5] == "":  # if map need to be posting in firebase
 				token = self.__firebase.post("Maps/", {"Creator": element[0],
-				                                   "Name": element[1], "MapId": element[2],
-				                                   "Walls": element[3], "PlayersLocations": element[4]})
+				                                       "Name": element[1], "MapId": element[2],
+				                                       "Walls": element[3], "PlayersLocations": element[4]})
 				curs.execute("UPDATE Maps SET Netoken = (?) WHERE MapId = (?)", (token, element[2]))
 	
 	def build_my_accounts(self):
@@ -225,9 +225,9 @@ class Server:
 		canvas.image = photo
 		
 		details_label = Label(minor_window, borderwidth=6, relief=SOLID,
-		      text="Creator: " + my_displayed_map.get_creator() + "\nName: " + my_displayed_map.get_name())
+		                      text="Creator: " + my_displayed_map.get_creator() + "\nName: " + my_displayed_map.get_name())
 		index_label = Label(minor_window, borderwidth=4, relief=GROOVE, width=10,
-		    text=f"{self.__maps_display_index + 1}/{len(self.__maps_list)}")
+		                    text=f"{self.__maps_display_index + 1}/{len(self.__maps_list)}")
 		
 		Button(minor_window, text="Next map\n>>", relief=RAISED, borderwidth=2,
 		       command=lambda: self.next_map(details_label, index_label, canvas)).place(x=920, y=100)
@@ -240,7 +240,7 @@ class Server:
 		details_label.place(x=840, y=30)
 		index_label.place(x=865, y=155)
 		minor_window.grab_set()
-		
+	
 	def next_map(self, details_label, index_label, canvas):
 		if self.__maps_display_index < len(self.__maps_list) - 1:
 			self.__maps_display_index += 1
@@ -266,7 +266,7 @@ class Server:
 			conn = connect("my database.db")
 			curs = conn.cursor()
 			curs.execute("DELETE FROM Maps WHERE MapId = (?)",
-				(self.__maps_list[self.__maps_display_index].get_map_id(), ))
+			             (self.__maps_list[self.__maps_display_index].get_map_id(),))
 			conn.commit()
 			# delete from firebase
 			if self.__is_online_database:
@@ -278,7 +278,7 @@ class Server:
 				self.__maps_display_index -= 1
 			self.update_map_display_window(details_label, index_label, canvas)
 			print(len(self.__maps_list))
-		
+	
 	def server_screen(self):
 		"""
 		create the API of the admin
@@ -313,9 +313,9 @@ class Server:
 		
 		# Maps Controllers
 		Button(window, command=lambda: self.map_builder_window(window), text="Make new map", font=FONT,
-	       borderwidth=6, width=15, height=2, relief=RAISED, bg="light gray").place(x=320, y=220)
+		       borderwidth=6, width=15, height=2, relief=RAISED, bg="light gray").place(x=320, y=220)
 		Button(window, command=lambda: self.maps_display_window(window), height=2, width=15,
-	       borderwidth=6, bg="light gray", relief=RAISED, text="Display maps", font=FONT).place(x=320, y=300)
+		       borderwidth=6, bg="light gray", relief=RAISED, text="Display maps", font=FONT).place(x=320, y=300)
 		
 		lf = LabelFrame(window, font=FONT, text="Accounts manage interface")
 		lf.place(x=0, y=0, width=750, height=200)
@@ -435,7 +435,7 @@ class Server:
 	def signup_command(self, username_entry, password_entry, tree):
 		"""
 		the admin registers a new player, if already exist ignore
-		argument:
+		parameters:
 			new_username - Entry widget, username to register
 			new_password - Entry widget, password to register
 			window - Treeview, the widget of the accounts data
@@ -534,7 +534,7 @@ class Server:
 	def reset_all_accounts_command(self):
 		"""
 		clean the data of all the accounts and set it to default
-		argument:
+		parameters:
 			window - Treeview, the widget of the accounts data
 		"""
 		for account in self.__accounts_list.copy():
@@ -543,7 +543,7 @@ class Server:
 	def delete_account(self, account):
 		"""
 		delete the account from the databases (if firebase is inevitable skip it)
-		argument:
+		parameters:
 			account - Account, the account to delete
 		"""
 		if self.__is_online_database:
@@ -565,8 +565,8 @@ class Server:
 		conn.close()
 		if self.__is_online_database:
 			self.__firebase.patch(f"Accounts/{account.get_firebase_token()}/",
-			                  {"Wins": 0, "Loses": 0, "Draws": 0, "Points": 0,
-			                   "Color": "4d784e", "Bandate": "00/00/0000"})
+			                      {"Wins": 0, "Loses": 0, "Draws": 0, "Points": 0,
+			                       "Color": "4d784e", "Bandate": "00/00/0000"})
 	
 	def update_users_data(self):
 		"""
@@ -585,7 +585,7 @@ class Server:
 					             (account.get_wins(), account.get_points(), account.get_username()))
 					if self.__is_online_database:
 						self.__firebase.patch(f'Accounts/{account.get_firebase_token()}/',
-						                  {"Wins": account.get_wins(), "Points": account.get_points()})
+						                      {"Wins": account.get_wins(), "Points": account.get_points()})
 				elif act == "L":
 					curs.execute("UPDATE Accounts SET Loses = (?) WHERE Username = (?)",
 					             (account.get_loses(), account.get_username()))
@@ -596,19 +596,19 @@ class Server:
 					             (account.get_loses(), account.get_points(), account.get_username()))
 					if self.__is_online_database:
 						self.__firebase.patch(f'Accounts/{account.get_firebase_token()}/',
-						                  {'Draws': account.get_draws(), "Points": account.get_points()})
+						                      {'Draws': account.get_draws(), "Points": account.get_points()})
 				elif act == "C":
 					curs.execute("UPDATE Accounts SET Color = (?) WHERE Username = (?)",
 					             (account.get_color(), account.get_username()))
 					if self.__is_online_database:
 						self.__firebase.put(f'Accounts/{account.get_firebase_token()}/',
-						                'Color', account.get_color())
+						                    'Color', account.get_color())
 				elif act == "B":
 					curs.execute("UPDATE Accounts SET Bandate = (?) WHERE Username = (?)",
 					             (account.get_ban_date(), account.get_username()))
 					if self.__is_online_database:
 						self.__firebase.put(f"Accounts/{account.get_firebase_token()}/",
-						                "Bandate", account.get_ban_date())
+						                    "Bandate", account.get_ban_date())
 				self.__accounts_updates_to_table.remove(update)
 			conn.commit()
 			time.sleep(2)
@@ -715,7 +715,7 @@ class Server:
 					self.send_to_client(client, encryption, account.get_color(), account)
 				
 				elif request[0] == "SetColor":
-					account.change_color(request[1])
+					account.update_color(request[1])
 					self.__accounts_updates_to_table.append([account, "C"])
 				
 				elif request[0] == "rating":
@@ -744,12 +744,23 @@ class Server:
 					return account
 	
 	def get_player_and_champ_rate(self, account):
-		champion = self.__accounts_list[0]
-		champion_score = f"{champion.get_username()} {champion.get_wins()} " \
-		                 f"{champion.get_loses()} {champion.get_draws()}\n"
-		player_score = f"{account.get_wins()} {account.get_loses()} {account.get_draws()}\n"
-		index_of_player = str(self.__accounts_list.index(account) + 1)
-		return champion_score + player_score + index_of_player
+		information = ""
+		is_in_top_three = True
+		if len(self.__accounts_list) >= 3:
+			scan_range = 3
+			if account not in self.__accounts_list[0: 3]:
+				is_in_top_three = False
+		else:
+			scan_range = len(self.__accounts_list)
+		for i in range(scan_range):
+			champion = self.__accounts_list[i]
+			information += f"{champion.get_username()} {champion.get_wins()} " \
+			               f"{champion.get_loses()} {champion.get_draws()} {champion.get_points()} {i+1}\n"
+		if not is_in_top_three:  # add the player to the rating string
+			information += f"{account.get_username()} {account.get_wins()} " \
+			               f"{account.get_loses()} {account.get_draws()} {account.get_points()}" \
+			               f" {self.__accounts_list.index(account)}"
+		return information
 	
 	def calculate_bonus_points(self, enemy_username):
 		if enemy_username == self.__accounts_list[0].get_username():
@@ -959,7 +970,7 @@ class Server:
 		check if the asked username and password doesn't exist in the accounts list
 		if they don't, send Y to client and register the new player
 		if there is already an account, send N to the client
-		argument:
+		parameters:
 			client - socket, the socket which used for communicate with the client
 		"""
 		new_player_data = account.split(",")
@@ -978,7 +989,7 @@ class Server:
 	def register_new_player(self, new_account_data, is_admin_command=False):
 		"""add the new account to the list and insert it to the databases
 		if the request is from the client, automatically set his status to online
-		argument:
+		parameters:
 			new_account_data - list, the username and the password
 			is_online - bool, tells if the player connected now
 		"""
