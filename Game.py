@@ -17,15 +17,13 @@ from RSA import RsaEncryption
 # constants
 SIZE = (1200, 600)
 TIME_TO_WAIT = 1.6
-
 ENTRIES_POINTER_POS = ([630, 165], [630, 255])
 CONNECTING_INPUT_FIELD_POS = ([900, 190], [900, 270])
 RGB_VALUES_POS = ([200, 310], [500, 310], [800, 310])
-ASKED_IP_LEN_PACKET = 15
 FPS_RATE = 60
-SECS_TO_PLAY = 10  # 2:30 minutes
-BATTLE_TO_DEATH = 0
-BATTLE_ON_TIME = 1
+SECS_TO_PLAY = 180  # 3 minutes
+LIFE_MODE = 0
+TIME_MODE = 1
 
 
 # colors
@@ -54,7 +52,6 @@ GOLD = "game images/gold.png"
 SILVER = "game images/silver.png"
 BRONZE = "game images/bronze.png"
 POINTER = "game images/Account fields pointer.png"
-FIELD = "game images/zone.jpg"
 PLAYER_POINTER = "game images/Tank pointer.png"
 EXPLODE_SHEET = "game images/explode.png"
 
@@ -63,7 +60,8 @@ BULLET = pygame.transform.scale(pygame.image.load("game images/bullet.png"), (50
 GHOST = pygame.image.load("game images/ghost.png")
 SOUND_OFF = pygame.image.load("game images/Sound off.png")
 SOUND_ON = pygame.image.load("game images/Sound on.png")
-ENDLESS_AMMO = pygame.image.load("game images/Endless_Ammo.png")
+ENDLESS_AMMO = pygame.image.load("game images/Endless Ammo.png")
+BATTLEFIELD_BACKGROUND = pygame.image.load("game images/zone.jpg")
 
 # fonts
 FONT = "game fonts/ifont.ttf"
@@ -98,7 +96,7 @@ PLAYER_LOSE = "Defeat"
 PLAYER_DRAW = "Draw"
 
 # network
-SERVER_ADDRESS = ("192.168.1.34", 2020)
+SERVER_ADDRESS = ("192.168.1.35", 2020)
 GAME_PORT = 5120
 STREAM_PORT = 32000
 
@@ -139,7 +137,7 @@ class Game:
 		self.__audio = pyaudio.PyAudio()  # for audio devices
 		
 		# this attributes initialized during a fight
-		self.__is_sound_active = True  # flag for active voice chat
+		self.__is_voice_chat_active = True  # flag for active voice chat
 		self.__new_bullet = None  # new object of bullet to send to enemy
 		self.__new_trap = None  # new object of trap to send to enemy
 		self.__player = None  # the player's tank
@@ -158,7 +156,7 @@ class Game:
 	def _make_connection_with_server(self):
 		"""Sets connection with server, in addition config the encryption of the client"""
 		try:
-			self.__client = socket.create_connection(SERVER_ADDRESS, 1.5)
+			self.__client = socket.create_connection(SERVER_ADDRESS, 3)
 			# configure key for encryption with server
 			# get server's key
 			length = ord(self.__client.recv(1))
@@ -595,9 +593,9 @@ class Game:
 					if event.key == pygame.K_ESCAPE:
 						return None
 					elif event.key == pygame.K_1:
-						return BATTLE_TO_DEATH
+						return LIFE_MODE
 					elif event.key == pygame.K_2:
-						return BATTLE_ON_TIME
+						return TIME_MODE
 					
 	def output_battle_result(self, is_win):
 		"""display the result of the battle: win, lose or draw
@@ -612,17 +610,80 @@ class Game:
 			output = self.__output_font.render(PLAYER_DRAW, True, BLUE)
 		self.__screen.blit(output, [900, 350])
 		pygame.display.flip()
+		
+	def major_player(self):
+		"""prepare the battle's data in case the player is the major player (he is the one who startup the connection)"""
+		waiting = pygame.image.load(WAITING_SCREEN).convert()
+		self.__screen.blit(waiting, [0, 0])
+		pygame.display.flip()
+		
+		stream_socket = socket.socket()
+		stream_socket.bind((self.__ip, STREAM_PORT))  # for voice stream
+		stream_socket.listen(1)
+		
+		main_socket = socket.socket()
+		main_socket.bind((self.__ip, GAME_PORT))  # for game communicate
+		main_socket.listen(1)
+		
+		self.__player_start_pos, self.__enemy_start_pos = self._prepare_battle()
+		if self.__player_start_pos is None or self.__player_start_pos is False:
+			self.clean_fight_data()
+			return
+		main_socket.settimeout(3.5)
+		try:
+			self.__enemy_socket, address = main_socket.accept()
+		except socket.timeout:  # other player isn't connecting
+			self._send_to_server("Cancel")
+			self.clean_fight_data()
+			output = self.__output_font.render(ENEMY_GONE, True, NEON)
+			self.__screen.blit(output, [900, 350])
+			pygame.display.flip()
+			time.sleep(TIME_TO_WAIT)
+			return False
+		self.__enemy_ip = address[0]  # only ip address
+		
+		self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
+		enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
+		
+		self.__player = game_objects.Tank(self.__player_start_pos,
+		                                  direction=6, new_color=self.__demo_player.get_color())
+		self.__enemy = game_objects.Tank(self.__enemy_start_pos, direction=0, new_color=enemy_color)
+		
+		self.__voice_socket = stream_socket.accept()[0]
+		main_socket.close()
+		stream_socket.close()
+		return True
 	
-	def _battle_start(self, mode_code=BATTLE_TO_DEATH):
+	def minor_player(self):
+		"""prepare the battle's data in case the player is the minor player (he is the connector)"""
+		self.__enemy_ip = self._receive_from_server()
+		self.__enemy_start_pos, self.__player_start_pos = self._prepare_battle()
+		if self.__player_start_pos is None or self.__player_start_pos is False:
+			self.clean_fight_data()
+			return False
+		self.__enemy_socket = socket.socket()
+		self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
+		
+		self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
+		enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
+		
+		self.__player = game_objects.Tank(self.__player_start_pos,
+		                                  direction=0, new_color=self.__demo_player.get_color())
+		self.__enemy = game_objects.Tank(self.__enemy_start_pos, direction=6, new_color=enemy_color)
+		
+		self.__voice_socket = socket.socket()
+		self.__voice_socket.connect((self.__enemy_ip, STREAM_PORT))
+		return True
+	
+	def _battle_start(self, mode_code):
 		"""Runs the process of the battle after finish to get the relevant data from the server
 		like map information, other player's ip (in case of the being the connecting player)
-		during the battle, manages it's objects (bullets trap and tanks)
+		during the battle, manages its objects (bullets trap and tanks)
 		while communicate with the enemy: enemy tank's data and the voice chat
 		parameters:
 			mode_code: type int, the code of the asked mode to send to the server
 		"""
 		self._ask_for_color()
-		battlefield = pygame.image.load(FIELD).convert()
 		self._send_to_server("game " + str(mode_code))
 		respond = self._receive_from_server()
 		if respond == "#":  # Battlefields are locked
@@ -637,66 +698,11 @@ class Game:
 		main_player = self._receive_from_server()
 		main_player = (main_player == "T")
 		if main_player:
-			waiting = pygame.image.load(WAITING_SCREEN).convert()
-			self.__screen.blit(waiting, [0, 0])
-			pygame.display.flip()
-			
-			stream_socket = socket.socket()
-			stream_socket.bind((self.__ip, STREAM_PORT))  # for voice stream
-			stream_socket.listen(1)
-			
-			main_socket = socket.socket()
-			main_socket.bind((self.__ip, GAME_PORT))  # for game communicate
-			main_socket.listen(1)
-			
-			self.__player_start_pos, self.__enemy_start_pos = self._build_map()
-			if self.__player_start_pos is None or self.__player_start_pos is False:
-				self.clean_match_data()
-				return
-			main_socket.settimeout(3.5)
-			try:
-				self.__enemy_socket, address = main_socket.accept()
-			except socket.timeout:  # other player isn't connecting
-				self._send_to_server("Cancel")
-				self.clean_match_data()
-				output = self.__output_font.render(ENEMY_GONE, True, NEON)
-				self.__screen.blit(output, [900, 350])
-				pygame.display.flip()
-				time.sleep(TIME_TO_WAIT)
-				return
-			self.__enemy_ip = address[0]  # only ip address
-			
-			self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
-			enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-			
-			self.__player = game_objects.Tank(self.__player_start_pos,
-			    direction=6, new_color=self.__demo_player.get_color())
-			self.__enemy = game_objects.Tank(self.__enemy_start_pos, direction=0, new_color=enemy_color)
-			
-			self.__voice_socket = stream_socket.accept()[0]
-			main_socket.close()
-			stream_socket.close()
-		# main player create the server
-		# (waiting for another one for starting the game)
-		
+			is_start_battle = self.major_player()
 		else:  # player makes connection with main player
-			self.__enemy_ip = self._receive_from_server()
-			self.__enemy_start_pos, self.__player_start_pos = self._build_map()
-			if self.__player_start_pos is None or self.__player_start_pos is False:
-				self.clean_match_data()
-				return
-			self.__enemy_socket = socket.socket()
-			self.__enemy_socket.connect((self.__enemy_ip, GAME_PORT))
-			
-			self.__enemy_socket.send(("%02x%02x%02x" % tuple(self.__demo_player.get_color())).encode())
-			enemy_color = [int(x, base=16) for x in findall("..?", self.__enemy_socket.recv(6).decode())]
-			
-			self.__player = game_objects.Tank(self.__player_start_pos,
-				direction=0, new_color=self.__demo_player.get_color())
-			self.__enemy = game_objects.Tank(self.__enemy_start_pos, direction=6, new_color=enemy_color)
-			
-			self.__voice_socket = socket.socket()
-			self.__voice_socket.connect((self.__enemy_ip, STREAM_PORT))
+			is_start_battle = self.minor_player()
+		if not is_start_battle:
+			return
 		self.__enemy_socket.send(self.__account[0].encode())
 		self.__enemy_username = self.__enemy_socket.recv(10).decode()
 		self.__enemy_socket.settimeout(0.5)
@@ -706,11 +712,10 @@ class Game:
 		
 		start_battle_from = time.time()  # for time battle mode
 		
-		last_trap_moment = time.time()
+		last_trap_creation_time = time.time()
 		random_time_for_trap = random.randint(3, 5)
 		
 		threading.Thread(target=self._channeling_with_the_enemy).start()
-		# not using voice chat now
 		# threading.Thread(target=self.stream_in).start()
 		# threading.Thread(target=self.stream_out).start()
 		while not self.__flags[0]:
@@ -736,7 +741,7 @@ class Game:
 						break
 						
 					elif event.key == pygame.K_BACKSPACE:
-						self.__is_sound_active = not self.__is_sound_active
+						self.__is_voice_chat_active = not self.__is_voice_chat_active
 					
 					is_shoot, self.__new_bullet = self.__player.shoot_bullet(event, self.__bullets, -1)
 					if is_shoot:
@@ -746,7 +751,7 @@ class Game:
 			if self.__flags[0]:
 				break
 			
-			if self.__flags[1]:
+			if self.__flags[1]:  # enemy quit or disconnect
 				self._send_to_server("Victory")
 				self._send_to_server(self.__enemy_username)
 				self.output_battle_result(True)
@@ -754,16 +759,17 @@ class Game:
 				break
 			
 			if pygame.sprite.spritecollide(self.__player, [self.__enemy], False):
+				# relocate to the starting locations
 				self.__collide_signal = "C"
 				self.__player.lost_health(2)
 				self.__enemy.lost_health(2)
 				self.__player.update_loc(self.__player_start_pos[0], self.__player_start_pos[1])
 			
-			if main_player and time.time() - last_trap_moment >= random_time_for_trap:
-				last_trap_moment, random_time_for_trap = self._create_trap()
+			if main_player and time.time() - last_trap_creation_time >= random_time_for_trap:
+				last_trap_creation_time, random_time_for_trap = self._create_trap()
 				self.__new_trap = self.__traps[-1]
 			
-			if len(self.__traps) > 4:
+			if len(self.__traps) > 5:  # up to 5 traps in the map
 				self.__traps.remove(self.__traps[0])
 			
 			for bullet in self.__bullets:
@@ -782,17 +788,18 @@ class Game:
 					if bullet.get_ttl() == 0:
 						self.__bullets.remove(bullet)
 				
-			for t in self.__traps:
-				if pygame.sprite.spritecollide(t, [self.__player], False):
-					if self.__player.trap_affect(t):
+			for trap in self.__traps:
+				if pygame.sprite.spritecollide(trap, [self.__player], False):
+					if self.__player.trap_affect(trap):
 						pygame.mixer.music.load(BOOST)
 						pygame.mixer.music.play(1)
-					self.__traps.remove(t)
+					self.__traps.remove(trap)
 				
-				elif pygame.sprite.spritecollide(t, [self.__enemy], False):
-					self.__traps.remove(t)
+				elif pygame.sprite.spritecollide(trap, [self.__enemy], False):
+					self.__traps.remove(trap)
 			
 			if self.__player.get_health() <= 0:
+				# player lost
 				self._send_to_server("Defeat")
 				self.__player.tank_destroyed(self.__screen, self.__explodes)
 				self.output_battle_result(False)
@@ -801,6 +808,7 @@ class Game:
 				break
 			
 			elif self.__enemy.get_health() <= 0:
+				# player won
 				self._send_to_server("Victory")
 				self._send_to_server(self.__enemy_username)
 				self.__enemy.tank_destroyed(self.__screen, self.__explodes)
@@ -812,24 +820,25 @@ class Game:
 			self.__player.move_tank(self.__walls)
 			self.__player.is_done_infinity_ammo()
 			self.__player.is_done_ghost()
-			
-			self._flip_screen(battlefield)
-			if self.__player.is_need_pointing():
-				self.__screen.blit(player_point, [self.__player.get_loc()[0], self.__player.get_loc()[1] - 50])
-			if mode_code == BATTLE_ON_TIME:
-				if self._take_care_time_mode(start_battle_from):  # time is up
-					break
-			pygame.display.flip()
 			if self.__player.reload_ammo():  # only makes sound of reload when the player reloads
 				pygame.mixer.music.load(RELOAD)
 				pygame.mixer.music.play(2)
 			
+			self._prepare_for_refresh_screen()
+			if self.__player.is_need_pointing():
+				self.__screen.blit(player_point, [self.__player.get_loc()[0], self.__player.get_loc()[1] - 50])
+			if mode_code == TIME_MODE:
+				if self._take_care_time_mode(start_battle_from):  # time is up
+					break
+			pygame.display.flip()
+			
 			clock.tick(FPS_RATE)
 		pygame.mixer.music.play()
 		time.sleep(TIME_TO_WAIT)
-		self.clean_match_data()
+		self.clean_fight_data()
 	
-	def clean_match_data(self):
+	def clean_fight_data(self):
+		"""Resets the fight members"""
 		self.__enemy_username = ""
 		self.__enemy = None
 		self.__player = None
@@ -840,27 +849,22 @@ class Game:
 		self.__bullets = []
 		self.__walls = []
 		self.__flags = [False, False]
-		self.__is_sound_active = True
+		self.__is_voice_chat_active = True
 	
-	def _flip_screen(self, zone):
-		"""shows all the data of the surface (pixels) plus the data of the players
-		parameters:
-			players: type - list of tanks,(player and enemy)
-			zone: type - surface, the image of the field
-			ammo: type - list of bullets, all the bullets in the field
-			traps: all the mines in the battlefield
-		"""
-		# constants of UI to battle screen":
+	def _prepare_for_refresh_screen(self):
+		"""Make arrangements for display the general data of match during
+		 the fighting: hp, number of bullets etc', but don't display it yet
+		  (maybe there is time mode's clock to display)"""
 		output_list = [["my health:", (850, 30)], ["my ammo:", (850, 90)],
 			["enemy health:", (850, 150)], [str(self.__player.get_health()), (1000, 33)],
 			[str(self.__enemy.get_health()), (1050, 153)],
 			[str(self.__player.get_num_bullet()) + " X", (990, 90)],
 			["Sound:", (850, 210)]]
 		self.__screen.fill(BROWN, (800, 0, 400, 600))
-		self.__screen.blit(zone, [0, 0])
+		self.__screen.blit(BATTLEFIELD_BACKGROUND, [0, 0])
 		self.__screen.blit(BULLET, (1060, 82))
 		
-		if self.__is_sound_active:
+		if self.__is_voice_chat_active:
 			self.__screen.blit(SOUND_ON, (950, 205))
 		else:
 			self.__screen.blit(SOUND_OFF, (950, 205))
@@ -882,6 +886,10 @@ class Game:
 			self.__screen.blit(self.__input_font.render(element[0], True, WHITE), element[1])
 	
 	def _channeling_with_the_enemy(self):
+		"""Manages to communication with enemy player during the fight, build and packets with
+		the relevant data to the enemy: direction, location, new bullet if has been shot etc'
+		if enemy quit, sets its flag so the main thread of the game would know
+		"""
 		clock = pygame.time.Clock()
 		while not self.__flags[0]:
 			packet_to_send = \
@@ -921,26 +929,30 @@ class Game:
 		self.__enemy_socket.close()
 		self.__voice_socket.close()
 	
-	def _take_care_enemy_packet(self, enemy_data):
-		for header in enemy_data:
+	def _take_care_enemy_packet(self, enemy_packet):
+		"""Analyze the enemy's packets and sets the data in player's side
+		parameters:
+			enemy_packet: type string, the enemy's packet"""
+		for header in enemy_packet:
 			if "D" in header:
 				self.__enemy.update_direction(int(header[1]))
 			if "L" in header:
 				x_pos, y_pos = header[1:].split(",")
 				self.__enemy.update_loc(int(x_pos), int(y_pos))
-			if "T" in header:
+			if "T" in header:  # new trap
 				trap_attribute = header[1]
 				trap_pos_x, trap_pox_y = header[2:].split(".")
 				self.__traps.append(game_objects.Trap(int(trap_pos_x), int(trap_pox_y), int(trap_attribute)))
-			if "B" in header:
+			if "B" in header:  # new bullet
 				self.__enemy.shoot_bullet(pygame.K_f, self.__bullets, int(header[1]))
-			if "C" in header and self.__collide_signal != "O":
+			if "C" in header and self.__collide_signal != "O":  # player didn't notice a collision
 				self.__player.lost_health(2)
 				self.__enemy.lost_health(2)
 				self.__player.update_loc(self.__player_start_pos[0], self.__player_start_pos[1])
 				self.__collide_signal = ""
 	
 	def stream_in(self):
+		"""Record the player's voice and send it to the enemy"""
 		try:
 			microphone = self.__audio.open(format=FORMAT, channels=CHANNELS,
 					rate=RATE, input=True, frames_per_buffer=CHUNK)
@@ -955,13 +967,14 @@ class Game:
 			pass
 	
 	def stream_out(self):
+		"""Play the data from the voice chat socket (The enemy's voice)"""
 		try:
 			speaker = self.__audio.open(format=FORMAT, channels=CHANNELS,
 				rate=RATE, output=True, frames_per_buffer=CHUNK)
 			while not (self.__flags[0] or self.__flags[1]):
 				try:
 					data = self.__voice_socket.recv(CHUNK)
-					if self.__is_sound_active:
+					if self.__is_voice_chat_active:  # if voice chat is turned on
 						speaker.write(data)
 				except (IOError, socket.error):
 					break
@@ -970,10 +983,14 @@ class Game:
 		except OSError:
 			pass
 	
-	def _build_map(self):
+	def _prepare_battle(self):
+		"""Waits until an enemy if found so server will send map's information,
+		if player doesn't want to wait anymore notifies server and go back to the menu screen
+		Until one of those events is happening, displays waiting screen to the player
+		"""
 		connect_img = pygame.image.load(WAITING_SCREEN)
 		self.__screen.blit(connect_img, [0, 0])
-		output = self.__input_font.render(WAITING_TO_ANOTHER + "...", True, NEON)
+		output = self.__input_font.render(WAITING_TO_ANOTHER + "...", True, BLACK)
 		self.__screen.blit(output, [75, 520])
 		pygame.display.flip()
 		while True:
@@ -982,7 +999,7 @@ class Game:
 				length = self.__client.recv(2)
 				if length == b"":
 					self.server_down_protocol()
-				if length == b"##":  # server closed battlefields
+				if length == b"##":  # new battles are invalid now
 					output = self.__output_font.render(BATTLES_LOCKED, True, WHITE)
 					self.__screen.blit(output, [270, 280])
 					pygame.display.flip()
@@ -998,10 +1015,12 @@ class Game:
 					self.__client.close()
 					exit()
 				elif event.type == pygame.KEYDOWN:
-					if event.key == pygame.K_ESCAPE:  # player stop waiting for match
+					if event.key == pygame.K_ESCAPE:  # player stops waiting for match
 						self._send_to_server("%")
 						return None, None
-			self.refresh_connection_screen(connect_img)
+			self.__screen.blit(connect_img, [0, 0])
+			self.refresh_waiting_screen()
+		# analyzes the data of the map that was send
 		all_walls = all_walls.split("\n")
 		rects = [int(x) for x in findall(r"\d+", rects)]
 		rects = [[rects[0]] + [rects[1]], [rects[2]] + [rects[3]]]
@@ -1011,18 +1030,22 @@ class Game:
 			self.__walls.append(game_objects.Wall(self.__screen, s_pos, e_pos))
 		return rects
 	
-	def refresh_connection_screen(self, img):
-		self.__screen.blit(img, (0, 0))
-		output = self.__input_font.render(WAITING_TO_ANOTHER, True, NEON)
-		self.__screen.blit(output, [75, 520])
+	def refresh_waiting_screen(self):
+		"""refreshes the waiting screen"""
+		output = self.__input_font.render(WAITING_TO_ANOTHER, True, BLACK)
+		self.__screen.blit(output, [75, 320])
 		pygame.display.flip()
 		for i in range(4):
-			output = self.__input_font.render("." * i, True, NEON)
-			self.__screen.blit(output, [405, 520])
+			output = self.__input_font.render("." * i, True, BLACK)
+			self.__screen.blit(output, [405, 320])
 			pygame.display.flip()
 			time.sleep(0.3)
 	
 	def _take_care_time_mode(self, start_time):
+		"""If player is fighting in time mode, updates the game clock,
+		if time is up sends the result to the server, returns true if time is up indeed
+		parameters:
+			start_time: type float, the moment the battle started"""
 		time_to_play = SECS_TO_PLAY - (time.time() - start_time)
 		if time_to_play <= 0:
 			if self.__player.get_health() > self.__enemy.get_health():
@@ -1044,14 +1067,10 @@ class Game:
 			return True
 		else:
 			time_to_play = time.strftime("%M:%S", time.gmtime(time_to_play))
-			self.__screen.blit(self.__input_font.render(time_to_play, True, WHITE), [900, 420])
+			self.__screen.blit(self.__input_font.render("Battle ends in: " + time_to_play, True, WHITE), [850, 270])
 	
 	def _create_trap(self):
-		"""create a new mine (location is safe)
-		parameters:
-			surprise: type - list, the all traps in the battlefield
-			walls_and_players: type - list of all objects that's can block location for a new mine
-		"""
+		"""creates a new trap in a valid location on the map"""
 		x_surprise_loc = random.randint(0, 759)
 		y_surprise_loc = random.randint(0, 559)
 		new_surprise = game_objects.Trap(x_surprise_loc, y_surprise_loc)
@@ -1065,7 +1084,7 @@ class Game:
 
 
 def main():
-	# try:
+	# try:  # client can run one client program
 	#     _ = singleton.SingleInstance()
 	# except singleton.SingleInstanceException:
 	#     exit()

@@ -16,13 +16,13 @@ class Account:
 		if self.__ban_date != "00/00/0000":  # account is banned
 			self.__client_status = "Ban"
 		else:  # account isn't banned
-			self.__client_status = "Off"
+			self.__client_status = "Offline"
 	
 	def player_online(self):
-		self.__client_status = "On"
+		self.__client_status = "Online"
 	
 	def player_offline(self):
-		self.__client_status = "Off"
+		self.__client_status = "Offline"
 	
 	def get_client_status(self):
 		return self.__client_status
@@ -69,7 +69,7 @@ class Account:
 		self.__favorite_color = "4d784e"
 		self.__ban_date = "00/00/0000"
 		if self.__client_status == "Ban":
-			self.__client_status = "Off"
+			self.__client_status = "Offline"
 	
 	def set_ban_until(self, new_date):
 		"""set a new ban date
@@ -82,7 +82,7 @@ class Account:
 	def free(self):
 		"""free the account from being banned"""
 		self.__ban_date = "00/00/0000"
-		self.__client_status = "Off"
+		self.__client_status = "Offline"
 	
 	def get_bonus(self, bonus):
 		"""account receive a bonus by kill of the 3 best players"""
@@ -123,7 +123,7 @@ class Map:
 		self.__firebase_token = netoken  # the token of firebase
 	
 	def __str__(self):
-		"""generates a string which describes the map's relevant data to sending to players"""
+		"""generates a string of the relevant information about the map to sending to players"""
 		s = f"{self.__walls}+{self.__players_locations}"
 		return s
 	

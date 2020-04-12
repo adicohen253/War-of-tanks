@@ -23,7 +23,7 @@ COORDINATES = [((0, 3), (799, 3)), ((3, 0), (3, 592)), ((796, 0), (796, 592)), (
 class MapBuilder:
 	"""This class used by the server's admin for building more maps which the players can fight,
 	in addition enable to run the map with a demo player to check the walls that the admin build
-	after the building process the map and it's data saved in the data base and photographed for display later"""
+	after the building process the map and its data saved in the data base and photographed for display later"""
 	def __init__(self, firebase=None, maps=None):
 		pygame.init()
 		self.__screen = pygame.display.set_mode(SIZE)
