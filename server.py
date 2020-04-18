@@ -1,13 +1,12 @@
 import threading
 import socket
 import time
-import string
 import datetime
-from server_objects import Account, Map
-from builder import MapBuilder
+from server_objects import *
+from string import ascii_letters
 from RSA import RsaEncryption
 from subprocess import Popen, PIPE
-from re import findall
+from re import findall, DOTALL
 from os import system, remove
 from pyperclip import copy
 from random import choice
@@ -183,8 +182,7 @@ class Server:
 		threading.Thread(target=self.update_users_data).start()
 		threading.Thread(target=self.clients_adder).start()
 		threading.Thread(target=self.refresh_bans).start()
-		threading.Thread(target=lambda:
-		system(f"python backend/manage.py runserver {self.__ip}:8000")).start()
+		threading.Thread(target=lambda: system(f"python backend/manage.py runserver {self.__ip}:8000 --insecure")).start()
 		self.server_screen()
 		# kill django server using PID
 		result = Popen("netstat -ano | findstr :8000", stdout=PIPE, shell=True)
@@ -203,7 +201,7 @@ class Server:
 		"""
 		window = Tk()
 		window.geometry(API_SIZE)
-		window.title("My admin interface")
+		window.title("My admin's API")
 		window.resizable(OFF, OFF)
 		window.configure(background='azure')
 		Label(window, text="My IP is: " + self.__ip, fg='blue',
@@ -211,6 +209,14 @@ class Server:
 		self.__players_label = Label(window, text="0 players are online", fg='blue',
 		                             bg='white', borderwidth=5, relief=SUNKEN)
 		self.__players_label.place(x=850, y=70)
+		
+		Button(window, text='Open documentation', bg='lavender', font=FONT,
+		       height=2, width=16, borderwidth=6, relief=RAISED,
+		       command=lambda: self.documentation_window(window)).place(x=480, y=220)
+		
+		Button(window, text='Exit', bg='lavender', font=FONT,
+		       height=2, width=16, borderwidth=6, relief=RAISED,
+		       command=lambda: window.destroy()).place(x=480, y=300)
 		
 		# Switches
 		self.__open_connections = BooleanVar(value=True)
@@ -230,13 +236,13 @@ class Server:
 		            value=False).place(x=10, y=60)
 		
 		# Maps control
-		Button(window, command=lambda: self.maps_builder_window(window), text="Make new map", font=FONT,
+		Button(window, command=lambda: self.maps_builder_window(window), text="Build new map", font=FONT,
 		       borderwidth=6, width=15, height=2, relief=RAISED, bg="light gray").place(x=320, y=220)
 		Button(window, command=lambda: self.maps_display_window(window), height=2, width=15,
 		       borderwidth=6, bg="light gray", relief=RAISED, text="Display maps", font=FONT).place(x=320, y=300)
 		
 		# accounts configuration frame
-		lf = LabelFrame(window, font=FONT, text="Accounts manage interface")
+		lf = LabelFrame(window, font=FONT, text="Account's configuration")
 		lf.place(x=0, y=0, width=750, height=200)
 		user, password = StringVar(), StringVar()
 		day, month = StringVar(value="day"), StringVar(value="month")
@@ -283,13 +289,7 @@ class Server:
 		       borderwidth=3, width=10, bg="orange").place(x=420, y=140)
 		
 		Button(lf, text='Reset accounts', bg='dodger blue', height=2, width=16,
-		       command=lambda: threading.Thread(target=self.reset_all_accounts_command).start()).place(x=585, y=10)
-		
-		Button(lf, text='Open documentation', bg='dodger blue', height=2, width=16,
-		       command=lambda: self.documentation_window(window)).place(x=585, y=60)
-		
-		Button(lf, text='Exit', bg='dodger blue', height=2, width=16,
-		       command=lambda: window.destroy()).place(x=585, y=110)
+		       command=lambda: threading.Thread(target=self.reset_all_accounts_command).start()).place(x=585, y=70)
 		
 		# Accounts data display widget
 		headers = ('Username', 'Password', 'Wins',
@@ -330,19 +330,19 @@ class Server:
 			root: type tkinter window, the main console window
 		"""
 		new_window = Toplevel(root)
-		new_window.geometry('600x400')
+		new_window.geometry('1000x500')
 		new_window.title("Documentation")
 		new_window.config(bg='gray79')
 		new_window.resizable(False, False)
 		scroll = Scrollbar(new_window, orient=VERTICAL)
-		t = Text(new_window, yscrollcommand=scroll.set, wrap=WORD)
+		t = Text(new_window, yscrollcommand=scroll.set, wrap=WORD, height=25, width=105)
 		scroll.config(command=t.yview)
 		with open(DOCUMENT, "r") as file_handler:
 			data = file_handler.read()
 		t.insert(END, data)
 		t.config(state=DISABLED)
-		t.place(y=10, x=10, height=380, width=450)
-		scroll.place(x=460, y=10, height=380, width=18)
+		t.place(y=10, x=10)
+		scroll.place(x=855, y=10, height=405, width=18)
 		new_window.grab_set()
 	
 	def maps_builder_window(self, root):
@@ -466,8 +466,8 @@ class Server:
 		arguments:
 			username: type string, the username to check
 		"""
-		return (0 < len(username) <= 10) and username[0] in string.ascii_letters and \
-		       all([letter in string.ascii_letters
+		return (0 < len(username) <= 10) and username[0] in ascii_letters and \
+		       all([letter in ascii_letters
 		            or letter.isdigit() for letter in username[1:]])
 	
 	@staticmethod
@@ -477,7 +477,7 @@ class Server:
 		arguments:
 			username: type string, the username to check
 		"""
-		return (0 < len(password) <= 10) and all([letter in string.ascii_letters or
+		return (0 < len(password) <= 10) and all([letter in ascii_letters or
 		                                          letter.isdigit() for letter in password])
 	
 	def signup_command(self, username_entry, password_entry, tree):
@@ -682,7 +682,7 @@ class Server:
 				ban_date = datetime.datetime(day=day, month=month, year=year)
 				if ban_date <= today:
 					acc.free()
-			time.sleep(5)
+			time.sleep(3)
 		print("Refresh ban shut down...")
 	
 	def clients_adder(self):
@@ -799,8 +799,7 @@ class Server:
 					self.__accounts_updates_to_table.append([account, "C"])
 				
 				elif request[0] == "rating":
-					rating = self.get_rating(account)
-					self.send_to_client(client, encryption, rating, account)
+					self.send_rating(account, client, encryption)
 				
 				elif request[0] == "game":
 					mode_code = int(request[1])
@@ -827,11 +826,13 @@ class Server:
 				if account is not None:
 					return account
 	
-	def get_rating(self, account):
-		"""build a string about the current 3 champion and the player
+	def send_rating(self, account, client, encryption):
+		"""Builds a string about the current 3 champion and the player and sends it to player
 		(if he isn't one of the champion) and returns it
 		parameter:
 			account: type account, the account which search its' rating in the accounts list
+			client: type client, the socket of the client
+			encryption: the RSA encryption, the encryption of the connection
 		"""
 		information = ""
 		is_in_top_three = True
@@ -848,9 +849,13 @@ class Server:
 		if not is_in_top_three:  # add the player to the rating string
 			information += f"{account.get_username()} {account.get_wins()} " \
 			               f"{account.get_loses()} {account.get_draws()} {account.get_points()}" \
-			               f" {self.__accounts_list.index(account)}"
-		return information
-	
+			               f" {self.__accounts_list.index(account) + 1}"
+		# rating packet is getting split for avoiding packet so long that encryption raise error
+		split_information = findall(".{1,20}", information, DOTALL)
+		self.send_to_client(client, encryption, str(len(split_information)), account)
+		for x in split_information:
+			self.send_to_client(client, encryption, x, account)
+		
 	def player_battling(self, account, client, mode_code, address, encryption):
 		"""Runs the player's request to fight (Life/Time mode), when the battle ends
 		gets the result from the player and update its data

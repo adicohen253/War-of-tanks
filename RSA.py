@@ -14,12 +14,12 @@ class RsaEncryption:
 		p and q are between 2-409 for avoid of slowing down the game
 		"""
 		self.__p = random.randint(2, 409)
-		while not self.is_prime(self.__p):
+		while not self._is_prime(self.__p):
 			self.__p = random.randint(2, 409)
 		
 		self.__q = random.randint(2, 409)
 		while self.__q == self.__p or not (1000 < self.__q * self.__p < 3000) \
-			or not self.is_prime(self.__q):
+			or not self._is_prime(self.__q):
 			self.__q = random.randint(2, 409)
 		#  p * q need to be bigger than 1000 for encrypt the map coordinates
 		
@@ -27,7 +27,7 @@ class RsaEncryption:
 		
 		self.__public_key = None
 		self.__private_key = None
-		self.generate_keypair()
+		self._generate_keypair()
 		
 		self.__partner_public_key = None  # the public key of the other network entity
 	
@@ -50,21 +50,21 @@ class RsaEncryption:
 	def get_private(self):
 		return self.__private_key
 	
-	def generate_keypair(self):
+	def _generate_keypair(self):
 		"""generates the public and private key (e, n) (d, n)"""
 		phi = (self.__p - 1) * (self.__q - 1)
 		
 		e = random.randrange(2, phi)
-		g = self.gcd(e, phi)
+		g = self._gcd(e, phi)
 		while g != 1:  # confirm e is approved option
 			e = random.randrange(2, phi)
-			g = self.gcd(e, phi)
-		d = self.multiplicative_inverse(e, phi)  # find d
+			g = self._gcd(e, phi)
+		d = self._multiplicative_inverse(e, phi)  # find d
 		self.__public_key = (e, self.__n)
 		self.__private_key = (d, self.__n)
 	
 	@staticmethod
-	def is_prime(num):
+	def _is_prime(num):
 		if num == 2:
 			return True
 		if num < 2 or num % 2 == 0:
@@ -75,14 +75,14 @@ class RsaEncryption:
 		return True
 	
 	@staticmethod
-	def gcd(e, phi):
+	def _gcd(e, phi):
 		"""returns 1 if e and phi(n) are a coprimes relied on Euler's theorem"""
 		while phi != 0:
 			e, phi = phi, e % phi
 		return e
 	
 	@staticmethod
-	def multiplicative_inverse(e, phi):
+	def _multiplicative_inverse(e, phi):
 		"""returns d such that -> d * e (mod phi(n)) = 1"""
 		d = 1
 		while True:

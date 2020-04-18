@@ -2,31 +2,24 @@
   <dictionary name="adic2">
     <words>
       <w>bandate</w>
-      <w>buffersize</w>
       <w>ciphertext</w>
       <w>colorkey</w>
-      <w>coprime</w>
       <w>coprimes</w>
       <w>cryption</w>
-      <w>curitem</w>
       <w>findstr</w>
       <w>firebase</w>
-      <w>giffs</w>
       <w>ifont</w>
       <w>keypair</w>
       <w>netoken</w>
       <w>netstat</w>
       <w>newcolor</w>
+      <w>newhealth</w>
       <w>ofont</w>
       <w>pygame</w>
-      <w>ratin</w>
       <w>rects</w>
-      <w>regis</w>
       <w>rlist</w>
-      <w>situ</w>
       <w>spritesheet</w>
       <w>taskkill</w>
-      <w>tendo</w>
       <w>treeview</w>
       <w>tups</w>
     </words>

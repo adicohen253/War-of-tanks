@@ -233,6 +233,9 @@ class Tank(pygame.sprite.Sprite):
 
 	def heal_health(self):
 		self.__health += 1
+	
+	def update_health(self, newhealth):
+		self.__health = newhealth
 
 	def lost_health(self, injury):
 		self.__health -= injury
@@ -388,8 +391,8 @@ class Trap(pygame.sprite.Sprite):
 
 
 class Spritesheet(object):
-	"""This class used for using giffs from a image file on the pygame's screen,
-	 the file need to include the images of the giffs shaped in 2D"""
+	"""This class used for using giff from a image file on the pygame's screen,
+	 the file need to include the images of the giff shaped in 2D"""
 	def __init__(self, filename, rect, cols, rows, colorkey=None):
 		"""set the strip of images of the wanted giff
 		arguments:

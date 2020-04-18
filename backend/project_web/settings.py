@@ -21,7 +21,7 @@ BASE_DIR = "c:/cyber/project/"
 SECRET_KEY = 'bfxa87mbb-$^!g#huqngw45qwbz8!&r*fci6_ar0-qe50)%)-='
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["*"]
 
