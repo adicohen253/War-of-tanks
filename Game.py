@@ -1095,9 +1095,9 @@ class Game:
 
 
 def main():
-	# _ = CreateMutex(None, 1, 'A unique mutex name')
-	# if GetLastError() == ERROR_ALREADY_EXISTS:
-	# 	exit(0)
+	_ = CreateMutex(None, 1, 'A unique mutex name')
+	if GetLastError() == ERROR_ALREADY_EXISTS:
+		exit(0)
 	pygame.init()
 	pygame.mixer.init()
 	pygame.mixer.music.set_volume(1)
