@@ -2,25 +2,9 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="085962ed-ffa9-4120-b288-21256e170d48" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dictionaries/adic2.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dictionaries/adic2.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Game.py" beforeDir="false" afterPath="$PROJECT_DIR$/Game.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/RSA.py" beforeDir="false" afterPath="$PROJECT_DIR$/RSA.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/home/static/images/battlefield_img.png" beforeDir="false" afterPath="$PROJECT_DIR$/backend/home/static/images/battlefield_img.png" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/home/static/images/colors.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/home/templates/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/backend/home/templates/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/home/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/home/views.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/project_web/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/project_web/settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/project_web/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/project_web/urls.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/battle background.jpg" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/builder.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/doc.txt" beforeDir="false" afterPath="$PROJECT_DIR$/doc.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/game_objects.py" beforeDir="false" afterPath="$PROJECT_DIR$/game_objects.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/home/static/style.css" beforeDir="false" afterPath="$PROJECT_DIR$/backend/home/static/style.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/my database.db" beforeDir="false" afterPath="$PROJECT_DIR$/my database.db" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server.py" beforeDir="false" afterPath="$PROJECT_DIR$/server.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/server_objects.py" beforeDir="false" afterPath="$PROJECT_DIR$/server_objects.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,6 +31,7 @@
     <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/../python" />
     <property name="settings.editor.selected.configurable" value="reference.settingsdialog.IDE.editor.colors" />
   </component>
   <component name="RunManager" selected="Python.game">
@@ -129,22 +114,26 @@
       <screen x="0" y="0" width="1536" height="864" />
     </state>
     <state x="499" y="179" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog/0.0.1536.864@0.0.1536.864" timestamp="1586966459745" />
-    <state width="1515" height="222" key="GridCell.Tab.0.bottom" timestamp="1587246799796">
+    <state x="549" y="187" key="FileChooserDialogImpl" timestamp="1587385491772">
       <screen x="0" y="0" width="1536" height="864" />
     </state>
-    <state width="1515" height="222" key="GridCell.Tab.0.bottom/0.0.1536.864@0.0.1536.864" timestamp="1587246799796" />
-    <state width="1515" height="222" key="GridCell.Tab.0.center" timestamp="1587246799796">
+    <state x="549" y="187" key="FileChooserDialogImpl/0.0.1536.864@0.0.1536.864" timestamp="1587385491772" />
+    <state width="1515" height="222" key="GridCell.Tab.0.bottom" timestamp="1587247045662">
       <screen x="0" y="0" width="1536" height="864" />
     </state>
-    <state width="1515" height="222" key="GridCell.Tab.0.center/0.0.1536.864@0.0.1536.864" timestamp="1587246799796" />
-    <state width="1515" height="222" key="GridCell.Tab.0.left" timestamp="1587246799795">
+    <state width="1515" height="222" key="GridCell.Tab.0.bottom/0.0.1536.864@0.0.1536.864" timestamp="1587247045662" />
+    <state width="1515" height="222" key="GridCell.Tab.0.center" timestamp="1587247045662">
       <screen x="0" y="0" width="1536" height="864" />
     </state>
-    <state width="1515" height="222" key="GridCell.Tab.0.left/0.0.1536.864@0.0.1536.864" timestamp="1587246799795" />
-    <state width="1515" height="222" key="GridCell.Tab.0.right" timestamp="1587246799796">
+    <state width="1515" height="222" key="GridCell.Tab.0.center/0.0.1536.864@0.0.1536.864" timestamp="1587247045662" />
+    <state width="1515" height="222" key="GridCell.Tab.0.left" timestamp="1587247045661">
       <screen x="0" y="0" width="1536" height="864" />
     </state>
-    <state width="1515" height="222" key="GridCell.Tab.0.right/0.0.1536.864@0.0.1536.864" timestamp="1587246799796" />
+    <state width="1515" height="222" key="GridCell.Tab.0.left/0.0.1536.864@0.0.1536.864" timestamp="1587247045661" />
+    <state width="1515" height="222" key="GridCell.Tab.0.right" timestamp="1587247045662">
+      <screen x="0" y="0" width="1536" height="864" />
+    </state>
+    <state width="1515" height="222" key="GridCell.Tab.0.right/0.0.1536.864@0.0.1536.864" timestamp="1587247045662" />
     <state x="277" y="77" key="SettingsEditor" timestamp="1586975138314">
       <screen x="0" y="0" width="1536" height="864" />
     </state>
