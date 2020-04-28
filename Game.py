@@ -46,6 +46,7 @@ CHOOSE_MODE_SCREEN = "game images/modes.png"
 WAITING_SCREEN = "game images/waiting.jpg"
 
 # other widgets
+LOGO = "game images/logo.ico"
 GOLD = "game images/gold.png"
 SILVER = "game images/silver.png"
 BRONZE = "game images/bronze.png"
@@ -94,7 +95,7 @@ PLAYER_LOSE = "Defeat"
 PLAYER_DRAW = "Draw"
 
 # network
-SERVER_ADDRESS = ("192.168.1.34", 2020)
+SERVER_ADDRESS = ("192.168.1.53", 2020)
 GAME_PORT = 5120
 STREAM_PORT = 32000
 
@@ -118,6 +119,7 @@ class Game:
 	
 	def __init__(self, game_screen):
 		self.__screen = game_screen  # the screen of pygame
+		pygame.display.set_icon(pygame.image.load(LOGO))
 		self.__ip = socket.gethostbyname(socket.gethostname())
 		self.__encryption = RsaEncryption()  # the encryption used for communicate
 		# with server (decryption stored here too)

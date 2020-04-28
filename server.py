@@ -827,7 +827,7 @@ class Server:
 					return account
 	
 	def send_rating(self, account, client, encryption):
-		"""Builds a string about the current 3 champion and the player and sends it to player
+		"""Builds a string about the current 3 champions and the player, sends it to player
 		(if he isn't one of the champion) and returns it
 		parameter:
 			account: type account, the account which search its' rating in the accounts list
