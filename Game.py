@@ -9,9 +9,9 @@ from re import findall
 from struct import unpack
 from codecs import encode, decode
 from RSA import RsaEncryption
-from win32event import CreateMutex
-from win32api import GetLastError
-from winerror import ERROR_ALREADY_EXISTS
+# from win32event import CreateMutex
+# from win32api import GetLastError
+# from winerror import ERROR_ALREADY_EXISTS
 
 # constants
 SIZE = (1200, 600)
@@ -95,7 +95,7 @@ PLAYER_LOSE = "Defeat"
 PLAYER_DRAW = "Draw"
 
 # network
-SERVER_ADDRESS = ("192.168.1.53", 2020)
+SERVER_ADDRESS = ("192.168.1.25", 2020)
 GAME_PORT = 5120
 STREAM_PORT = 32000
 
@@ -1097,9 +1097,9 @@ class Game:
 
 
 def main():
-	_ = CreateMutex(None, 1, 'A unique mutex name')
-	if GetLastError() == ERROR_ALREADY_EXISTS:
-		exit(0)
+	# _ = CreateMutex(None, 1, 'A unique mutex name')
+	# if GetLastError() == ERROR_ALREADY_EXISTS:
+	# 	exit(0)
 	pygame.init()
 	pygame.mixer.init()
 	pygame.mixer.music.set_volume(1)
