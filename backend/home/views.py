@@ -2,6 +2,9 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.utils.encoding import smart_str
 from sqlite3 import *
+from os import path
+
+BASE_DIR = path.abspath("")[0:path.abspath("").find("War")+13] + "/"
 
 
 def home(request):
@@ -9,7 +12,7 @@ def home(request):
 
 
 def top_players(request):
-    conn = connect("c:/cyber/project/my database.db")
+    conn = connect(BASE_DIR + "my database.db")
     curs = conn.cursor()
     curs.execute("SELECT * FROM Accounts")
     champions = [{"rank": index + 1, "username": value[0], "wins": value[2],
@@ -19,7 +22,7 @@ def top_players(request):
 
 
 def download(request):  # doesn't needed here but must except 1 argument
-    with open("c:/cyber/project/installer.exe", 'rb') as my_file:
+    with open(BASE_DIR + "installer.exe", 'rb') as my_file:
         data = my_file.read()
     resp = HttpResponse(data, content_type='application/force-download')
     resp['Content-Disposition'] = 'attachment; filename=installer.exe'
