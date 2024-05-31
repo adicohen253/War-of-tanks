@@ -1,0 +1,55 @@
+services:
+  db:
+    container_name: wot_mysql_db
+    image: adi253/wot-db:1.0
+    ports:
+      - 10000:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=234419247
+    volumes:
+      - db_data:/var/lib/mysql
+  
+  web:
+    container_name: wot_web
+    image: adi253/wot-web:1.0
+    ports:
+      - 8001:8000
+    environment:
+    # database information
+      MYSQL_DB_USER: django
+      MYSQL_DB_PASS: d212765go
+      MYSQL_DB_HOST: wot_mysql_db
+      MYSQL_DB_PORT: 3306
+    # the game server's IP address to set inside the web installer
+      SERVER_ADDRESS: "192.168.68.102"
+    depends_on:
+      - db
+    restart: always
+    tty: true
+
+  server:
+    container_name: wot_server
+    image: adi253/wot-server:1.0
+    environment:
+        MYSQL_DB_USER: wotserver
+        MYSQL_DB_PASS: wo653286ver
+        MYSQL_DB_HOST: wot_mysql_db
+        MYSQL_DB_PORT: 3306
+        DISPLAY: ${DISPLAY}
+    ports:
+      - 31000:31000
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - server_data:/app/Maps
+    restart: unless-stopped
+    depends_on:
+      - db
+
+    
+volumes:
+  db_data:
+    name: wot-mysql-vol
+  
+  server_data:
+    name: wot-server-vol
+

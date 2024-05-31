@@ -1,0 +1,87 @@
+Welcome! This is the documentation for the "World of Tanks" server's GUI. In this paper there are
+explanations and instructions about:
+    1) Account's configuration buttons
+    2) Server option's switches
+    3) Account's data display widget
+    4) Maps builder & Maps displays
+    5) The rating of the account in fights and the bonus points logic
+
+1) Account's configuration buttons:
+As an admin, you allowed to manage to accounts of the different players for that there are a few buttons
+and other widget you should know:
+    Entries:
+        1) Username: This entry is used to identify the account you want to re-config
+        (also used for create another account)
+
+        2) Password: This entry is used only for create new account
+
+    Combo boxes:
+        1) Day: The day in the date combination (1-31)
+
+        2) Month: The month in the date combination (1-12)
+
+        3) Year: The year in the date combination
+
+    (The given account will be banned until the date that will be built from those 3)
+
+    Buttons:
+        1) Sign up: Creates a new account with username and password from the entries. There are a 2
+        conditions for a valid account:
+            -> username and password both need to be between 0-10 characters
+            -> username must begin with a letter (after that could be letters or digits)
+        (the only button that use both entries)
+
+        2) Ban: Bans account's activity until the given date is coming
+        (only button that use the combo boxes)
+
+        3) Free: Releases the account from being banned
+
+        4) Delete: Deletes the account from the databases and from the current accounts list
+
+        5) Reset: Resets the account to the default values: color, wins, loses etc' (also
+        release from ban)
+
+        6) Reset account: Resets all the account to their default values
+
+        7) Clean inputs: cleans all the entries and the combo boxes
+
+    (Besides the clean inputs button, every button clean the fields it uses)
+
+2) Server option's switches:
+    -> New Connections switch: enable/disable the ability of new players to connect to the server
+    -> New Battlefields switch: enable/disable the ability of online players to start battles with each other
+Recommended for using only in case of suspicion of spam on the server
+
+3) Account's data display widget:
+In this widget you can watch all the accounts in the server's system, also it lets you know who from the accounts
+is online or even if he is fighting with other player right now! (accordingly the same battlefield id)
+In this widget you can see account's:
+    -> username
+    -> password
+    -> wins
+    -> loses
+    -> draws
+    -> points (the total points the account collected - used for the rating algorithm)
+    -> color (the favorite player tank's color)
+    -> status (online, offline or ban)
+    -> Ban date ("00/00/0000" represents the account can be active)
+    -> Battlefield (odd for life mode battles, even for time mode battles)
+
+4) Maps builder & Maps displays:
+As an admin, you can create new maps which will be used by the players during their fights.
+you build the walls of the map and sets the players start positions, after that the data saved
+in the server's databases and store in the server's system.
+
+In addition you also have the ability to see all the maps the server stores (the photos are
+imported from Maps directory) and even delete them if you want except "Map1" which is the default map
+of the server.
+
+5) The account of the players are rated by the points they collected until now,
+Points are being collected by fighting other players online when:
+    -> Winning is rewarded by 2 points
+    -> Tie is rewarded by 1 point (available only in time mode for now)
+    -> Losing isn't rewarded at all
+Furthermore, players get bonus points by winning the top 3 champions (the 3 players with most points):
+    -> Wining the #1 player grants you 3 bonus points
+    -> Wining the #2 player grants you 2 bonus points
+    -> Wining the #3 player grants you 1 bonus points

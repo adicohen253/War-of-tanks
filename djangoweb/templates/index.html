@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+    <div class="page-main">
+        <h1 class="title">War of tanks!</h1>
+        <div class="main-table">
+            <p>Choose your unique color, over a 16 million different options</p>
+            <img  src="{% static 'images/colors_img.jpg' %}" alt="">
+            <p>Battle other players on the #1 title</p>
+            <img src="{% static 'images/battlefield_img.png' %}" alt="">
+            <p>Keep fighing until you reach the top!</p>
+            <img src="{% static 'images/champion_img.png' %}" alt="">
+        </div>
+    </div>
+    
+{% endblock content %}

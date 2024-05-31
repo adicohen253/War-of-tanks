@@ -1,0 +1,33 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Required meta tags -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+        <!-- Bootstrap -->
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+
+        <!-- My CSS -->
+        <link rel="stylesheet" type="text/css" href="{% static 'style.css' %}">
+        <link href="https://fonts.googleapis.com/css?family=Black+Ops+One&display=swap" rel="stylesheet">
+
+        <!-- My icon -->
+        <link rel="icon" href="{% static 'icon.ico' %}">
+
+        <title>War of tanks!</title>
+    </head>
+
+    <body>
+        <div class="nav-bar">
+            <a class="navbar-item" href="/download/">Download</a>
+            <a class="navbar-item" href="/champion/"> Top players</a>
+            <a class="navbar-item" href="/">Home</a>
+        </div>
+
+        {% block content %}
+        {% endblock %}
+    </body>
+</html>

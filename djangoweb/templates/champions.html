@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+{% load static %}
+    <div class="page-champions">
+        <h1 class="title">War of tanks!</h1>
+        <h2 class="subtitle">Top 5</h2>
+        <table rules="all" class="rating-table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Name</th>
+                    <th>Wins</th>
+                    <th>Loses</th>
+                    <th>Draws</th>
+                    <th>Total points</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for champ in champions %}
+                    <tr>
+                    <td> {{champ.rank}} </td>
+                    <td> {{champ.username}} </td>
+                    <td> {{champ.wins}} </td>
+                    <td> {{champ.loses}} </td>
+                    <td> {{champ.draws}} </td>
+                    <td> {{champ.total_points}} </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    
+    </div>
+{% endblock content %}

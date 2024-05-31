@@ -1,0 +1,20 @@
+Name "Wot.exe"
+OutFile "../app/Wot Installer.exe"
+InstallDir "$PROGRAMFILES\Wot"
+
+; Pages
+Page directory
+Page instfiles
+
+Section "Wot" SEC01
+    SetOutPath "$INSTDIR"
+    
+    File "wot.exe"
+    File "serverhost.txt"
+    SetOutPath "$INSTDIR\wot sounds"
+    File /r "wot sounds\*.*"
+    SetOutPath "$INSTDIR\wot images"
+    File /r "wot images\*.*"
+    SetOutPath "$INSTDIR\wot fonts"
+    File /r "wot fonts\*.*"
+SectionEnd
