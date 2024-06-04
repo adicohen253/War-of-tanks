@@ -29,7 +29,7 @@ services:
 
   server:
     container_name: wot_server
-    image: adi253/wot-server:1.0
+    image: adi253/wot-server:2.0
     environment:
         MYSQL_DB_USER: wotserver
         MYSQL_DB_PASS: wo653286ver
@@ -44,6 +44,15 @@ services:
     restart: unless-stopped
     depends_on:
       - db
+
+  controller:
+    container_name: wot_controller
+    image: adi253/wot-controller:1.0
+    restart: always
+    depends_on:
+      - server
+    tty: true
+    stdin_open: true
 
     
 volumes:

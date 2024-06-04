@@ -28,7 +28,7 @@ and other widget you should know:
         1) Sign up: Creates a new account with username and password from the entries. There are a 2
         conditions for a valid account:
             -> username and password both need to be between 0-10 characters
-            -> username must begin with a letter (after that could be letters or digits)
+            -> username have to start with a letter
         (the only button that use both entries)
 
         2) Ban: Bans account's activity until the given date is coming

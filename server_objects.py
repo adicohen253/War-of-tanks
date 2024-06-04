@@ -338,13 +338,7 @@ class Account:
 		else:  # account isn't banned
 			self.__client_status = "Offline"
 	
-	def player_online(self):
-		self.__client_status = "Online"
-	
-	def player_offline(self):
-		self.__client_status = "Offline"
-	
-	def get_client_status(self):
+	def get_status(self):
 		return self.__client_status
 	
 	def get_username(self):
@@ -377,7 +371,7 @@ class Account:
 	def set_battle_id(self, new_battle_id):
 		self.__battle_id = new_battle_id
 	
-	def clean_data(self):
+	def reset_account(self):
 		"""Clean the data of the account to default settings"""
 		self.__wins = 0
 		self.__loses = 0
@@ -387,6 +381,10 @@ class Account:
 		self.__ban_date = "00/00/0000"
 		if self.__client_status == "Banned":
 			self.__client_status = "Offline"
+   
+	def set_status(self, status):
+		self.__client_status = status
+	
 	
 	def set_ban_until(self, new_date):
 		"""set a new ban date

@@ -8,6 +8,7 @@ from string import ascii_letters
 from RSA import RsaEncryption
 from re import findall, DOTALL
 from os import remove, environ
+from flask import Flask, request, jsonify
 from pyperclip import copy
 from random import choice
 from select import select
@@ -18,10 +19,12 @@ from codecs import encode, decode
 
 FONT = ("Arial", 10, NORMAL)
 SERVER_PORT = 31000
+API_MANAGER_PORT = 5000
 GUI_SIZE = '1050x600'
 DOCUMENT = "documentation.txt"
 LIFE_MODE = 0
 TIME_MODE = 1
+API_TOKEN = "63894cwflanedfognk35ffik2"
 
 # DB information
 DB_CONFIG = {"host": environ.get("MYSQL_DB_HOST", "localhost"),
@@ -61,8 +64,7 @@ class Server:
 		self.__new_time_battlefield_id = 0  # the battlefield's number (always even for life mode)
   
 	def build_my_accounts(self):
-		"""Builds the accounts list from firebase as a default, if couldn't access to firebase in the startup
-		uses sqlite local database"""
+		"""Retrive the accounts data from the database"""
 		curs = self.__conn.cursor()
 		curs.execute("SELECT * FROM Accounts")
 		data = [list(x) for x in curs.fetchall()]
@@ -73,8 +75,7 @@ class Server:
 		curs.close()
 	
 	def build_my_maps(self):
-		"""Builds the maps list from firebase as a default, if couldn't access to firebase in the startup
-		uses sqlite local database"""
+		"""Retrive the maps data from the database"""
 		curs = self.__conn.cursor()
 		curs.execute("SELECT * FROM Maps")
 		for m in curs.fetchall():
@@ -82,6 +83,7 @@ class Server:
 		curs.close()
   
 	def set_db_connection(self):
+		"""Set the database connection"""
 		try:
 			self.__conn = mysql.connector.connect(**DB_CONFIG)
 		except:
@@ -108,8 +110,11 @@ class Server:
 			print("Can't start GUI, running API instead")
 			self.__connections_allowed = True
 			self.__battles_allowed = True
-			while True:
-				pass
+			self.__players_online = 0
+			self.__app = Flask(__name__)
+			self.api_setup()
+			self.__app.run(host=self.__ip, port=API_MANAGER_PORT)
+
 		self.__connections_allowed = None
 		self.__battles_allowed = None
 		self.__players_online = None
@@ -117,19 +122,172 @@ class Server:
 		self.__server_socket.close()
 		self.__conn.close()
   
-  
+	def api_setup(self):
+		"""Setup the api server for remote management in case the GUI is not available"""
+		@self.__app.route('/accounts')
+		def get_accounts():
+				auth_header = request.headers.get('Authorization')
+				if not validate_token(auth_header):
+					return jsonify({"message": "Unauthorized"}), 401
+				if self.__accounts_list == []:
+					return jsonify({"message": "There are no accounts"}), 400
+				username = request.json.get('username')
+				if username is not None: # Look for specific account
+					for account in self.__accounts_list:
+						if account.get_username() == username:
+							account_dict = {}
+							setup_dict(account, 0, account_dict)
+							return jsonify(account_dict)
+					return jsonify({"message": f'Account {username} not found'}), 400
+				else:
+					accounts_dict = {}
+					for index, account in enumerate(self.__accounts_list):
+						setup_dict(account, index, accounts_dict)
+					return jsonify(accounts_dict)
+ 
+		@self.__app.route('/accounts', methods=['PUT'])
+		def reset_accounts():
+				auth_header = request.headers.get('Authorization')
+				if not validate_token(auth_header):
+					return jsonify({"message": "Unauthorized"}), 401
+				if self.__accounts_list == []:
+					return jsonify({"message": "There are no accounts"}), 400
+				username = request.json.get('username')
+				if username is not None: # Look for specific account
+					for account in self.__accounts_list:
+						if account.get_username() == username:
+							account.reset_account()
+							curs = self.__conn.cursor()
+							curs.execute("UPDATE Accounts SET Wins = 0, Loses = 0, \
+		            	 	Draws = 0, Points = 0, Color = '4d784e', Bandate = '00/00/0000' WHERE Username = (%s)", (account.get_username(),))
+							self.__conn.commit()
+							curs.close()
+							return '', 204
+					return jsonify({"message": f'Account {username} not found'}), 400
+				else:
+					self.reset_all_accounts_command()
+					return '', 204
+            
+            
+		@self.__app.route('/accounts', methods=['POST'])
+		def create_account():
+			auth_header = request.headers.get('Authorization')
+			if not validate_token(auth_header):
+				return jsonify({"message": "Unauthorized"}), 401
+			username, password = request.json.get('username'), request.json.get('password')
+			if self.is_valid_username(username) and self.is_valid_password(password):
+				if username not in [account.get_username() for account in self.__accounts_list]:
+					self.register_new_player([username, password], True)
+					return jsonify({"message": f"Account {username} created successfully"}), 201
+				else:
+					return jsonify({"message": "Account already exists"}), 400
+			else:
+				return jsonify({"message": "Invalid username or password"}), 400
+
+		@self.__app.route('/suspensions', methods=['PUT'])
+		def free_account():
+			auth_header = request.headers.get('Authorization')
+			if not validate_token(auth_header):
+				return jsonify({"message": "Unauthorized"}), 401
+			username = request.json.get('username')
+			for account in self.__accounts_list:
+				if account.get_username() == username:
+					account.free()
+					self.__accounts_updates_to_table.append([account, "B"]) # insert into the event list for later update
+					return '', 204
+			return jsonify({"message": f"Account {username} not found"}), 400
+
+
+		@self.__app.route('/suspensions', methods=['POST'])
+		def ban_account():
+			auth_header = request.headers.get('Authorization')
+			if not validate_token(auth_header):
+				return jsonify({"message": "Unauthorized"}), 401
+		
+			username, ban_date = request.json.get('username'), request.json.get('ban_date')
+			for account in self.__accounts_list:
+				if account.get_username() == username:
+					account.set_ban_until(ban_date)
+					self.__accounts_updates_to_table.append([account, "B"]) # insert into the event list for later update
+					return '', 204
+		
+			return jsonify({"message": f"Account {username} not found"}), 404
+
+
+		@self.__app.route('/accounts', methods=['DELETE'])
+		def remove_account():
+			auth_header = request.headers.get('Authorization')
+			if not validate_token(auth_header):
+				return jsonify({"message": "Unauthorized"}), 401
+			username = request.json.get('username')
+			for account in self.__accounts_list:
+				if account.get_username() == username:
+					self.__accounts_list.remove(account)
+					self.delete_account(account)
+					return '', 204
+
+			return jsonify({"message": f"Account {username} not found"}), 400
+
+		@self.__app.route('/online')
+		def get_online():
+			auth_header = request.headers.get('Authorization')
+			if not validate_token(auth_header):
+				return jsonify({"message": "Unauthorized"}), 401
+			return jsonify({"message": f"{self.__players_online} players currently online"}), 200
+
+		@self.__app.route('/options', methods=['PUT'])
+		def set_connections_allowed():
+			auth_header = request.headers.get('Authorization')
+			if not validate_token(auth_header):
+				return jsonify({"message": "Unauthorized"}), 401
+			option, value = request.json.get('option'), request.json.get('value') == 'true'
+			if option == "connections":
+				self.__connections_allowed = value
+			else:
+				self.__battles_allowed = value
+			return '', 204
+		
+		def setup_dict(account, index, dict_to_json):
+			"""Setup the dictionary of accounts asked by controller"""
+			dict_to_json[index] = {
+				"Username": account.get_username(), 
+				"Password": account.get_password(), 
+				"Wins": account.get_wins(),
+				"Losses": account.get_loses(), 
+				"Draws": account.get_draws(),
+				"Points": account.get_points(), 
+				"Color": account.get_color(),
+				"Status": account.get_status(),
+				"Ban date": account.get_ban_date(), 
+				"Battle ID": account.get_battle_id()
+			}
+
+		def validate_token(auth_header):
+			"""validate the token of the admin"""
+			if not auth_header:
+				return False
+			try:
+				client_token_type, client_token = auth_header.split()
+				if client_token_type != 'Admin':
+					return False
+				return client_token == API_TOKEN
+			except ValueError:
+				return False
+
 	def is_new_connections_allowed(self):
+		"""Check if new connections from clients are allowed"""
 		if isinstance(self.__connections_allowed, bool): # admin uses API
 			return self.__connections_allowed
 		else:
 			return self.__connections_allowed.get() #admin uses GUI
-		
+
 	def is_new_battles_allowed(self):
+		"""Check if server is allowed to start new battles"""
 		if isinstance(self.__battles_allowed, bool): # admin uses API
 			return self.__battles_allowed
 		else:
 			return self.__battles_allowed.get() #admin uses GUI
-  
+
 	def start_gui(self):
 		"""Initialize the GUI of the server"""
 		window = Tk()
@@ -434,7 +592,7 @@ class Server:
 		if self.is_valid_username(username_entry.get()):
 			try:
 				day, month, year = [int(element.get()) for element in ban_date]
-				_ = datetime.datetime(day=day, year=year, month=month)
+				_ = datetime.datetime(day=day, year=year, month=month) # if input is invalid datetime raises ValueError
 				for account in self.__accounts_list:
 					if account.get_username() == username_entry.get():
 						ban_player_until = "/".join(element.get() for element in ban_date)
@@ -504,8 +662,13 @@ class Server:
 		if self.is_valid_username(username_entry.get()):
 			for account in self.__accounts_list:
 				if account.get_username() == username_entry.get():
-					self.reset_account(account)
-		if tree is None:
+					account.reset_account()
+					curs = self.__conn.cursor()
+					curs.execute("UPDATE Accounts SET Wins = 0, Loses = 0, \
+		            	 Draws = 0, Points = 0, Color = '4d784e', Bandate = '00/00/0000' WHERE Username = (%s)", (account.get_username(),))
+					self.__conn.commit()
+					curs.close()
+		if tree is not None:
 			tree.focus_set()
 			tree.master.focus_set()
 		username_entry.set("")
@@ -530,10 +693,9 @@ class Server:
 		window.focus_set()
 	
 	def reset_all_accounts_command(self):
-		"""Reset all the accounts to their default: color points bandate etc'
-		(not recommended to use frequently)"""
-		for account in self.__accounts_list.copy():
-			account.clean_data()
+		"""Reset all the accounts to their defaults: color points bandate etc'"""
+		for account in self.__accounts_list:
+			account.reset_account()
 		curs = self.__conn.cursor()
 		curs.execute(f"UPDATE Accounts SET Wins = 0, Loses = 0,"
 		             f" Draws = 0, Points = 0, Color = '4d784e', Bandate = '00/00/0000'")
@@ -581,7 +743,7 @@ class Server:
 		print("Refresh bans run...")
 		while not self.__stop_running:
 			today = datetime.datetime.replace(datetime.datetime.now(), hour=0, minute=0, second=0)
-			banned_list = list(filter(lambda x: x.get_client_status() == "Banned", self.__accounts_list))
+			banned_list = list(filter(lambda x: x.get_status() == "Banned", self.__accounts_list))
 			for acc in banned_list:
 				day, month, year = [int(x) for x in acc.get_ban_date().split("/")]
 				ban_date = datetime.datetime(day=day, month=month, year=year)
@@ -594,10 +756,13 @@ class Server:
 		"""Opens new thread for every new client that connect to server (if new connection are allowed)"""
 		print("Clients adder run...")
 		while self.__stop_running is False:
-			rlist, _, _ = select([self.__server_socket], [], [], 0)
-			if self.__server_socket in rlist and (self.__connections_allowed is None or self.is_new_connections_allowed()):
-				new_player_socket, _ = self.__server_socket.accept()
-				threading.Thread(target=self.player_handler, args=(new_player_socket,)).start()
+			try:
+				rlist, _, _ = select([self.__server_socket], [], [], 0)
+				if self.__server_socket in rlist and (self.__connections_allowed is None or self.is_new_connections_allowed()):
+					new_player_socket, _ = self.__server_socket.accept()
+					threading.Thread(target=self.player_handler, args=(new_player_socket,)).start()
+			except OSError:
+				print("Server socket was already closed")
 		print("Client adder shut down...")
 	
 	def send_to_client(self, client, encryption, data, account=None):
@@ -634,13 +799,18 @@ class Server:
 			self.release_client(encryption, client, account)
    
 	def update_online_player_amount(self, is_increased):
-		if self.__players_online is not None:
+		if isinstance(self.__players_online, Label): #Using GUI
 			if is_increased:
 				self.__players_online['text'] = \
 				f"{int(self.__players_online['text'].split(' ')[0]) + 1} player are online"
 			elif self.__players_online['text'].split(' ')[0] != 0:
 				self.__players_online['text'] = \
 					f"{int(self.__players_online['text'].split(' ')[0]) - 1} player are online"
+		elif isinstance(self.__players_online, int): # Using API
+			if is_increased:
+				self.__players_online += 1
+			else:
+				self.__players_online -= 1
 	
 	def release_client(self, encryption, client, account=None):
 		"""If server detects an error during communication with client, release its account
@@ -649,7 +819,7 @@ class Server:
 			client: type socket, the socket of the client
 			account: the account to set offline (used if error happened after client get an account)"""
 		if account is not None:
-			account.player_offline()
+			account.set_status("Offline")
 		client.close()
 		self.__encryptions_ids.remove(encryption.get_n())
 		self.update_online_player_amount(False)
@@ -688,7 +858,7 @@ class Server:
 				self.__encryptions_ids.remove(encryption.get_n())
 				self.update_online_player_amount(False)
 				break
-			elif account.get_client_status() == "Banned":  # account get banned
+			elif account.get_status() == "Banned":  # account get banned
 				self.send_to_client(client, encryption, "!")
 				self.send_to_client(client, encryption, account.get_ban_date())
 				self.__encryptions_ids.remove(encryption.get_n())
@@ -798,7 +968,7 @@ class Server:
 				self.__encryptions_ids.remove(encryption.get_n())
 				self.update_online_player_amount(False)
 				break
-			if account.get_client_status() == "Banned":  # account gets banned
+			if account.get_status() == "Banned":  # account gets banned
 				account.set_battle_id(0)
 				self.send_to_client(client, encryption, "!")
 				self.send_to_client(client, encryption, account.get_ban_date())
@@ -823,7 +993,7 @@ class Server:
 					self.__accounts_updates_to_table.append([account, "L"])
 					client.close()
 					account.add_lose()
-					account.player_offline()
+					account.set_status("Offline")
 					return True
 				elif outcome == "Victory":  # player won
 					act = "W"
@@ -1038,7 +1208,7 @@ class Server:
 		new_account = Account(new_account_data[0], new_account_data[1],
 		                      0, 0, 0, 0, "4d784e", "00/00/0000")
 		if not is_admin_command:
-			new_account.player_online()
+			new_account.set_status("Online")
 		self.__accounts_list.append(new_account)
 		self.__accounts_list.sort(reverse=True, key=lambda x: x.get_points())
 		return new_account
@@ -1060,14 +1230,14 @@ class Server:
 			if account.get_username() == account_to_check[0] and account.get_password() == account_to_check[1]:
 				# found match
 				exist = True
-				if account.get_client_status() == "Online":  # this account is already taken
+				if account.get_status() == "Online":  # this account is already taken
 					self.send_to_client(client, encryption, "T")
-				elif account.get_client_status() == "Banned":
+				elif account.get_status() == "Banned":
 					self.send_to_client(client, encryption, "B")
 					self.send_to_client(client, encryption, account.get_ban_date())
 				else:
 					self.send_to_client(client, encryption, "O")  # can use this account
-					account.player_online()
+					account.set_status("Online")
 					return account
 		if not exist:
 			self.send_to_client(client, encryption, "F")  # desired account does not exist
