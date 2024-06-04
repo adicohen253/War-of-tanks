@@ -24,6 +24,7 @@ This project includes several features like:
 
 3.Players can change their tank's color to any color in the color palette
 
+
 4.The server admin can create its own new maps to play with (Only available with the server's GUI)
 
 =================================================================================================================================================
@@ -33,5 +34,18 @@ to the ip of the host machine, Than run the docker compose file, you will be abl
 
 Start play with your friends and become the #1! 😀
 
+Below you can see several pictures from the project:
 
-![Test](MapBuilder_icon.png)
+The color picking screen in the client:
+![Color selection](https://github.com/adicohen253/War-of-tanks/assets/55681305/bc232aab-cd6e-49d0-bfe3-6e3851a79128)
+
+
+The Map builder feature of the server's admin:
+![map builder](https://github.com/adicohen253/War-of-tanks/assets/55681305/0d03510c-c4f0-4430-aa1c-b5cf67c9bf2a)
+
+
+A battle between to players:
+![battle](https://github.com/adicohen253/War-of-tanks/assets/55681305/574d8d97-7aa2-452b-8484-bed13df54411)
+
+The server's GUI:
+![server gui](https://github.com/adicohen253/War-of-tanks/assets/55681305/75b3b4de-1973-4272-be93-940a0c96c56f)
